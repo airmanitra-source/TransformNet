@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="MachineLearning.ApiService/MachineLearning.ApiService.csproj" />
+  <Project Path="MachineLearning.AppHost/MachineLearning.AppHost.csproj" />
+  <Project Path="MachineLearning.ServiceDefaults/MachineLearning.ServiceDefaults.csproj" />
+  <Project Path="MachineLearning.Tests/MachineLearning.Tests.csproj" />
+  <Project Path="MachineLearning.Web/MachineLearning.Web.csproj" />
+  <Project Path="MachineTraining/MachineTraining.csproj" Id="1bd382ae-c27d-4dbc-bbd8-deb55eca1677" />
+</Solution>

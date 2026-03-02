@@ -1,0 +1,16 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.1.0">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>f7f1c476-e247-44dd-8304-aa611b6d458f</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MachineLearning.ApiService\MachineLearning.ApiService.csproj" />
+    <ProjectReference Include="..\MachineLearning.Web\MachineLearning.Web.csproj" />
+  </ItemGroup>
+
+</Project>
