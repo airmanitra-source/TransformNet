@@ -1,6 +1,6 @@
 # Usage of transformNet
 
-`
+```csharp
 int dimension = 8;      // Taille des vecteurs de sens
 int nbHeads = 2;        // Nombre de têtes d'attention
 int hiddenSize = 32;    // Taille de la couche cachée du FFN
@@ -37,4 +37,4 @@ gestionnaire.Save("mon_modele.json", transformer, embedding, vocab);
 // --- 5. GÉNÉRATION (INFERENCE) ---
 string[] phrasesDebut = new[] { "le chat", "la souris", "le chat et la souris", "le chien" };
 transformer.Predict(phrasesDebut, nbMotsAGenerer: 2, temperature: 0.8);
-`
+```
