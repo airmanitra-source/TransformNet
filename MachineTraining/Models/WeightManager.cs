@@ -1,11 +1,10 @@
 ﻿using System.Text.Json;
-using System.Threading.Tasks.Dataflow;
 
-namespace MachineLearning.ApiService.Models
+namespace MachineTraining.Models
 {
-    public class GestionnairePoids
+    public class WeightManager
     {
-        public void Charger(string chemin, MultiHeadTransformer block, EmbeddingLayer emb)
+        public void Load(string chemin, MultiHeadTransformer block, EmbeddingLayer emb)
         {
             if (!File.Exists(chemin))
                 throw new FileNotFoundException($"Fichier de poids non trouvé : {chemin}");
@@ -17,22 +16,21 @@ namespace MachineLearning.ApiService.Models
                 throw new InvalidOperationException("Impossible de désérialiser les paramètres du modèle");
 
             // 1. Restaurer l'Embedding
-            emb.ChargerTable(data.TableEmbedding);
+            emb.LoadTable(data.TableEmbedding);
 
             // 2. Restaurer le FFN
             if (data.FFN_W1 != null)
                 block.FeedForward.LoadWeights(data.FFN_W1, data.FFN_b1, data.FFN_W2, data.FFN_b2);
         }
 
-
-        public void Sauvegarder(string chemin, MultiHeadTransformer block, EmbeddingLayer emb, Vocabulaire vocab)
+        public void Save(string chemin, MultiHeadTransformer block, EmbeddingLayer emb, Vocabulary vocab)
         {
             var (w1, b1, w2, b2) = block.FeedForward.GetWeights();
 
             var paramsModel = new ParametresModel
             {
                 Vocabulaire = vocab.ListeMots,
-                TableEmbedding = emb.ObtenirTable(),
+                TableEmbedding = emb.GetTable(),
                 FFN_W1 = w1,
                 FFN_b1 = b1,
                 FFN_W2 = w2,
@@ -41,7 +39,7 @@ namespace MachineLearning.ApiService.Models
 
             string json = JsonSerializer.Serialize(paramsModel, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(chemin, json);
+            Console.WriteLine("Modèle sauvegardé dans 'mon_modele.json'.\n");
         }
     }
-
 }

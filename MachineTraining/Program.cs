@@ -1,61 +1,39 @@
 ﻿// --- 1. CONFIGURATION ---
-using MachineLearning.ApiService.Models;
+using MachineTraining.Models;
 
 int dimension = 8;      // Taille des vecteurs de sens
 int nbHeads = 2;        // Nombre de têtes d'attention
 int hiddenSize = 32;    // Taille de la couche cachée du FFN
-string corpus = "le chat mange la souris . le chat dort . la souris court . le chat joue . la souris mange . le chat regarde la souris . la souris fuit le chat . le chat dort près de la souris .";
+string corpus = @"Le chat mange la souris . 
+                  Le chat dort. 
+                  La souris court.
+                  Le chat court après la souris.
+                  Le chat joue avec la souris. 
+                  La souris mange quand le chat n'est pas là.
+                  Le chat regarde la souris.
+                  Regarde la souris. 
+                  La souris fuit le chat.
+                  Le chat et la souris sort de sa tanière.
+                  Chat et chien peuvent jouer ensemble mais pas avec la souris.
+                  Le chien ne peut pas attraper la souris.";
 
 // --- 2. INITIALISATION ---
-var vocab = new Vocabulaire();
-vocab.Construire(corpus);
-int tailleVocab = vocab.Compter();
-
+var vocab = new Vocabulary(corpus);
+int tailleVocab = vocab.GetWordsCount();
 var embedding = new EmbeddingLayer(tailleVocab, dimension);
 var positionalEncoding = new PositionalEncoding(dimension);
-var block = new MultiHeadTransformer(dimension, nbHeads, hiddenSize, tailleVocab);
-var generateur = new GenerateurTexte();
-var gestionnaire = new GestionnairePoids();
+var transformer = new MultiHeadTransformer(dimension, nbHeads, hiddenSize, tailleVocab, 
+                                          embedding, positionalEncoding, vocab);
+var gestionnaire = new WeightManager();
 
 // --- 3. ENTRAÎNEMENT ---
-Console.WriteLine("Début de l'entrainement...");
-var entraineur = new EntraineurTransformer(block, embedding, positionalEncoding, vocab);
-
 // Extraire les mots et cibles du corpus
-var motsDuCorpus = corpus.ToLower()
-    .Split(new[] { ' ', '.', ',', '!', '?', ';', ':', '\n', '\t' },
-           StringSplitOptions.RemoveEmptyEntries);
-double[] cibles = vocab.ExtraireCibles(corpus);
+var motsDuCorpus = corpus.ToLower().Split(new[] { ' ', '.', ',', '!', '?', ';', ':', '\n', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+double[] cibles = vocab.GetTarget(corpus);
 string[] motSequence = motsDuCorpus.Take(cibles.Length).ToArray();
-
-entraineur.Train(motSequence, cibles, nbEpochs: 5000);
-Console.WriteLine("Entraînement terminé.\n");
-
+transformer.Train(motSequence, cibles, nbEpochs: 5000);
 // --- 4. SAUVEGARDE ---
-gestionnaire.Sauvegarder("mon_modele.json", block, embedding, vocab);
-Console.WriteLine("Modèle sauvegardé dans 'mon_modele.json'.\n");
-
+gestionnaire.Save("mon_modele.json", transformer, embedding, vocab);
 // --- 5. GÉNÉRATION (INFERENCE) ---
-string debutPhrase = "le chat";
-Console.Write($"Début : {debutPhrase} ");
-
-for (int i = 0; i < 5; i++)
-{
-    // Tokeniser la phrase actuelle depuis les embeddings appris
-    double[][] seq = vocab.Tokeniser(debutPhrase, embedding);
-    seq= positionalEncoding.GetPositionalEncoding(seq);
-
-    // Passer le dernier token avec toute la séquence comme contexte
-    int pos = seq.Length - 1;
-    double[] sortie = block.Executer(seq[pos], seq, pos);
-    double[] scores = block.ObtenirScoresSortie();
-
-    // Choisir le prochain mot (température modérée)
-    int nextId = generateur.ChoisirIndex(scores, temperature: 0.8);
-    string motPredi = vocab.GetMot(nextId);
-
-    Console.Write(motPredi + " ");
-    debutPhrase += " " + motPredi;
-}
-
-Console.WriteLine("\n\nFin de la démonstration.");
+string[] phrasesDebut = new[] { "le chat", "la souris", "le chat et la souris", "le chien" };
+transformer.GenerateNextWords(phrasesDebut, nbMotsAGenerer: 2, temperature: 0.8);

@@ -1,4 +1,3 @@
-using MachineLearning.ApiService.Models;
 using System.Threading.Tasks.Dataflow;
 
 var builder = WebApplication.CreateBuilder(args);

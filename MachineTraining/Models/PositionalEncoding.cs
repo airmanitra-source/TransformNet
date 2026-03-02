@@ -1,9 +1,10 @@
-﻿namespace MachineLearning.ApiService.Models
+﻿namespace MachineTraining.Models
 {
     public class PositionalEncoding
     {
         private int _dimension;
         private double[][] _sequence;
+
         public PositionalEncoding(int dimension)
         {
             _dimension = dimension;
@@ -32,13 +33,13 @@
         // Affichage intelligent du PE initial
         public void Print(int sequenceLength, string label = "Positional Encoding Initial")
         {            
-            Console.WriteLine("\n" + new string('=', 80));
-            Console.WriteLine($"📊 {label}");
+            Console.WriteLine("\n" + new string('=', 100));
+            Console.WriteLine($" {label}");
             Console.WriteLine($"   Dimension: {_dimension} | Longueur séquence: {sequenceLength}");
-            Console.WriteLine(new string('=', 80));
+            Console.WriteLine(new string('=', 100));
 
             // Afficher les premières et dernières positions
-            int affichagePositions = Math.Min(3, sequenceLength);
+            int affichagePositions = Math.Min(5, sequenceLength);
             
             for (int pos = 0; pos < affichagePositions; pos++)
             {
@@ -67,7 +68,7 @@
             }
 
             // Statistiques
-            Console.WriteLine("\n   📈 Statistiques:");
+            Console.WriteLine("\n   Statistiques:");
             double minVal = _sequence.SelectMany(x => x).Min();
             double maxVal = _sequence.SelectMany(x => x).Max();
             double moyVal = _sequence.SelectMany(x => x).Average();

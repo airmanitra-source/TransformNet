@@ -1,24 +1,9 @@
-﻿namespace MachineLearning.ApiService.Models
+﻿namespace MachineTraining.Models
 {
-    //L'Embedding transforme un index (ex: 5) en un vecteur de double (ex: [0.1, -0.5, 0.2]). Ces valeurs sont apprises par le réseau.
-    /*1. FORWARD(Prédiction)
-   ↓
-   "chat" → embedding[0.23, -0.51, 0.12, 0.89]  ← Utilisé pour prédire
-   ↓
-   Attention, FeedForward... → Prédiction finale
-   ↓
-   Erreur = Cible - Prédiction = 0.05
-
-2. BACKWARD(Apprentissage)
-   ↓
-   "Cette erreur est due en partie à mon embedding !"
-   ↓
-   Calcul du gradient : ∇embedding = "Combien changer le vecteur [0.23, -0.51, ...]"
-   ↓
-   Mise à jour : embedding += tauxApprentissage × gradient
-
-   Résultat : "chat" → [0.24, -0.50, 0.13, 0.88]  ← Légèrement ajusté
-        !*/
+    /// <summary>
+    /// C'est la matrice qui stocke la connaissance durant l'entrainement
+    /// Initialement, elle est aléatoirement remplis par des valeurs comprises entre -1 et 1
+    /// </summary>
     public class EmbeddingLayer
     {
         private double[][] _table; // Matrice [TailleVocabulaire x Dimension]
@@ -64,13 +49,13 @@
             }
         }
 
-        public double[][] ObtenirTable()
+        public double[][] GetTable()
         {
             // Retourner une copie de la table pour la sauvegarde
             return _table.Select(row => (double[])row.Clone()).ToArray();
         }
 
-        public void ChargerTable(double[][] nouvelleTable)
+        public void LoadTable(double[][] nouvelleTable)
         {
             _table = nouvelleTable.Select(row => (double[])row.Clone()).ToArray();
             // Réinitialiser les gradients après chargement
@@ -81,5 +66,4 @@
             }
         }
     }
-
 }

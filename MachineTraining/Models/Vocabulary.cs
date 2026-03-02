@@ -1,9 +1,8 @@
-﻿namespace MachineLearning.ApiService.Models
+﻿namespace MachineTraining.Models
 {
     using System.Collections.Generic;
-    using System.Linq;
     
-    public class Vocabulaire
+    public class Vocabulary
     {
         // Tokens spéciaux réservés
         public const int PAD = 0;   // Padding (remplissage)
@@ -15,7 +14,7 @@
         private Dictionary<string, int> _motVersId = new Dictionary<string, int>();
         private List<string> _idVersMot = new List<string>();
 
-        public Vocabulaire()
+        public Vocabulary(string data)
         {
             // Initialiser les tokens spéciaux
             _motVersId["<pad>"] = PAD;
@@ -26,13 +25,9 @@
             _idVersMot.Add("<unk>");
             _idVersMot.Add("<bos>");
             _idVersMot.Add("<eos>");
-        }
-
-        public void Construire(string texte)
-        {
             // Nettoyer et tokeniser avec suppression des espaces vides
-            var mots = texte.ToLower()
-                .Split(new[] { ' ', '.', ',', '!', '?', ';', ':', '\n', '\t' }, 
+            var mots = data.ToLower()
+                .Split(new[] { ' ', '.', ',', '!', '?', ';', ':', '\n', '\t' },
                        StringSplitOptions.RemoveEmptyEntries);
 
             foreach (var m in mots)
@@ -62,7 +57,7 @@
         public List<string> ListeMots => new List<string>(_idVersMot);
 
         // ✅ Méthode pour compter les mots
-        public int Compter() => _idVersMot.Count;
+        public int GetWordsCount() => _idVersMot.Count;
 
         // ✅ Méthode pour tokeniser un texte
         public double[][] Tokeniser(string texte, EmbeddingLayer embedding)
@@ -82,7 +77,7 @@
         }
 
         // ✅ Méthode pour extraire les cibles (mot suivant)
-        public double[] ExtraireCibles(string texte)
+        public double[] GetTarget(string texte)
         {
             var mots = texte.ToLower()
                 .Split(new[] { ' ', '.', ',', '!', '?', ';', ':', '\n', '\t' }, 

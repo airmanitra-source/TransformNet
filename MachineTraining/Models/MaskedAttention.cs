@@ -1,7 +1,8 @@
-﻿namespace MachineLearning.ApiService.Models
+namespace MachineTraining.Models
 {
     public class MaskedAttention
     {
+        // Champs privés
         private int _dimension;
         private const double MASQUE_VALUE = -1e9;
         
@@ -24,6 +25,7 @@
         private double[][] _derniereK;
         private double[][] _derniereV;
 
+        // ===== CONSTRUCTEUR =====
         public MaskedAttention(int dimension)
         {
             _dimension = dimension;
@@ -45,19 +47,7 @@
             }
         }
 
-        private double[][] InitialiserMatrice(int rows, int cols, double limite)
-        {
-            double[][] matrice = new double[rows][];
-            for (int i = 0; i < rows; i++)
-            {
-                matrice[i] = new double[cols];
-                for (int j = 0; j < cols; j++)
-                {
-                    matrice[i][j] = (Random.Shared.NextDouble() * 2 - 1) * limite;
-                }
-            }
-            return matrice;
-        }
+        // ===== MÉTHODES PUBLIQUES =====
 
         public double[] CalculerAttention(double[][] sequence, int indexMotActuel)
         {
@@ -100,45 +90,6 @@
             return AppliquerPoids(_derniereV, poids);
         }
 
-        private double[] ProjetterVecteur(double[] vecteur, double[][] matrice)
-        {
-            double[] resultat = new double[_dimension];
-            for (int i = 0; i < _dimension; i++)
-            {
-                for (int j = 0; j < vecteur.Length; j++)
-                {
-                    resultat[i] += vecteur[j] * matrice[i][j];
-                }
-            }
-            return resultat;
-        }
-
-        private double[] AppliquerPoids(double[][] seq, double[] poids)
-        {
-            double[] sortie = new double[_dimension];
-            for (int i = 0; i < seq.Length; i++)
-            {
-                if (poids[i] == 0 || double.IsNaN(poids[i])) continue;
-                for (int d = 0; d < _dimension; d++) 
-                    sortie[d] += poids[i] * seq[i][d];
-            }
-            return sortie;
-        }
-
-        private double ProduitScalaire(double[] a, double[] b) => a.Zip(b, (x, y) => x * y).Sum();
-
-        private double[] SoftmaxStable(double[] entrees)
-        {
-            double maxVal = entrees.Where(x => x > MASQUE_VALUE).DefaultIfEmpty(0).Max();
-            double[] exp = entrees.Select(e => e <= MASQUE_VALUE ? 0 : Math.Exp(e - maxVal)).ToArray();
-            double somme = exp.Sum();
-            
-            if (somme == 0) return entrees.Select(x => 0.0).ToArray();
-            
-            return exp.Select(e => e / somme).ToArray();
-        }
-
-        // Backpropagation de l'Attention
         public double[][] CalculerGradientsSequence(double[] gradientSortie)
         {
             if (_derniereSequence == null)
@@ -176,7 +127,6 @@
                 gradientScores[i] /= scaling;
 
             // 5. Accumuler gradients dans les matrices Q, K, V
-            // dL/dQ = sum_i(gradientScores[i] * K[i])
             double[] gradientQ = new double[_dimension];
             for (int i = 0; i <= _dernierIndex; i++)
                 for (int d = 0; d < _dimension; d++)
@@ -199,23 +149,23 @@
                     for (int c = 0; c < _dimension; c++)
                         _gradientsV[r][c] += gradientV[i][r] * _derniereSequence[i][c];
 
-            // 6. Gradient par rapport à la séquence d'entrée (pour rétropropager)
+            // 6. Gradient par rapport à la séquence d'entrée
             double[][] gradientsSequence = new double[n][];
             for (int i = 0; i < n; i++)
             {
                 gradientsSequence[i] = new double[_dimension];
-                // Via V : dL/dx_i += WV^T * dL/dV_i
+                // Via V
                 for (int d = 0; d < _dimension; d++)
                     for (int k = 0; k < _dimension; k++)
                         gradientsSequence[i][d] += _matriceV[k][d] * gradientV[i][k];
 
-                // Via K : dL/dx_i += WK^T * (gradientScores[i] * Q)
+                // Via K
                 if (i <= _dernierIndex)
                     for (int d = 0; d < _dimension; d++)
                         for (int k = 0; k < _dimension; k++)
                             gradientsSequence[i][d] += _matriceK[k][d] * gradientScores[i] * _derniereQ[k];
             }
-            // Via Q : dL/dx_query += WQ^T * dL/dQ
+            // Via Q
             for (int d = 0; d < _dimension; d++)
                 for (int k = 0; k < _dimension; k++)
                     gradientsSequence[_dernierIndex][d] += _matriceQ[k][d] * gradientQ[k];
@@ -250,6 +200,59 @@
             _matriceK = K.Select(row => (double[])row.Clone()).ToArray();
             _matriceV = V.Select(row => (double[])row.Clone()).ToArray();
         }
-    }
 
+        // ===== MÉTHODES PRIVÉES =====
+
+        private double[][] InitialiserMatrice(int rows, int cols, double limite)
+        {
+            double[][] matrice = new double[rows][];
+            for (int i = 0; i < rows; i++)
+            {
+                matrice[i] = new double[cols];
+                for (int j = 0; j < cols; j++)
+                {
+                    matrice[i][j] = (Random.Shared.NextDouble() * 2 - 1) * limite;
+                }
+            }
+            return matrice;
+        }
+
+        private double[] ProjetterVecteur(double[] vecteur, double[][] matrice)
+        {
+            double[] resultat = new double[_dimension];
+            for (int i = 0; i < _dimension; i++)
+            {
+                for (int j = 0; j < vecteur.Length; j++)
+                {
+                    resultat[i] += vecteur[j] * matrice[i][j];
+                }
+            }
+            return resultat;
+        }
+
+        private double[] AppliquerPoids(double[][] seq, double[] poids)
+        {
+            double[] sortie = new double[_dimension];
+            for (int i = 0; i < seq.Length; i++)
+            {
+                if (poids[i] == 0 || double.IsNaN(poids[i])) continue;
+                for (int d = 0; d < _dimension; d++) 
+                    sortie[d] += poids[i] * seq[i][d];
+            }
+            return sortie;
+        }
+
+        private double ProduitScalaire(double[] a, double[] b) => a.Zip(b, (x, y) => x * y).Sum();
+
+        private double[] SoftmaxStable(double[] entrees)
+        {
+            double maxVal = entrees.Where(x => x > MASQUE_VALUE).DefaultIfEmpty(0).Max();
+            double[] exp = entrees.Select(e => e <= MASQUE_VALUE ? 0 : Math.Exp(e - maxVal)).ToArray();
+            double somme = exp.Sum();
+            
+            if (somme == 0) return entrees.Select(x => 0.0).ToArray();
+            
+            return exp.Select(e => e / somme).ToArray();
+        }
+    }
 }

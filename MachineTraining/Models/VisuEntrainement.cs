@@ -1,4 +1,4 @@
-﻿namespace MachineLearning.ApiService.Models
+﻿namespace MachineTraining.Models
 {
     public static class VisuEntrainement
     {

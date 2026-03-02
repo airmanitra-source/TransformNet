@@ -1,7 +1,8 @@
-﻿namespace MachineLearning.ApiService.Models
+﻿namespace MachineTraining.Models
 {
     public class MultiHeadAttention
     {
+        // Champs privés
         private MaskedAttention[] _heads;
         private int _nbHeads;
         private int _headDim;
@@ -11,6 +12,7 @@
         private double[][] _derniereSequence;
         private int _dernierIndexMot;
 
+        // ===== CONSTRUCTEUR =====
         public MultiHeadAttention(int dimension, int nbHeads)
         {
             if (dimension % nbHeads != 0)
@@ -27,6 +29,8 @@
             }
         }
 
+        // ===== MÉTHODES PUBLIQUES =====
+        
         public double[] Calculer(double[][] sequence, int indexMot)
         {
             // Valider l'index
@@ -50,7 +54,6 @@
             return sortiesHeads.SelectMany(x => x).ToArray();
         }
 
-        // ✅ Backpropagation multi-tête
         public double[][] CalculerGradientsSequence(double[] gradientSortie)
         {
             if (_derniereSequence == null)
@@ -82,6 +85,14 @@
             return gradientsSequence;
         }
 
+        public void MettreAJourPoids(double tauxApprentissage)
+        {
+            foreach (var head in _heads)
+                head.MettreAJourPoids(tauxApprentissage);
+        }
+
+        // ===== MÉTHODES PRIVÉES =====
+        
         private double[][] ExtraireSousDimension(double[][] seq, int headIndex)
         {
             // Découpe le vecteur d'origine pour ne donner à la tête que sa portion
@@ -89,13 +100,5 @@
                 vecteur.Skip(headIndex * _headDim).Take(_headDim).ToArray()
             ).ToArray();
         }
-
-        // Mettre à jour Q, K, V de toutes les têtes
-        public void MettreAJourPoids(double tauxApprentissage)
-        {
-            foreach (var head in _heads)
-                head.MettreAJourPoids(tauxApprentissage);
-        }
     }
-
 }

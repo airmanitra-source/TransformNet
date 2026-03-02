@@ -1,6 +1,6 @@
-﻿namespace MachineLearning.ApiService.Models
+﻿namespace MachineTraining.Models.Utils
 {
-    public class GenerateurTexte
+    public class TextUtils
     {
         public int ChoisirIndex(double[] scores, double temperature)
         {
@@ -125,7 +125,7 @@
             return topPIndices.Last();
         }
 
-        public string PredireProchainMot(double[] scores, Vocabulaire vocab)
+        public string PredireProchainMot(double[] scores, Vocabulary vocab)
         {
             // 1. Softmax (pour transformer en probabilités 0-1)
             double maxScore = scores.Max();

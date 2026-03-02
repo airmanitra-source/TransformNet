@@ -1,4 +1,4 @@
-namespace MachineLearning.ApiService.Models
+namespace MachineTraining.Models
 {
     /// <summary>
     /// Couche Feed-Forward standard d'un Transformer : FFN(x) = W2 · ReLU(W1 · x + b1) + b2

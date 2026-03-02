@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace MachineLearning.ApiService.Models
+namespace MachineTraining.Models
 {
     public static class SIMD
     {

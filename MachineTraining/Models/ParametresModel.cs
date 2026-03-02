@@ -1,4 +1,4 @@
-﻿namespace MachineLearning.ApiService.Models
+﻿namespace MachineTraining.Models
 {
     using System.Text.Json;
     using System.IO;
