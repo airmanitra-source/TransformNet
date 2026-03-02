@@ -18,7 +18,6 @@ string corpus = @"Le chat mange la souris .
                   Le chien ne peut pas attraper la souris.";
 
 // --- 2. INITIALISATION ---
-`
 var vocab = new Vocabulaire(corpus);
 int tailleVocab = vocab.GetWordsCount();
 var embedding = new EmbeddingLayer(tailleVocab, dimension);
