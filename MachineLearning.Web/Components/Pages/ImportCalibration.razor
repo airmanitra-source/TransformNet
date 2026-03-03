@@ -1,13 +1,13 @@
-@page "/donnees-exports"
+@page "/donnees-imports"
 @rendermode InteractiveServer
 @using MachineLearning.Web.Models.Agents.Companies
 
-<PageTitle>Données INSTAT — Exportations</PageTitle>
+<PageTitle>Données INSTAT — Importations</PageTitle>
 
-<h1>📦 Exportations FOB — Données INSTAT</h1>
+<h1>📦 Importations CIF — Données INSTAT</h1>
 <p class="text-muted">
-    Données historiques réelles des exportations FOB de Madagascar par catégorie.
-    <strong>Source : INSTAT — Tableau 32 (octobre 2023 – septembre 2025).</strong>
+    Données historiques réelles des importations CAF/CIF de Madagascar par catégorie.
+    <strong>Source : INSTAT — Tableau 33 (juillet 2023 – juin 2025).</strong>
     Les moyennes journalières calculées à partir de ces données sont utilisées directement dans le simulateur.
 </p>
 
@@ -16,21 +16,20 @@
     <div class="col-md-8">
         <div class="card mb-3">
             <div class="card-header bg-dark text-white">
-                <strong>📊 Tableau 32 — Exportations FOB mensuelles (millions MGA) — Source INSTAT</strong>
+                <strong>📊 Tableau 33 — Importations CIF mensuelles (millions MGA) — Source INSTAT</strong>
             </div>
             <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                 <table class="table table-sm table-striped table-hover">
                     <thead class="table-dark sticky-top">
                         <tr>
                             <th>Période</th>
-                            <th class="text-end">Total FOB</th>
+                            <th class="text-end">Total CIF</th>
                             <th class="text-end">Biens alim.</th>
-                            <th class="text-end">Vanille</th>
-                            <th class="text-end">Crevettes</th>
-                            <th class="text-end">Café</th>
-                            <th class="text-end">Girofle</th>
-                            <th class="text-end">Prod. miniers</th>
-                            <th class="text-end">Zones franches</th>
+                            <th class="text-end">Riz</th>
+                            <th class="text-end">Sucre</th>
+                            <th class="text-end">Énergie</th>
+                            <th class="text-end">Équipement</th>
+                            <th class="text-end">Ciment</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -38,14 +37,13 @@
                         {
                             <tr>
                                 <td><strong>@d.Periode</strong></td>
-                                <td class="text-end fw-bold">@Fmt(d.TotalFOB)</td>
+                                <td class="text-end fw-bold">@Fmt(d.TotalCIF)</td>
                                 <td class="text-end">@Fmt(d.BiensAlimentaires)</td>
-                                <td class="text-end">@Fmt(d.Vanille)</td>
-                                <td class="text-end">@Fmt(d.Crevettes)</td>
-                                <td class="text-end">@Fmt(d.Cafe)</td>
-                                <td class="text-end">@Fmt(d.Girofle)</td>
-                                <td class="text-end">@Fmt(d.ProduitsMiniers)</td>
-                                <td class="text-end">@Fmt(d.ZonesFranches)</td>
+                                <td class="text-end">@Fmt(d.Riz)</td>
+                                <td class="text-end">@Fmt(d.Sucre)</td>
+                                <td class="text-end">@Fmt(d.Energie)</td>
+                                <td class="text-end">@Fmt(d.Equipement)</td>
+                                <td class="text-end">@Fmt(d.Ciment)</td>
                             </tr>
                         }
                     </tbody>
@@ -56,11 +54,11 @@
         <!-- Variations annuelles -->
         <div class="card mb-3">
             <div class="card-header bg-secondary text-white">
-                📉 Variations janv–sept 2025 vs 2024
+                📉 Variations janv–juin 2025 vs 2024
             </div>
             <div class="card-body">
                 <div class="d-flex flex-wrap gap-2">
-                    @foreach (var v in ExportHistoricalData.VariationsAnnuelles)
+                    @foreach (var v in ImportHistoricalData.VariationsAnnuelles)
                     {
                         <span class="badge @(v.Value >= 0 ? "bg-success" : "bg-danger") fs-6">
                             @v.Key : @(v.Value >= 0 ? "+" : "")@v.Value.ToString("F1")%
@@ -110,15 +108,15 @@
             <div class="card-body">
                 <p>
                     Le simulateur utilise les <strong>moyennes mensuelles INSTAT</strong> divisées par 30 jours
-                    pour obtenir les valeurs FOB journalières par catégorie d'export.
+                    pour obtenir les valeurs CIF journalières par catégorie d'import.
                 </p>
                 <p>
-                    Ce mode d'<strong>injection directe</strong> remplace la simulation des exportations
+                    Ce mode d'<strong>injection directe</strong> remplace la simulation des importations
                     par les données réelles, ce qui assure un alignement fiable avec les statistiques officielles.
                 </p>
                 <p class="mb-0">
                     <span class="badge bg-success">✅ Actif par défaut</span>
-                    <code>UseExportCalibresDirectement = true</code>
+                    <code>UseImportCalibresDirectement = true</code>
                 </p>
             </div>
         </div>
@@ -126,20 +124,19 @@
 </div>
 
 @code {
-    private List<ExportHistoricalData> _donnees = ExportHistoricalData.DonneesINSTAT();
-    private Dictionary<ECategorieExport, double> _moyennes = ExportHistoricalData.MoyenneJournaliereParCategorie();
+    private List<ImportHistoricalData> _donnees = ImportHistoricalData.DonneesINSTAT();
+    private Dictionary<ECategorieImport, double> _moyennes = ImportHistoricalData.MoyenneJournaliereParCategorie();
 
     private static string Fmt(double valeur) => valeur.ToString("N0");
 
-    private static string NomCategorie(ECategorieExport cat) => cat switch
+    private static string NomCategorie(ECategorieImport cat) => cat switch
     {
-        ECategorieExport.BiensAlimentaires => "🍚 Biens alimentaires",
-        ECategorieExport.Vanille => "🌿 Vanille",
-        ECategorieExport.Crevettes => "🦐 Crevettes",
-        ECategorieExport.Cafe => "☕ Café",
-        ECategorieExport.Girofle => "🌶️ Girofle",
-        ECategorieExport.ProduitsMiniers => "⛏️ Produits miniers",
-        ECategorieExport.ZonesFranches => "🏭 Zones franches",
+        ECategorieImport.Alimentaire => "🍚 Alimentaire",
+        ECategorieImport.Carburant => "⛽ Énergie",
+        ECategorieImport.Vehicule => "🚗 Équipement",
+        ECategorieImport.MatierePremiere => "🏗️ Ciment/Mat. premières",
+        ECategorieImport.BienConsommation => "🛍️ Biens consommation",
+        ECategorieImport.Electronique => "📱 Électronique",
         _ => cat.ToString()
     };
 }

@@ -1,3 +1,4 @@
+using MachineLearning.Web.Models.Agents.Companies;
 using MachineLearning.Web.Models.Simulation;
 using MachineLearning.Web.Models.Simulation.Config;
 using Microsoft.AspNetCore.Components;
@@ -6,24 +7,13 @@ namespace MachineLearning.Web.Components.Pages;
 
 public partial class EconomySimulator : IDisposable
 {
-    [Inject] private CalibratedConfigStore ConfigStore { get; set; } = default!;
-
     private ScenarioConfig _config = new();
     private List<ScenarioConfig> _scenarios = ScenarioConfig.TousLesScenarios();
     private bool _initialized = false;
-    private bool _isCalibrated = false;
 
     protected override void OnInitialized()
     {
-        // Vérifier si une config calibrée est en attente
-        var calibrated = ConfigStore.Consume();
-        if (calibrated != null)
-        {
-            _config = calibrated;
-            _isCalibrated = true;
-            _initialized = true;
-        }
-        else if (!_initialized)
+        if (!_initialized)
         {
             _config = ScenarioConfig.BaseMadagascar();
             _initialized = true;
@@ -65,12 +55,6 @@ public partial class EconomySimulator : IDisposable
     private void Arreter()
     {
         Simulator.Arreter();
-    }
-
-    private void ResetCalibration()
-    {
-        _config = ScenarioConfig.BaseMadagascar();
-        _isCalibrated = false;
     }
 
     private void OnSimulationTick()
@@ -148,6 +132,54 @@ public partial class EconomySimulator : IDisposable
         double cdf = x >= 0 ? 1.0 - p : p;
         return 2.0 * cdf - 1.0;
     }
+
+    /// <summary>
+    /// Calcule l'écart en % entre deux valeurs de PIB.
+    /// </summary>
+    private static string CalculerEcart(double pib1, double pib2)
+    {
+        if (pib1 == 0 || pib2 == 0) return "N/A";
+        double ecart = Math.Abs(pib1 - pib2) / ((pib1 + pib2) / 2.0) * 100.0;
+        return ecart.ToString("F1");
+    }
+
+    private void SetTresorerie(ESecteurActivite secteur, ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out double val))
+            _config.TresorerieInitialeParSecteur[secteur] = val;
+    }
+
+    private static string GetSecteurIcon(ESecteurActivite secteur) => secteur switch
+    {
+        ESecteurActivite.Agriculture => "🌾",
+        ESecteurActivite.Textiles => "🧵",
+        ESecteurActivite.Commerces => "🏪",
+        ESecteurActivite.Services => "🔧",
+        ESecteurActivite.SecteurMinier => "⛏️",
+        ESecteurActivite.Construction => "🏗️",
+        _ => "🏢"
+    };
+
+    private static double GetTresorerieMin(ESecteurActivite secteur) => secteur switch
+    {
+        ESecteurActivite.Agriculture => 100_000,
+        ESecteurActivite.SecteurMinier => 5_000_000,
+        _ => 500_000
+    };
+
+    private static double GetTresorerieMax(ESecteurActivite secteur) => secteur switch
+    {
+        ESecteurActivite.Agriculture => 5_000_000,
+        ESecteurActivite.SecteurMinier => 200_000_000,
+        _ => 30_000_000
+    };
+
+    private static double GetTresorerieStep(ESecteurActivite secteur) => secteur switch
+    {
+        ESecteurActivite.Agriculture => 50_000,
+        ESecteurActivite.SecteurMinier => 1_000_000,
+        _ => 500_000
+    };
 
     public void Dispose()
     {

@@ -1,4 +1,4 @@
-namespace MachineLearning.Web.Models.Simulation.Companies;
+namespace MachineLearning.Web.Models.Agents.Companies;
 
 /// <summary>
 /// Données historiques réelles des exportations FOB de Madagascar par catégorie.
@@ -41,15 +41,15 @@ public class ExportHistoricalData
     /// <summary>
     /// Retourne la valeur FOB par catégorie d'export.
     /// </summary>
-    public double ParCategorie(CategorieExport categorie) => categorie switch
+    public double ParCategorie(ECategorieExport categorie) => categorie switch
     {
-        CategorieExport.BiensAlimentaires => BiensAlimentaires,
-        CategorieExport.Vanille => Vanille,
-        CategorieExport.Crevettes => Crevettes,
-        CategorieExport.Cafe => Cafe,
-        CategorieExport.Girofle => Girofle,
-        CategorieExport.ProduitsMiniers => ProduitsMiniers,
-        CategorieExport.ZonesFranches => ZonesFranches,
+        ECategorieExport.BiensAlimentaires => BiensAlimentaires,
+        ECategorieExport.Vanille => Vanille,
+        ECategorieExport.Crevettes => Crevettes,
+        ECategorieExport.Cafe => Cafe,
+        ECategorieExport.Girofle => Girofle,
+        ECategorieExport.ProduitsMiniers => ProduitsMiniers,
+        ECategorieExport.ZonesFranches => ZonesFranches,
         _ => 0
     };
 
@@ -148,4 +148,25 @@ public class ExportHistoricalData
         9 => "sept", 10 => "oct", 11 => "nov", 12 => "déc",
         _ => "cumul"
     };
+
+    /// <summary>
+    /// Calcule la moyenne journalière FOB par catégorie d'export à partir des données INSTAT.
+    /// Retourne un dictionnaire ECategorieExport → millions MGA / jour.
+    /// Formule : moyenne mensuelle INSTAT ÷ 30 jours.
+    /// </summary>
+    public static Dictionary<ECategorieExport, double> MoyenneJournaliereParCategorie()
+    {
+        var donnees = DonneesINSTAT();
+
+        return new Dictionary<ECategorieExport, double>
+        {
+            [ECategorieExport.BiensAlimentaires] = donnees.Average(d => d.BiensAlimentaires) / 30.0,
+            [ECategorieExport.Vanille] = donnees.Average(d => d.Vanille) / 30.0,
+            [ECategorieExport.Crevettes] = donnees.Average(d => d.Crevettes) / 30.0,
+            [ECategorieExport.Cafe] = donnees.Average(d => d.Cafe) / 30.0,
+            [ECategorieExport.Girofle] = donnees.Average(d => d.Girofle) / 30.0,
+            [ECategorieExport.ProduitsMiniers] = donnees.Average(d => d.ProduitsMiniers) / 30.0,
+            [ECategorieExport.ZonesFranches] = donnees.Average(d => d.ZonesFranches) / 30.0,
+        };
+    }
 }

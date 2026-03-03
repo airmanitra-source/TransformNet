@@ -1,0 +1,489 @@
+@page "/doc-calibration"
+@rendermode InteractiveServer
+
+<PageTitle>Documentation — Hypothèses du simulateur</PageTitle>
+
+<div class="container py-4 doc-container">
+
+    <h1>📖 Documentation du simulateur économique</h1>
+    <p class="lead text-muted">
+        Hypothèses, conventions et choix de modélisation du simulateur macroéconomique malgache.
+    </p>
+
+    <hr />
+
+    @* ══════════ TABLE DES MATIÈRES ══════════ *@
+    <nav class="card section-card border-secondary mb-4">
+        <div class="card-header bg-secondary text-white">📑 Table des matières</div>
+        <div class="card-body">
+            <ol class="mb-0">
+                <li><a href="#formules-pib">Formules de calcul du PIB</a></li>
+                <li><a href="#ameliorations">Améliorations de la comptabilité nationale (9 points)</a></li>
+                <li><a href="#secteurs">Secteurs d'activité et informalité</a></li>
+                <li><a href="#jours">Jours ouvrables et repos hebdomadaire</a></li>
+                <li><a href="#jirama">JIRAMA — Eau et électricité</a></li>
+                <li><a href="#exports">Commerce extérieur — Injection directe INSTAT</a></li>
+                <li><a href="#fichiers">Détails techniques (fichiers modifiés)</a></li>
+            </ol>
+        </div>
+    </nav>
+
+    @* ══════════ 1. FORMULES PIB ══════════ *@
+    <div id="formules-pib" class="card section-card border-primary mb-4">
+        <div class="card-header bg-primary text-white">
+            <strong>📐 1. Formules de calcul du PIB (3 approches SCN)</strong>
+        </div>
+        <div class="card-body">
+            <p>
+                Le simulateur calcule le PIB selon les <strong>trois approches</strong> de la comptabilité nationale
+                (Système de Comptabilité Nationale 2008). Les trois doivent converger.
+            </p>
+            @foreach (var f in FormulesPIB)
+            {
+                <div class="formula-block">
+                    <div class="formula-name">@f.Nom</div>
+                    <code>@f.Formule</code>
+                    <div class="formula-desc">@f.Description</div>
+                </div>
+            }
+            <div class="alert alert-info mb-0">
+                <strong>💡 Convergence :</strong> Si les 3 approches divergent de plus de 10%, il y a une incohérence
+                dans le modèle. Les loyers imputés (~5-8% du PIB) sont ajoutés aux trois pour respecter le SCN 2008.
+            </div>
+        </div>
+    </div>
+
+    @* ══════════ 2. AMÉLIORATIONS ══════════ *@
+    <div id="ameliorations" class="card section-card border-success mb-4">
+        <div class="card-header bg-success text-white">
+            <strong>✅ 2. Améliorations de la comptabilité nationale (9 points)</strong>
+        </div>
+        <div class="card-body">
+            <p>Tous les points suivants sont <strong>implémentés et actifs</strong> dans le simulateur :</p>
+            <table class="table table-sm table-bordered param-table">
+                <thead class="table-dark">
+                    <tr>
+                        <th>#</th>
+                        <th>Amélioration</th>
+                        <th>Impact PIB</th>
+                        <th>Valeur calibrée</th>
+                        <th>Source</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in Améliorations)
+                    {
+                        <tr>
+                            <td><span class="impact-badge @a.BadgeClass text-white">@a.Numero</span></td>
+                            <td><strong>@a.Titre</strong></td>
+                            <td>@a.ImpactPIB</td>
+                            <td><code>@a.Valeur</code></td>
+                            <td><small class="text-muted">@a.Source</small></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @* ══════════ 2a. DÉTAILS PAR POINT ══════════ *@
+
+    @* --- Secteur Agricole --- *@
+    <div class="card section-card border-success mb-3">
+        <div class="card-header bg-success bg-opacity-75 text-white">
+            🌾 Point 1 — Secteur Agricole et Construction
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Agriculture (~25% du PIB)</h6>
+                    <ul>
+                        <li>Nouveau secteur <code>ESecteurActivite.Agriculture</code></li>
+                        <li><strong>30%</strong> des entreprises sont agricoles (<code>PartEntreprisesAgricoles</code>)</li>
+                        <li>Productivité : <strong>2 000 – 3 500 MGA/employé/jour</strong></li>
+                        <li>95% informel (pas d'IS/TVA)</li>
+                        <li>Jours ouvrables seulement (pas de weekend)</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6>Construction/BTP (~5% du PIB)</h6>
+                    <ul>
+                        <li>Nouveau secteur <code>ESecteurActivite.Construction</code></li>
+                        <li><strong>5%</strong> des entreprises (<code>PartEntreprisesConstruction</code>)</li>
+                        <li>Productivité : <strong>15 000 – 25 000 MGA/employé/jour</strong></li>
+                        <li>75% informel</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* --- Fiscalité informelle --- *@
+    <div class="card section-card border-danger mb-3">
+        <div class="card-header bg-danger bg-opacity-75 text-white">
+            🏪 Point 2 — Fiscalité du secteur informel
+        </div>
+        <div class="card-body">
+            <p>
+                ~85% de l'économie malgache est <strong>informelle</strong>. Les entreprises informelles ne paient
+                <strong>ni IS ni TVA</strong> mais créent de la valeur ajoutée comptée dans le PIB.
+            </p>
+            <table class="table table-sm table-bordered">
+                <thead class="table-dark">
+                    <tr><th>Secteur</th><th>Probabilité informel</th><th>IS</th><th>TVA</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>🌾 Agriculture</td><td>95%</td><td>❌</td><td>❌</td></tr>
+                    <tr><td>🏪 Commerce</td><td>80%</td><td>❌</td><td>❌</td></tr>
+                    <tr><td>🏗️ Construction</td><td>75%</td><td>❌</td><td>❌</td></tr>
+                    <tr><td>🏭 Services/Textiles</td><td>~85% (config)</td><td>❌</td><td>❌</td></tr>
+                    <tr><td>⛏️ Minier</td><td>20%</td><td>❌</td><td>❌</td></tr>
+                    <tr><td>Entreprises formelles</td><td>—</td><td class="table-success">✅ 20%</td><td class="table-success">✅ 20%</td></tr>
+                </tbody>
+            </table>
+            <div class="alert alert-warning mb-0">
+                <strong>Impact :</strong> Les recettes fiscales IS et TVA sont réduites d'environ ~70%.
+                Le PIB par la VA est inchangé (les entreprises informelles créent quand même de la valeur).
+            </div>
+        </div>
+    </div>
+
+    @* --- Aide + Subventions + CNaPS --- *@
+    <div class="card section-card border-info mb-3">
+        <div class="card-header bg-info text-white">
+            🏛️ Points 3-5 — Aide internationale, Subventions JIRAMA, CNaPS
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <h6>🌍 Aide internationale</h6>
+                    <ul>
+                        <li><code>AideInternationaleJour</code> = 18,5 Mds MGA/jour</li>
+                        <li>~$1,5 Mds/an (OCDE/CAD)</li>
+                        <li>Ajoutée aux recettes de l'État</li>
+                        <li>~35% du budget public</li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h6>⚡ Subventions JIRAMA</h6>
+                    <ul>
+                        <li><code>SubventionJiramaJour</code> = 1,37 Mds MGA/jour</li>
+                        <li>~500 Mds MGA/an (FMI)</li>
+                        <li>Déduite des dépenses publiques</li>
+                        <li>Ajoutée à la trésorerie JIRAMA</li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h6>🏥 Cotisations CNaPS</h6>
+                    <ul>
+                        <li>Patronale : <strong>18%</strong> du brut (formel)</li>
+                        <li>Salariale : <strong>1%</strong> du brut</li>
+                        <li>Augmente les charges entreprises</li>
+                        <li>Collectée comme recette sociale</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* --- Remittances + Loyers --- *@
+    <div class="card section-card border-warning mb-3">
+        <div class="card-header bg-warning text-dark">
+            🏠 Points 6-7 — Remittances et Loyers imputés
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>💸 Transferts de la diaspora</h6>
+                    <ul>
+                        <li><code>RemittancesJour</code> = 7,4 Mds MGA/jour total</li>
+                        <li>~$600M/an (~5% du PIB)</li>
+                        <li>Répartis <strong>uniformément</strong> entre tous les ménages</li>
+                        <li>Ajoutés directement à l'épargne du ménage</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6>🏠 Loyers imputés (SCN 2008)</h6>
+                    <ul>
+                        <li><code>LoyerImputeJourParMenage</code> = 1 000 MGA/jour</li>
+                        <li>~65% des ménages sont propriétaires</li>
+                        <li>Ajoutés aux <strong>trois approches du PIB</strong></li>
+                        <li>Représentent ~5-8% du PIB national</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* --- FBCF + Fonctionnaires --- *@
+    <div class="card section-card border-primary mb-3">
+        <div class="card-header bg-primary bg-opacity-75 text-white">
+            📊 Points 8-9 — FBCF et Salaires fonctionnaires
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>📈 FBCF (Formation Brute de Capital Fixe)</h6>
+                    <p>Avant : <span class="correction-before">PIB = C + VentesB2B + G + (X-M)</span></p>
+                    <p>Après : <span class="correction-after">PIB = C + FBCF + G + (X-M)</span></p>
+                    <ul>
+                        <li><code>TauxInvestissementFBCF</code> = 18% du PIB</li>
+                        <li>FBCF = taux × PIB proxy du jour</li>
+                        <li>VentesB2B ≠ investissement (c'est de la consommation intermédiaire)</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6>👔 Salaires fonctionnaires</h6>
+                    <p>Avant : <span class="correction-before">PIB revenus = Salaires ménages + Profits + Impôts</span></p>
+                    <p>Après : <span class="correction-after">+ Fonctionnaires + JIRAMA</span></p>
+                    <ul>
+                        <li><code>NombreFonctionnaires</code> = 200 000 agents</li>
+                        <li><code>SalaireMoyenFonctionnaireMensuel</code> = 300 000 MGA</li>
+                        <li>Salaires JIRAMA = 5 000 employés × 350 000 MGA/mois</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr />
+
+    @* ══════════ 3. SECTEURS ══════════ *@
+    <div id="secteurs" class="card section-card border-info mb-4">
+        <div class="card-header bg-info text-white">
+            <strong>🏭 3. Secteurs d'activité</strong>
+        </div>
+        <div class="card-body">
+            <table class="table table-sm table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Secteur</th>
+                        <th>% Entreprises</th>
+                        <th>Productivité (MGA/employé/jour)</th>
+                        <th>Weekend</th>
+                        <th>% Informel</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td><span class="sector-icon">🌾</span> Agriculture</td><td>30%</td><td>2 000 – 3 500</td><td>❌ Fermé</td><td>95%</td></tr>
+                    <tr><td><span class="sector-icon">🏪</span> Commerces</td><td>~16%</td><td>73 000 – 91 000</td><td>✅ Ouvert</td><td>80%</td></tr>
+                    <tr><td><span class="sector-icon">🔧</span> Services</td><td>~16%</td><td>73 000 – 91 000</td><td>❌ Fermé</td><td>~85%</td></tr>
+                    <tr><td><span class="sector-icon">🧵</span> Textiles</td><td>~16%</td><td>27 000 – 41 000</td><td>❌ Fermé</td><td>~85%</td></tr>
+                    <tr><td><span class="sector-icon">⛏️</span> Minier</td><td>~12%</td><td>200 000 – 274 000</td><td>❌ Fermé</td><td>20%</td></tr>
+                    <tr><td><span class="sector-icon">🏗️</span> Construction</td><td>5%</td><td>15 000 – 25 000</td><td>❌ Fermé</td><td>75%</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @* ══════════ 4. JOURS OUVRABLES ══════════ *@
+    <div id="jours" class="card section-card border-info mb-4">
+        <div class="card-header bg-info text-white">
+            <strong>📅 4. Jours ouvrables et repos hebdomadaire</strong>
+        </div>
+        <div class="card-body">
+            <table class="table table-sm table-bordered">
+                <thead class="table-dark">
+                    <tr><th>Agent</th><th>Lun–Ven</th><th>Sam–Dim</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Entreprises (hors commerce)</strong></td>
+                        <td class="table-success">✅ Produit + vend</td>
+                        <td class="table-danger">❌ Fermé (élec. 30%)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Entreprises Commerce</strong></td>
+                        <td class="table-success">✅ Produit + vend</td>
+                        <td class="table-success">✅ Produit + vend</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Ménages (hors commerce)</strong></td>
+                        <td class="table-success">✅ Travaille + consomme</td>
+                        <td class="table-warning">⚠️ Consomme seulement</td>
+                    </tr>
+                    <tr>
+                        <td><strong>État</strong></td>
+                        <td class="table-success">✅ Dépenses publiques</td>
+                        <td class="table-success">✅ Dépenses publiques</td>
+                    </tr>
+                    <tr>
+                        <td><strong>JIRAMA</strong></td>
+                        <td class="table-success">✅ Facture tous secteurs</td>
+                        <td class="table-success">✅ Facture (réduit 30% entreprises)</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="alert alert-info mb-0">
+                <strong>📐 Convention :</strong> Jour 1 = Lundi. Salaire journalier = Mensuel ÷ 22 jours ouvrables.
+                Électricité entreprises : 100% jours ouvrables, 30% repos.
+            </div>
+        </div>
+    </div>
+
+    @* ══════════ 5. JIRAMA ══════════ *@
+    <div id="jirama" class="card section-card border-warning mb-4">
+        <div class="card-header bg-warning text-dark">
+            <strong>⚡ 5. JIRAMA — Eau et électricité (3 secteurs)</strong>
+        </div>
+        <div class="card-body">
+            <table class="table table-sm table-bordered">
+                <thead class="table-dark">
+                    <tr><th>Secteur payeur</th><th>Consommation</th><th>Coût</th><th>TVA</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Ménages</strong> (47,4%)</td>
+                        <td>1.03 KWh/ménage/jour</td>
+                        <td>KWh × 653 Ar</td>
+                        <td>20% (reversée à l'État)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Entreprises</strong> (51,9%)</td>
+                        <td>2.5 KWh/employé/jour</td>
+                        <td>KWh × 653 Ar</td>
+                        <td>20% (reversée à l'État)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>État</strong> (0,75%)</td>
+                        <td>44 400 KWh/jour fixe</td>
+                        <td>KWh × 653 Ar</td>
+                        <td>Exonéré</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="formula-block">
+                <div class="formula-name">Production JIRAMA</div>
+                <code>Production KWh = (Conso ménages + Conso entreprises + Conso État) ÷ (1 − 0.289)</code>
+                <div class="formula-desc">Pertes de distribution ~28,9%. Source : Tableau 21 JIRAMA/ORE jan-juin 2025.</div>
+            </div>
+            <div class="formula-block">
+                <div class="formula-name">Valeur ajoutée JIRAMA</div>
+                <code>VA = Recettes HT − Combustible thermique (48,4% × Prod × 350 Ar/KWh) − Maintenance (5% recettes)</code>
+                <div class="formula-desc">La VA JIRAMA est ajoutée au PIB par la valeur ajoutée.</div>
+            </div>
+        </div>
+    </div>
+
+    @* ══════════ 6. COMMERCE EXTÉRIEUR (INSTAT) ══════════ *@
+    <div id="exports" class="card section-card border-success mb-4">
+        <div class="card-header bg-success text-white">
+            <strong>📦 6. Commerce extérieur — Injection directe des données INSTAT</strong>
+        </div>
+        <div class="card-body">
+            <h6>Principe</h6>
+            <p>
+                Au lieu de simuler la production import/export, on injecte les <strong>moyennes journalières</strong>
+                calculées à partir des données historiques INSTAT. Ce mode est <strong>activé par défaut</strong>.
+            </p>
+            <div class="row mb-3">
+                @{
+                    string[] etapes = ["1️⃣ Données INSTAT|Tableaux 32 (exports) et 33 (imports)",
+                                       "2️⃣ Moyenne mensuelle|Moyenne sur 24 mois de données",
+                                       "3️⃣ Conversion|Moyenne mensuelle ÷ 30 = valeur/jour",
+                                       "4️⃣ Injection|Valeurs journalières injectées dans la simulation"];
+                }
+                @foreach (var etape in etapes)
+                {
+                    var parts = etape.Split('|');
+                    <div class="col-md-3">
+                        <div class="flow-step">
+                            <h6>@parts[0]</h6>
+                            <small>@parts[1]</small>
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>📤 Exportations (Tableau 32 INSTAT)</h6>
+                    <ul>
+                        <li>Période : octobre 2023 – septembre 2025</li>
+                        <li>7 catégories : Biens alim., Vanille, Crevettes, Café, Girofle, Miniers, Zones franches</li>
+                        <li><code>UseExportCalibresDirectement = true</code> (défaut)</li>
+                        <li>Les ventes locales (B2C/B2B) et salaires des exportateurs restent simulés</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6>📥 Importations (Tableau 33 INSTAT)</h6>
+                    <ul>
+                        <li>Période : juillet 2023 – juin 2025</li>
+                        <li>6 catégories : Alimentaire, Énergie, Équipement, Ciment, Biens conso., Électronique</li>
+                        <li><code>UseImportCalibresDirectement = true</code> (défaut)</li>
+                        <li>Les droits de douane, accises et TVA import sont calculés sur les valeurs CIF injectées</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="alert alert-success mb-0">
+                <strong>✅ Avantage :</strong> alignement fiable avec les statistiques officielles sans recourir
+                à un modèle de machine learning. Les moyennes sont recalculées automatiquement à partir des données brutes INSTAT.
+            </div>
+        </div>
+    </div>
+
+    @* ══════════ 7. DÉTAILS TECHNIQUES ══════════ *@
+    <div id="fichiers" class="card section-card mb-4">
+        <div class="card-header bg-dark text-white">
+            <strong>🔧 7. Fichiers modifiés (développeur)</strong>
+        </div>
+        <div class="card-body">
+            <table class="table table-sm param-table">
+                <thead class="table-dark">
+                    <tr><th>Fichier</th><th>Changements</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>ESecteurActivite.cs</code></td>
+                        <td>+Agriculture, +Construction</td>
+                    </tr>
+                    <tr>
+                        <td><code>Company.cs</code></td>
+                        <td>+EstInformel, +TotalCotisationsCNaPS, exonération IS/TVA informel, CNaPS patronale dans charges</td>
+                    </tr>
+                    <tr>
+                        <td><code>CompanyDailyResult.cs</code></td>
+                        <td>+CotisationsCNaPS</td>
+                    </tr>
+                    <tr>
+                        <td><code>Household.cs</code></td>
+                        <td>+EstProprietaire</td>
+                    </tr>
+                    <tr>
+                        <td><code>DailyHouseholdResult.cs</code></td>
+                        <td>+Remittance, +LoyerImpute, +CotisationCNaPSSalariale</td>
+                    </tr>
+                    <tr>
+                        <td><code>Government.cs</code></td>
+                        <td>+Aide internationale, +Subventions JIRAMA, +Salaires fonctionnaires, +CNaPS, +FBCF</td>
+                    </tr>
+                    <tr>
+                        <td><code>DailyGovernmentResult.cs</code></td>
+                        <td>+AideInternationale, +CotisationsCNaPS, +SubventionsJirama, +SalairesFonctionnaires, +FBCF</td>
+                    </tr>
+                    <tr>
+                        <td><code>ScenarioConfig.cs</code></td>
+                        <td>+13 nouveaux paramètres (PartAgricoles, CNaPS, aide, subventions, remittances, loyers, FBCF, fonctionnaires)</td>
+                    </tr>
+                    <tr>
+                        <td><code>DailySnapshot.cs</code></td>
+                        <td>+9 champs (remittances, loyers, CNaPS, informel, aide, subventions, fonctionnaires, FBCF)</td>
+                    </tr>
+                    <tr>
+                        <td><code>EconomicSimulator.cs</code></td>
+                        <td>Création entreprises par secteur, propagation CNaPS, remittances/loyers, PIB corrigé</td>
+                    </tr>
+                    <tr>
+                        <td><code>Importer.cs / Exporter.cs</code></td>
+                        <td>+tauxCNaPSPatronale propagé au SimulerJournee de base</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="text-center mb-4">
+        <a href="/donnees-exports" class="btn btn-primary btn-lg me-2">📤 Données exports INSTAT</a>
+        <a href="/donnees-imports" class="btn btn-info btn-lg me-2">📦 Données imports INSTAT</a>
+        <a href="/economie" class="btn btn-success btn-lg">📊 Simulateur</a>
+    </div>
+</div>

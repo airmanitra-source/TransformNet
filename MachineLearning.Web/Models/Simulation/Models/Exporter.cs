@@ -1,4 +1,6 @@
-namespace MachineLearning.Web.Models.Simulation.Companies;
+using MachineLearning.Web.Models.Agents.Companies;
+
+namespace MachineLearning.Web.Models.Simulation.Models;
 
 /// <summary>
 /// Entreprise exportatrice à Madagascar.
@@ -17,7 +19,7 @@ namespace MachineLearning.Web.Models.Simulation.Companies;
 public class Exporter : Company
 {
     /// <summary>Catégorie principale d'exportation</summary>
-    public CategorieExport Categorie { get; set; } = CategorieExport.Vanille;
+    public ECategorieExport Categorie { get; set; } = ECategorieExport.Vanille;
 
     /// <summary>Valeur FOB journalière des exportations (en MGA)</summary>
     public double ValeurFOBJour { get; set; } = 300_000;
@@ -36,7 +38,7 @@ public class Exporter : Company
 
     /// <summary>
     /// Simule une journée pour un exportateur :
-    /// 1. Production pour l'export (valeur FOB)
+    /// 1. Production pour l'export (valeur FOB) — si jour ouvrable pour le secteur
     /// 2. Paiement taxe à l'exportation + redevance
     /// 3. Ventes locales complémentaires (B2C/B2B)
     /// 4. Rapatriement de devises
@@ -47,9 +49,20 @@ public class Exporter : Company
         double tauxTVA,
         double tauxInflation,
         double tauxDirecteur,
-        double tauxTaxeExport)
+        double tauxTaxeExport,
+        bool estJourOuvrable = true,
+        Jirama? jirama = null,
+        double consoElecParEmployeKWhJour = 0,
+        double tauxCNaPSPatronale = 0)
     {
         var result = new DailyExporterResult();
+
+        // Si jour de repos pour ce secteur, pas d'activité
+        if (!estJourOuvrable)
+        {
+            result.Tresorerie = Tresorerie;
+            return result;
+        }
 
         // 1. Production pour l'export (FOB)
         double facteurInflation = 1.0 + (tauxInflation / 365.0);
@@ -81,7 +94,8 @@ public class Exporter : Company
         double demandeLocaleAjustee = demandeConsommationMenages * (1.0 - PartExport);
         var baseResult = SimulerJournee(
             demandeLocaleAjustee,
-            tauxIS, tauxTVA, tauxInflation, tauxDirecteur);
+            tauxIS, tauxTVA, tauxInflation, tauxDirecteur, estJourOuvrable,
+            jirama, consoElecParEmployeKWhJour, tauxCNaPSPatronale);
 
         // Copier les résultats de base
         result.VentesB2C = baseResult.VentesB2C;
@@ -93,6 +107,7 @@ public class Exporter : Company
         result.BeneficeAvantImpot = baseResult.BeneficeAvantImpot;
         result.FluxNetJour = baseResult.FluxNetJour;
         result.CoutFinancement = baseResult.CoutFinancement;
+        result.ValeurAjoutee = baseResult.ValeurAjoutee;
 
         // 6. Ajouter le revenu export à la trésorerie
         Tresorerie += devisesNettes;
@@ -107,75 +122,39 @@ public class Exporter : Company
     /// </summary>
     private double CoefficientPrixInternational() => Categorie switch
     {
-        CategorieExport.BiensAlimentaires => 0.95,
-        CategorieExport.Vanille => 1.00,
-        CategorieExport.Crevettes => 1.05,
-        CategorieExport.Cafe => 0.92,
-        CategorieExport.Girofle => 0.98,
-        CategorieExport.ProduitsMiniers => 0.95,
-        CategorieExport.ZonesFranches => 0.90,
+        ECategorieExport.BiensAlimentaires => 0.95,
+        ECategorieExport.Vanille => 1.00,
+        ECategorieExport.Crevettes => 1.05,
+        ECategorieExport.Cafe => 0.92,
+        ECategorieExport.Girofle => 0.98,
+        ECategorieExport.ProduitsMiniers => 0.95,
+        ECategorieExport.ZonesFranches => 0.90,
         _ => 1.00
     };
 
     /// <summary>Coefficient de taxe à l'exportation par catégorie.</summary>
     private double CoefficientTaxeParCategorie() => Categorie switch
     {
-        CategorieExport.BiensAlimentaires => 0.80,
-        CategorieExport.Vanille => 1.50,
-        CategorieExport.Crevettes => 0.80,
-        CategorieExport.Cafe => 0.70,
-        CategorieExport.Girofle => 1.00,
-        CategorieExport.ProduitsMiniers => 1.20,
-        CategorieExport.ZonesFranches => 0.20,
+        ECategorieExport.BiensAlimentaires => 0.80,
+        ECategorieExport.Vanille => 1.50,
+        ECategorieExport.Crevettes => 0.80,
+        ECategorieExport.Cafe => 0.70,
+        ECategorieExport.Girofle => 1.00,
+        ECategorieExport.ProduitsMiniers => 1.20,
+        ECategorieExport.ZonesFranches => 0.20,
         _ => 1.00
     };
 
     /// <summary>Redevance à l'exportation par catégorie (~1-2%).</summary>
     private double CoefficientRedevanceParCategorie() => Categorie switch
     {
-        CategorieExport.BiensAlimentaires => 0.015,
-        CategorieExport.Vanille => 0.02,
-        CategorieExport.Crevettes => 0.015,
-        CategorieExport.Cafe => 0.015,
-        CategorieExport.Girofle => 0.02,
-        CategorieExport.ProduitsMiniers => 0.025,
-        CategorieExport.ZonesFranches => 0.005,
+        ECategorieExport.BiensAlimentaires => 0.015,
+        ECategorieExport.Vanille => 0.02,
+        ECategorieExport.Crevettes => 0.015,
+        ECategorieExport.Cafe => 0.015,
+        ECategorieExport.Girofle => 0.02,
+        ECategorieExport.ProduitsMiniers => 0.025,
+        ECategorieExport.ZonesFranches => 0.005,
         _ => 0.015
     };
-}
-
-/// <summary>
-/// Catégories d'exportation de Madagascar alignées sur les statistiques INSTAT.
-/// Source : Tableau 32 — Évolution mensuelle des exportations FOB.
-/// </summary>
-public enum CategorieExport
-{
-    /// <summary>Biens alimentaires (hors vanille/crevettes/café/girofle)</summary>
-    BiensAlimentaires,
-    /// <summary>Vanille — 1er producteur mondial</summary>
-    Vanille,
-    /// <summary>Crevettes, pêche</summary>
-    Crevettes,
-    /// <summary>Café</summary>
-    Cafe,
-    /// <summary>Girofle, épices</summary>
-    Girofle,
-    /// <summary>Produits miniers (nickel, cobalt, ilménite, saphir…)</summary>
-    ProduitsMiniers,
-    /// <summary>Zones franches (textile, confection, électronique)</summary>
-    ZonesFranches
-}
-
-/// <summary>
-/// Résultat journalier d'un exportateur.
-/// </summary>
-public class DailyExporterResult : DailyCompanyResult
-{
-    public double ValeurFOB { get; set; }
-    public double TaxeExport { get; set; }
-    public double RedevanceExport { get; set; }
-    public double DevisesRapatriees { get; set; }
-
-    /// <summary>Total taxes export générées ce jour</summary>
-    public double RecettesFiscalesExport => TaxeExport + RedevanceExport;
 }

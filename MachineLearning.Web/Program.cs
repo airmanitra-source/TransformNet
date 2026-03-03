@@ -13,7 +13,6 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddScoped<EconomicSimulator>();
-builder.Services.AddSingleton<CalibratedConfigStore>();
 
 builder.Services.AddOutputCache();
 /*

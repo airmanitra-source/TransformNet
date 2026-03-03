@@ -1,4 +1,4 @@
-namespace MachineLearning.Web.Models.Simulation.Companies;
+namespace MachineLearning.Web.Models.Agents.Companies;
 
 /// <summary>
 /// Entreprise importatrice à Madagascar.
@@ -22,7 +22,7 @@ namespace MachineLearning.Web.Models.Simulation.Companies;
 public class Importer : Company
 {
     /// <summary>Catégorie principale d'importation</summary>
-    public CategorieImport Categorie { get; set; } = CategorieImport.BienConsommation;
+    public ECategorieImport Categorie { get; set; } = ECategorieImport.BienConsommation;
 
     /// <summary>Valeur CIF journalière des importations (en MGA)</summary>
     public double ValeurCIFJour { get; set; } = 500_000;
@@ -42,7 +42,7 @@ public class Importer : Company
 
     /// <summary>
     /// Simule une journée pour un importateur :
-    /// 1. Importation de marchandises (valeur CIF)
+    /// 1. Importation de marchandises (valeur CIF) — les importateurs (Commerce) travaillent 7j/7
     /// 2. Paiement droits de douane, accise, TVA import, redevance
     /// 3. Revente sur le marché local (ventes B2C/B2B)
     /// 4. Charges + IS comme une entreprise normale
@@ -54,9 +54,21 @@ public class Importer : Company
         double tauxInflation,
         double tauxDirecteur,
         double tauxDroitsDouane,
-        double tauxAccise)
+        double tauxAccise,
+        bool estJourOuvrable = true,
+        Jirama? jirama = null,
+        double consoElecParEmployeKWhJour = 0,
+        double tauxCNaPSPatronale = 0)
     {
         var result = new DailyImporterResult();
+
+        // Les importateurs (Commerce) travaillent 7j/7
+        // mais si ce n'est pas un jour ouvrable et que le secteur n'est pas Commerce, pas d'activité
+        if (!estJourOuvrable && SecteurActivite != ESecteurActivite.Commerces)
+        {
+            result.Tresorerie = Tresorerie;
+            return result;
+        }
 
         // 1. Importation CIF du jour (ajustée par l'inflation = coût de change)
         double facteurInflation = 1.0 + (tauxInflation / 365.0);
@@ -95,7 +107,8 @@ public class Importer : Company
         // 7. Simulation entreprise classique (production + ventes locales)
         var baseResult = SimulerJournee(
             demandeConsommationMenages,
-            tauxIS, tauxTVA, tauxInflation, tauxDirecteur);
+            tauxIS, tauxTVA, tauxInflation, tauxDirecteur, estJourOuvrable,
+            jirama, consoElecParEmployeKWhJour, tauxCNaPSPatronale);
 
         // Copier les résultats de l'entreprise de base
         result.VentesB2C = baseResult.VentesB2C;
@@ -108,6 +121,7 @@ public class Importer : Company
         result.FluxNetJour = baseResult.FluxNetJour;
         result.Tresorerie = baseResult.Tresorerie;
         result.CoutFinancement = baseResult.CoutFinancement;
+        result.ValeurAjoutee = baseResult.ValeurAjoutee;
 
         // 8. Ajuster la trésorerie pour le coût d'importation
         Tresorerie -= coutTotalImport;
@@ -126,65 +140,28 @@ public class Importer : Company
     /// Coefficient multiplicateur des droits de douane selon la catégorie.
     /// Le taux final = tauxDroitsDouane (config) × coefficient.
     /// </summary>
-    private double CoefficientDDParCategorie() => Categorie switch
+    public double CoefficientDDParCategorie() => Categorie switch
     {
-        CategorieImport.Carburant => 0.0,           // DD 0% sur le carburant
-        CategorieImport.Alimentaire => 0.80,         // DD ~5-20%
-        CategorieImport.Electronique => 0.50,        // DD ~5-10%
-        CategorieImport.Vehicule => 1.20,            // DD ~10-20%
-        CategorieImport.BienConsommation => 1.00,    // DD taux normal
-        CategorieImport.MatierePremiere => 0.30,     // DD réduit
+        ECategorieImport.Carburant => 0.0,           // DD 0% sur le carburant
+        ECategorieImport.Alimentaire => 0.80,         // DD ~5-20%
+        ECategorieImport.Electronique => 0.50,        // DD ~5-10%
+        ECategorieImport.Vehicule => 1.20,            // DD ~10-20%
+        ECategorieImport.BienConsommation => 1.00,    // DD taux normal
+        ECategorieImport.MatierePremiere => 0.30,     // DD réduit
         _ => 1.00
     };
 
     /// <summary>
     /// Coefficient multiplicateur des accises selon la catégorie.
     /// </summary>
-    private double CoefficientAcciseParCategorie() => Categorie switch
+    public double CoefficientAcciseParCategorie() => Categorie switch
     {
-        CategorieImport.Carburant => 3.00,           // Accise très élevée (30-60%)
-        CategorieImport.Alimentaire => 0.25,         // Accise faible (0-5%)
-        CategorieImport.Electronique => 0.00,        // Pas d'accise
-        CategorieImport.Vehicule => 0.75,            // Accise moyenne (5-15%)
-        CategorieImport.BienConsommation => 0.50,    // Accise modérée
-        CategorieImport.MatierePremiere => 0.00,     // Pas d'accise
+        ECategorieImport.Carburant => 3.00,           // Accise très élevée (30-60%)
+        ECategorieImport.Alimentaire => 0.25,         // Accise faible (0-5%)
+        ECategorieImport.Electronique => 0.00,        // Pas d'accise
+        ECategorieImport.Vehicule => 0.75,            // Accise moyenne (5-15%)
+        ECategorieImport.BienConsommation => 0.50,    // Accise modérée
+        ECategorieImport.MatierePremiere => 0.00,     // Pas d'accise
         _ => 0.50
     };
-}
-
-/// <summary>
-/// Catégories d'importation avec profils fiscaux différents.
-/// Calibré sur les statistiques douanières de Madagascar.
-/// </summary>
-public enum CategorieImport
-{
-    /// <summary>Carburant, pétrole, gaz (~25% des imports)</summary>
-    Carburant,
-    /// <summary>Riz, huile, blé, produits alimentaires (~20%)</summary>
-    Alimentaire,
-    /// <summary>Machines, électronique, téléphones (~15%)</summary>
-    Electronique,
-    /// <summary>Véhicules, pièces auto (~10%)</summary>
-    Vehicule,
-    /// <summary>Biens de consommation courante (~22%)</summary>
-    BienConsommation,
-    /// <summary>Matières premières industrielles (~8%)</summary>
-    MatierePremiere
-}
-
-/// <summary>
-/// Résultat journalier d'un importateur (hérite du résultat entreprise + données douanières).
-/// </summary>
-public class DailyImporterResult : DailyCompanyResult
-{
-    public double ValeurCIF { get; set; }
-    public double DroitsDouane { get; set; }
-    public double Accise { get; set; }
-    public double TVAImport { get; set; }
-    public double RedevanceStatistique { get; set; }
-    public double CoutTotalImport { get; set; }
-    public double ReventeImport { get; set; }
-
-    /// <summary>Total recettes douanières générées par cet importateur ce jour</summary>
-    public double RecettesDouanieres => DroitsDouane + Accise + TVAImport + RedevanceStatistique;
 }

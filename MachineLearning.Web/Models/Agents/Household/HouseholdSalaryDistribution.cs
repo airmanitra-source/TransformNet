@@ -1,4 +1,4 @@
-namespace MachineLearning.Web.Models.Simulation.Household;
+namespace MachineLearning.Web.Models.Agents.Household;
 
 /// <summary>
 /// Modèle de distribution salariale log-normale calibré pour Madagascar.
@@ -15,7 +15,7 @@ namespace MachineLearning.Web.Models.Simulation.Household;
 ///   Q4 (60-80%) : 250 000 – 450 000   (formel qualifié, techniciens)
 ///   Q5 (80-100%): 450 000 – 10 000 000 (cadres, dirigeants, professions libérales)
 /// </summary>
-public class SalaryDistribution
+public class HouseholdSalaryDistribution
 {
     /// <summary>Salaire médian mensuel en MGA (~170 000 MGA pour Madagascar)</summary>
     public double SalaireMedian { get; set; } = 170_000;
@@ -29,7 +29,7 @@ public class SalaryDistribution
     public double Sigma { get; set; } = 0.85;
 
     /// <summary>Salaire plancher (SMIG Madagascar ~200 000 MGA, mais secteur informel en-dessous)</summary>
-    public double SalairePlancher { get; set; } = 50_000;
+    public double SalairePlancher { get; set; } = 200_000;
 
     /// <summary>Salaire plafond réaliste (top dirigeants, PDG grandes entreprises)</summary>
     public double SalairePlafond { get; set; } = 10_000_000;
@@ -260,59 +260,4 @@ public class SalaryDistribution
         }
         return giniNumerator / (n * sum);
     }
-}
-
-/// <summary>
-/// Classes socio-économiques pour Madagascar.
-/// </summary>
-public enum ClasseSocioEconomique
-{
-    /// <summary>Agriculture de subsistance, journaliers (~Q1)</summary>
-    Subsistance,
-    /// <summary>Secteur informel bas, petit commerce (~Q2)</summary>
-    InformelBas,
-    /// <summary>Secteur formel bas, ouvriers, SMIG (~Q3)</summary>
-    FormelBas,
-    /// <summary>Secteur formel qualifié, techniciens (~Q4)</summary>
-    FormelQualifie,
-    /// <summary>Cadres, dirigeants, professions libérales (~Q5)</summary>
-    Cadre
-}
-
-/// <summary>
-/// Comportement économique d'un ménage déterminé par sa classe socio-économique.
-/// </summary>
-public class HouseholdBehavior
-{
-    public double TauxEpargne { get; set; }
-    public double PropensionConsommation { get; set; }
-    public double DepensesAlimentairesJour { get; set; }
-    public double DepensesDiversJour { get; set; }
-    public double EpargneInitiale { get; set; }
-    public double ProbabiliteEmploi { get; set; }
-    /// <summary>Mode de transport attribué selon la classe socio-économique</summary>
-    public ModeTransport Transport { get; set; } = ModeTransport.TransportPublic;
-    /// <summary>Distance domicile-travail en km</summary>
-    public double DistanceDomicileTravailKm { get; set; } = 10;
-}
-
-/// <summary>
-/// Statistiques descriptives d'une distribution de salaires.
-/// </summary>
-public class DistributionStats
-{
-    public double Moyenne { get; set; }
-    public double Mediane { get; set; }
-    public double Min { get; set; }
-    public double Max { get; set; }
-    public double EcartType { get; set; }
-    public double Gini { get; set; }
-    public double RatioD9D1 { get; set; }
-
-    // Moyennes par quintile
-    public double Q1Moyenne { get; set; }
-    public double Q2Moyenne { get; set; }
-    public double Q3Moyenne { get; set; }
-    public double Q4Moyenne { get; set; }
-    public double Q5Moyenne { get; set; }
 }

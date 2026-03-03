@@ -1,7 +1,7 @@
-using MachineLearning.Web.Models.Simulation.Companies;
-using MachineLearning.Web.Models.Simulation.Household;
+using MachineLearning.Web.Models.Agents.Companies;
+using MachineLearning.Web.Models.Agents.Household;
 
-namespace MachineLearning.Web.Models.Simulation.Government;
+namespace MachineLearning.Web.Models.Agents.Government;
 
 /// <summary>
 /// Représente l'État malgache dans la simulation économique.
@@ -63,8 +63,20 @@ public class Government
     /// <summary>Total des recettes fiscales (tout compris)</summary>
     public double TotalRecettesFiscales => TotalRecettesIR + TotalRecettesIS + TotalRecettesTVA + TotalRecettesDouanieres;
 
+    /// <summary>Total de l'aide internationale reçue</summary>
+    public double TotalAideInternationale { get; set; }
+
+    /// <summary>Total des subventions versées à la JIRAMA</summary>
+    public double TotalSubventionsJirama { get; set; }
+
+    /// <summary>Total des cotisations CNaPS collectées</summary>
+    public double TotalCotisationsCNaPS { get; set; }
+
     /// <summary>Dépenses publiques cumulées</summary>
     public double TotalDepensesPubliques { get; set; }
+
+    /// <summary>Masse salariale des fonctionnaires cumulée</summary>
+    public double TotalSalairesFonctionnaires { get; set; }
 
     /// <summary>Budget journalier de dépenses publiques (infrastructure, fonctionnaires, etc.) en MGA</summary>
     public double DepensesPubliquesJour { get; set; } = 500_000;
@@ -74,6 +86,9 @@ public class Government
 
     /// <summary>Solde budgétaire (recettes - dépenses)</summary>
     public double SoldeBudgetaire { get; set; }
+
+    /// <summary>Total des dépenses d'électricité JIRAMA de l'État (éclairage public + bâtiments)</summary>
+    public double TotalDepensesElectricite { get; set; }
 
     /// <summary>Dette publique cumulée</summary>
     public double DettePublique { get; set; } = 10_000_000;
@@ -131,9 +146,17 @@ public class Government
     /// </summary>
     public DailyGovernmentResult SimulerJournee(
         List<DailyHouseholdResult> resultsMenages,
-        List<DailyCompanyResult> resultsEntreprises,
+        List<CompanyDailyResult> resultsEntreprises,
         List<DailyImporterResult> resultsImportateurs,
-        List<DailyExporterResult> resultsExportateurs)
+        List<DailyExporterResult> resultsExportateurs,
+        Jirama? jirama = null,
+        double consoElecEtatKWhJour = 0,
+        double aideInternationaleJour = 0,
+        double subventionJiramaJour = 0,
+        int nbFonctionnaires = 0,
+        double salaireMoyenFonctionnaireMensuel = 0,
+        double tauxReinvestissementPrive = 0,
+        double partInvestissementPublic = 0)
     {
         var result = new DailyGovernmentResult();
 
@@ -153,6 +176,12 @@ public class Government
         double tvaCollectee = resultsEntreprises.Sum(r => r.TVACollectee)
                             + resultsImportateurs.Sum(r => r.TVACollectee)
                             + resultsExportateurs.Sum(r => r.TVACollectee);
+
+        // 3b. TVA JIRAMA (reversement de la TVA collectée sur factures eau + électricité)
+        double tvaJirama = jirama?.TVACollecteeJour ?? 0;
+        tvaCollectee += tvaJirama;
+        result.TVAJirama = tvaJirama;
+
         TotalRecettesTVA += tvaCollectee;
         result.RecettesTVA = tvaCollectee;
 
@@ -183,20 +212,78 @@ public class Government
         result.ExportationsFOB = resultsExportateurs.Sum(r => r.ValeurFOB);
         result.BalanceCommerciale = result.ExportationsFOB - result.ImportationsCIF;
 
-        // 7. Recettes totales du jour
+        // 7. Recettes totales du jour (fiscales + aide internationale)
         double recettesJour = irCollecte + isCollecte + tvaCollectee + result.RecettesDouanieres;
+
+        // 7b. Aide internationale
+        TotalAideInternationale += aideInternationaleJour;
+        result.AideInternationale = aideInternationaleJour;
+        recettesJour += aideInternationaleJour;
+
+        // 7c. Cotisations CNaPS collectées (toutes entreprises formelles)
+        double cotisationsCNaPS = resultsEntreprises.Sum(r => r.CotisationsCNaPS)
+                                + resultsImportateurs.Sum(r => r.CotisationsCNaPS)
+                                + resultsExportateurs.Sum(r => r.CotisationsCNaPS);
+        TotalCotisationsCNaPS += cotisationsCNaPS;
+        result.CotisationsCNaPS = cotisationsCNaPS;
+        recettesJour += cotisationsCNaPS;
+
         result.RecettesTotales = recettesJour;
 
-        // 5. Dépenses publiques du jour
+        // 8. Dépenses publiques du jour
         double depenses = DepensesPubliquesJour;
+
+        // 8b. Électricité JIRAMA de l'État (éclairage public + bâtiments publics)
+        double facteurInflationJour = 1.0 + (TauxInflation / 365.0);
+        double prixKWh = jirama?.PrixElectriciteArKWh ?? 653;
+        double depensesElecEtat = consoElecEtatKWhJour * prixKWh * facteurInflationJour;
+        if (jirama != null && consoElecEtatKWhJour > 0)
+        {
+            jirama.EnregistrerPaiementEtat(depensesElecEtat, consoElecEtatKWhJour);
+        }
+        result.DepensesElectriciteEtat = depensesElecEtat;
+        TotalDepensesElectricite += depensesElecEtat;
+        depenses += depensesElecEtat;
+
+        // 8c. Subventions à la JIRAMA
+        result.SubventionsJirama = subventionJiramaJour;
+        TotalSubventionsJirama += subventionJiramaJour;
+        depenses += subventionJiramaJour;
+        if (jirama != null)
+        {
+            jirama.Tresorerie += subventionJiramaJour;
+        }
+
+        // 8d. Masse salariale des fonctionnaires
+        double salairesFonctionnairesJour = nbFonctionnaires * (salaireMoyenFonctionnaireMensuel / 30.0);
+        result.SalairesFonctionnaires = salairesFonctionnairesJour;
+        TotalSalairesFonctionnaires += salairesFonctionnairesJour;
+        depenses += salairesFonctionnairesJour;
+
         TotalDepensesPubliques += depenses;
         result.DepensesPubliques = depenses;
 
-        // 6. Transferts sociaux (redistribution)
-        double transferts = depenses * TauxRedistribution;
+        // 8e. FBCF (Formation Brute de Capital Fixe) — approche non-circulaire
+        // FBCF privée = part des bénéfices positifs réinvestie par les entreprises
+        double profitPositifTotal = resultsEntreprises.Sum(r => Math.Max(0, r.BeneficeAvantImpot))
+                                  + resultsImportateurs.Sum(r => Math.Max(0, r.BeneficeAvantImpot))
+                                  + resultsExportateurs.Sum(r => Math.Max(0, r.BeneficeAvantImpot));
+        double fbcfPrivee = profitPositifTotal * tauxReinvestissementPrive;
+
+        // FBCF publique = part des dépenses de fonctionnement consacrée à l'investissement
+        double fbcfPublique = DepensesPubliquesJour * partInvestissementPublic;
+
+        result.FBCF = fbcfPrivee + fbcfPublique;
+
+        // Consommation finale de l'État (G dans le PIB) = dépenses totales - subventions (transferts) - FBCF publique
+        // Les subventions JIRAMA sont des transferts, pas de la consommation finale
+        result.ConsommationFinaleEtat = depenses - subventionJiramaJour - fbcfPublique;
+
+        // 9. Transferts sociaux (redistribution, basée sur le budget hors électricité)
+        double transferts = DepensesPubliquesJour * TauxRedistribution;
         result.TransfertsSociaux = transferts;
 
-        // 7. Solde budgétaire
+        // 10. Solde budgétaire
         double soldeJour = recettesJour - depenses;
         SoldeBudgetaire += soldeJour;
         result.SoldeJour = soldeJour;
@@ -215,57 +302,4 @@ public class Government
 
         return result;
     }
-}
-
-public class DailyGovernmentResult
-{
-    public double RecettesIR { get; set; }
-    public double RecettesIS { get; set; }
-    public double RecettesTVA { get; set; }
-    public double RecettesTotales { get; set; }
-    public double DepensesPubliques { get; set; }
-    public double TransfertsSociaux { get; set; }
-    public double SoldeJour { get; set; }
-    public double SoldeCumule { get; set; }
-    public double DettePublique { get; set; }
-    public double InteretsDette { get; set; }
-
-    // --- Commerce extérieur ---
-    public double DroitsDouane { get; set; }
-    public double Accise { get; set; }
-    public double TVAImport { get; set; }
-    public double TaxeExport { get; set; }
-    public double RecettesDouanieres { get; set; }
-    public double ImportationsCIF { get; set; }
-    public double ExportationsFOB { get; set; }
-    public double BalanceCommerciale { get; set; }
-}
-
-/// <summary>
-/// Tranche du barème IRSA (Impôt sur les Revenus Salariaux et Assimilés) de Madagascar.
-/// Barème progressif par tranches marginales.
-/// </summary>
-public class TrancheIRSA
-{
-    /// <summary>Seuil minimum de la tranche (MGA/mois)</summary>
-    public double SeuilMin { get; set; }
-
-    /// <summary>Taux marginal de la tranche</summary>
-    public double Taux { get; set; }
-
-    /// <summary>Description de la tranche</summary>
-    public string Description { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Barème IRSA officiel de Madagascar (Code Général des Impôts).
-    /// Tranches mensuelles progressives.
-    /// </summary>
-    public static List<TrancheIRSA> BaremeMadagascar() =>
-    [
-        new() { SeuilMin = 0,       Taux = 0.00, Description = "Exonéré (≤ 350 000 MGA)" },
-        new() { SeuilMin = 350_001, Taux = 0.05, Description = "5% (350 001 – 400 000)" },
-        new() { SeuilMin = 400_001, Taux = 0.10, Description = "10% (400 001 – 500 000)" },
-        new() { SeuilMin = 500_001, Taux = 0.15, Description = "15% (500 001 – 600 000)" },
-        new() { SeuilMin = 600_001, Taux = 0.20, Description = "20% (> 600 000)" },
-    ];
 }

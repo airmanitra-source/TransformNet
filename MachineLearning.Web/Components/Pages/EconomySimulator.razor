@@ -1,5 +1,6 @@
 @page "/economie"
 @rendermode InteractiveServer
+@using MachineLearning.Web.Models.Agents.Companies
 @using MachineLearning.Web.Models.Simulation
 @inject EconomicSimulator Simulator
 @implements IDisposable
@@ -8,18 +9,6 @@
 
 <h1>🇲🇬 Simulateur Économique - Madagascar</h1>
 <p class="text-muted">Simulation macroéconomique avec 3 agents : État, Ménages, Entreprises. <strong>1 seconde = 1 jour.</strong></p>
-
-@if (_isCalibrated)
-{
-    <div class="alert alert-success d-flex align-items-center mb-3" role="alert">
-        <span class="me-2 fs-4">🔬</span>
-        <div>
-            <strong>Configuration calibrée par ML chargée !</strong>
-            Paramètres ajustés sur les données INSTAT — <em>@_config.Name</em>.
-            <button class="btn btn-sm btn-outline-success ms-2" @onclick="ResetCalibration">✕ Réinitialiser</button>
-        </div>
-    </div>
-}
 
 <div class="row mb-4">
     <div class="col-md-4">
@@ -100,6 +89,26 @@
                            @bind="_config.MargeBeneficiaireEntreprise" @bind:event="oninput" disabled="@Simulator.EnCours" />
                 </div>
 
+                <details class="mb-2">
+                    <summary class="fw-bold" style="cursor: pointer;">💰 Trésorerie initiale par secteur</summary>
+                    <div class="mt-2">
+                        <small class="text-muted d-block mb-2">Fonds de roulement initial (MGA) — fourchette ×0.5 à ×1.5 appliquée aléatoirement.</small>
+                        @foreach (var secteur in Enum.GetValues<ESecteurActivite>())
+                        {
+                            <div class="mb-1">
+                                <label class="form-label mb-0">
+                                    @GetSecteurIcon(secteur) @secteur : <strong>@FormatMGA(_config.TresorerieInitialeParSecteur.GetValueOrDefault(secteur))</strong>
+                                </label>
+                                <input type="range" class="form-range"
+                                       min="@GetTresorerieMin(secteur)" max="@GetTresorerieMax(secteur)" step="@GetTresorerieStep(secteur)"
+                                       value="@_config.TresorerieInitialeParSecteur.GetValueOrDefault(secteur)"
+                                       @oninput="(e) => SetTresorerie(secteur, e)"
+                                       disabled="@Simulator.EnCours" />
+                            </div>
+                        }
+                    </div>
+                </details>
+
                 <hr />
                 <h6>🚢 Commerce extérieur</h6>
                 <div class="mb-2">
@@ -176,6 +185,81 @@
                         <span class="badge bg-secondary">🚗 Voiture: ~@FormatMGA(_config.PrixCarburantLitre * 1.6 + 500)</span>
                     </div>
                 </div>
+
+                <hr />
+                <h6>🍚 Consommation de riz</h6>
+                <div class="mb-2">
+                    <label class="form-label">Conso. annuelle/pers : <strong>@_config.ConsommationRizAnnuelleKgParPersonne.ToString("F0") kg</strong></label>
+                    <input type="range" class="form-range" min="50" max="200" step="5"
+                           @bind="_config.ConsommationRizAnnuelleKgParPersonne" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Prix riz local : <strong>@FormatMGA(_config.PrixRizLocalKg)/kg</strong></label>
+                    <input type="range" class="form-range" min="1000" max="5000" step="100"
+                           @bind="_config.PrixRizLocalKg" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Prix riz importé : <strong>@FormatMGA(_config.PrixRizImporteKg)/kg</strong></label>
+                    <input type="range" class="form-range" min="1500" max="6000" step="100"
+                           @bind="_config.PrixRizImporteKg" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Part riz importé : <strong>@((_config.PartRizImporte * 100).ToString("F0"))%</strong></label>
+                    <input type="range" class="form-range" min="0.05" max="0.50" step="0.01"
+                           @bind="_config.PartRizImporte" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                </div>
+                <div class="p-2 border rounded bg-light">
+                    <small class="fw-bold">🍚 Coût riz estimé/ménage/jour :</small>
+                    <span class="badge bg-secondary">
+                        ~@FormatMGA((_config.ConsommationRizAnnuelleKgParPersonne / 365.0) * 4.5 * (_config.PrixRizLocalKg * (1.0 - _config.PartRizImporte) + _config.PrixRizImporteKg * _config.PartRizImporte))
+                    </span>
+                </div>
+
+                <hr />
+                <h6>💧⚡ JIRAMA (eau & électricité)</h6>
+                <div class="mb-2">
+                    <label class="form-label">Tarif eau/jour/ménage : <strong>@FormatMGA(_config.TarifEauJourMenage)</strong></label>
+                    <input type="range" class="form-range" min="100" max="2000" step="50"
+                           @bind="_config.TarifEauJourMenage" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Prix élec. : <strong>@_config.PrixElectriciteArKWh.ToString("F0") Ar/KWh</strong></label>
+                    <input type="range" class="form-range" min="400" max="1200" step="10"
+                           @bind="_config.PrixElectriciteArKWh" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                    <small class="text-muted">Source Tableau 21 : 610→653 Ar/KWh (2023-2025)</small>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Conso. élec./ménage/jour : <strong>@_config.ConsommationElecMenageKWhJour.ToString("F2") KWh</strong></label>
+                    <input type="range" class="form-range" min="0.30" max="3.00" step="0.05"
+                           @bind="_config.ConsommationElecMenageKWhJour" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                    <small class="text-muted">~30,8 KWh/mois = 1,03 KWh/jour (moy. nationale)</small>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Taux accès eau : <strong>@((_config.TauxAccesEau * 100).ToString("F0"))%</strong></label>
+                    <input type="range" class="form-range" min="0.05" max="0.80" step="0.01"
+                           @bind="_config.TauxAccesEau" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Taux accès électricité : <strong>@((_config.TauxAccesElectricite * 100).ToString("F0"))%</strong></label>
+                    <input type="range" class="form-range" min="0.05" max="0.80" step="0.01"
+                           @bind="_config.TauxAccesElectricite" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Pertes réseau : <strong>@((_config.TauxPertesDistribution * 100).ToString("F1"))%</strong></label>
+                    <input type="range" class="form-range" min="0.05" max="0.50" step="0.01"
+                           @bind="_config.TauxPertesDistribution" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                    <small class="text-muted">Norme internat. 8-12%, JIRAMA ~28,9%</small>
+                </div>
+                <div class="p-2 border rounded bg-light">
+                    <small class="fw-bold">💡 JIRAMA — Factures mensuelles estimées :</small>
+                    <div class="d-flex flex-wrap gap-1 mt-1">
+                        <span class="badge bg-info text-dark">💧 Eau: ~@FormatMGA(_config.TarifEauJourMenage * 30)/mois</span>
+                        <span class="badge bg-warning text-dark">⚡ Élec: ~@FormatMGA(_config.ConsommationElecMenageKWhJour * _config.PrixElectriciteArKWh * 30)/mois</span>
+                    </div>
+                    <div class="mt-1">
+                        <small class="text-muted">🔋 Part hydraulique : @((_config.PartProductionHydraulique * 100).ToString("F0"))% | Thermique : @(((1 - _config.PartProductionHydraulique) * 100).ToString("F0"))%</small>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -237,9 +321,9 @@
                 <div class="col-md-3">
                     <div class="card text-center border-warning kpi-card">
                         <div class="card-body">
-                            <h6 class="card-title text-muted">📊 PIB proxy</h6>
-                            <h4 class="text-warning">@FormatMGA(last.PIBProxy)</h4>
-                            <small>/jour</small>
+                            <h6 class="card-title text-muted">📊 PIB par revenus</h6>
+                            <h4 class="text-warning">@FormatMGA(last.PIBParRevenus)</h4>
+                            <small>Salaires + Profits + Impôts</small>
                         </div>
                     </div>
                 </div>
@@ -254,7 +338,80 @@
                 </div>
             </div>
 
-            <!-- Distribution salariale & inégalités -->
+            <!-- 3 estimations du PIB pour validation croisée -->
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <div class="card border-warning">
+                        <div class="card-header bg-warning text-dark">
+                            <strong>📊 PIB - Validation croisée des 3 méthodes de calcul</strong>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-md-4">
+                                    <div class="p-3 border rounded bg-light">
+                                        <small class="text-muted">1️⃣ PIB par la demande</small><br />
+                                        <strong class="fs-4 text-primary">@FormatMGA(last.PIBProxy)</strong>
+                                        <br /><small class="text-muted">C + I(FBCF+ΔS) + G + (X - M)</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="p-3 border rounded bg-light">
+                                        <small class="text-muted">2️⃣ PIB par la valeur ajoutée</small><br />
+                                        <strong class="fs-4 text-success">@FormatMGA(last.PIBParValeurAjoutee)</strong>
+                                        <br /><small class="text-muted">Σ(VA entreprises + JIRAMA + Admin + Loyers)</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="p-3 border rounded bg-light">
+                                        <small class="text-muted">3️⃣ PIB par les revenus</small><br />
+                                        <strong class="fs-4 text-warning">@FormatMGA(last.PIBParRevenus)</strong>
+                                        <br /><small class="text-muted">Salaires + EBE + Impôts prod.</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <hr class="my-2" />
+                            <div class="text-center">
+                                <small class="text-muted">
+                                    💡 En théorie, les 3 méthodes devraient converger vers la même valeur.
+                                    Écarts: 
+                                    <strong>Demande ↔ VA: @CalculerEcart(last.PIBProxy, last.PIBParValeurAjoutee)%</strong> | 
+                                    <strong>VA ↔ Revenus: @CalculerEcart(last.PIBParValeurAjoutee, last.PIBParRevenus)%</strong>
+                                </small>
+                            </div>
+                            <hr class="my-2" />
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <small class="text-muted"><strong>Demande :</strong></small><br />
+                                    <small>C ménages : @FormatMGA(last.ConsommationTotaleMenages)</small><br />
+                                    <small>FBCF : @FormatMGA(last.FBCF)</small><br />
+                                    <small>ΔStocks : @FormatMGA(last.VariationStocksImportateurs)</small><br />
+                                    <small>G (conso. État) : @FormatMGA(last.DepensesPubliques - last.SubventionsJirama)</small><br />
+                                    <small>X - M : @FormatMGA(last.BalanceCommerciale)</small><br />
+                                    <small>Loyers imputés : @FormatMGA(last.LoyersImputesTotaux)</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <small class="text-muted"><strong>Valeur ajoutée :</strong></small><br />
+                                    <small>VA entreprises : @FormatMGA(last.ChiffreAffairesTotalEntreprises - last.VentesB2BTotales)</small><br />
+                                    <small>VA JIRAMA : @FormatMGA(last.ValeurAjouteeJirama)</small><br />
+                                    <small>VA Admin publique : @FormatMGA(last.ValeurAjouteeAdminPublique)</small><br />
+                                    <small>Loyers imputés : @FormatMGA(last.LoyersImputesTotaux)</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <small class="text-muted"><strong>Revenus :</strong></small><br />
+                                    <small>Salaires entreprises : @FormatMGA(last.ChargesSalarialesTotalesEntreprises)</small><br />
+                                    <small>CNaPS patronales : @FormatMGA(last.CotisationsCNaPSPatronalesTotales)</small><br />
+                                    <small>Sal. fonctionnaires : @FormatMGA(last.SalairesFonctionnaires)</small><br />
+                                    <small>EBE (profits) : @FormatMGA(last.ExcedentBrutExploitation)</small><br />
+                                    <small>Impôts production : @FormatMGA(last.RecettesTVA + last.RecettesDouanieres)</small><br />
+                                    <small>Loyers imputés : @FormatMGA(last.LoyersImputesTotaux)</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Commerce extérieur -->
             <div class="row mb-3">
                 <div class="col-md-4">
                     <div class="card text-center border-primary kpi-card">
@@ -280,6 +437,46 @@
                             <h6 class="card-title text-muted">⚖️ Balance commerciale</h6>
                             <h4 class="@(last.BalanceCommerciale >= 0 ? "text-success" : "text-danger")">@FormatMGA(last.BalanceCommerciale)</h4>
                             <small>Douanes: @FormatMGA(last.RecettesDouanieres)/j</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Riz & JIRAMA -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <div class="card text-center border-warning kpi-card">
+                        <div class="card-body">
+                            <h6 class="card-title text-muted">🍚 Dépenses riz/j</h6>
+                            <h4 class="text-warning">@FormatMGA(last.DepensesRizTotales)</h4>
+                            <small>Tous ménages confondus</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center border-info kpi-card">
+                        <div class="card-body">
+                            <h6 class="card-title text-muted">💧⚡ JIRAMA recettes/j</h6>
+                            <h4 class="text-info">@FormatMGA(last.RecettesTotalesJirama)</h4>
+                            <small>Eau: @FormatMGA(last.RecettesEauJirama) | Élec: @FormatMGA(last.RecettesElectriciteJirama)</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center border-secondary kpi-card">
+                        <div class="card-body">
+                            <h6 class="card-title text-muted">⚡ Conso. élec. ménages</h6>
+                            <h4 class="text-secondary">@last.ConsommationMenagesKWh.ToString("N0") KWh</h4>
+                            <small>Prod. estimée: @last.ProductionElecKWh.ToString("N0") KWh</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center border-primary kpi-card">
+                        <div class="card-body">
+                            <h6 class="card-title text-muted">🔌 Abonnés & facture</h6>
+                            <h4 class="text-primary">@FormatMGA(last.FactureElecMoyenneParMenage)/j</h4>
+                            <small>💧 @last.NbAbonnesEau.ToString("N0") | ⚡ @last.NbAbonnesElectricite.ToString("N0") abonnés</small>
                         </div>
                     </div>
                 </div>
@@ -357,6 +554,61 @@
                                 <span class="badge bg-secondary">Form.bas @last.NbFormelBas</span>
                                 <span class="badge bg-secondary">Qualifié @last.NbFormelQualifie</span>
                                 <span class="badge bg-secondary">Cadre @last.NbCadre</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Validation cohérence CA par secteur -->
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <div class="card border-primary">
+                        <div class="card-header bg-primary text-white">
+                            ✅ Validation : Cohérence CA par employé et secteur
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center mb-3">
+                                <div class="col-md-3">
+                                    <small class="text-muted">Entreprises assujetties TVA</small><br />
+                                    <strong class="fs-5 text-success">@last.NbEntreprisesAssujettiesTVA</strong>
+                                    <br /><small class="text-muted">(CA > 400M MGA/an)</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <small class="text-muted">Cohérence globale</small><br />
+                                    <strong class="fs-5 @(last.PourcentageCoherenceCA >= 70 ? "text-success" : "text-warning")">
+                                        @last.PourcentageCoherenceCA.ToString("F1")%
+                                    </strong>
+                                    <br /><small class="text-muted">(ratio 0.5-2.0)</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <small class="text-muted">CA moyen/employé/jour</small><br />
+                                    <strong class="fs-5">@FormatMGA(last.CAMoyenParEmploye)</strong>
+                                </div>
+                            </div>
+                            <hr />
+                            <div class="row text-center">
+                                <div class="col-md-4">
+                                    <div class="p-2 border rounded">
+                                        <small class="fw-bold text-primary">🧵 Textile Export</small><br />
+                                        <strong>@FormatMGA(last.CAMoyenParEmployeTextile)</strong>/j
+                                        <br /><small class="text-muted">Attendu: 27-55k MGA</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="p-2 border rounded">
+                                        <small class="fw-bold text-success">🏪 Commerce/Services</small><br />
+                                        <strong>@FormatMGA(last.CAMoyenParEmployeCommerce)</strong>/j
+                                        <br /><small class="text-muted">Attendu: 73-110k MGA</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="p-2 border rounded">
+                                        <small class="fw-bold text-warning">⛏️ Secteur Minier</small><br />
+                                        <strong>@FormatMGA(last.CAMoyenParEmployeMinier)</strong>/j
+                                        <br /><small class="text-muted">Attendu: 200-274k MGA</small>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -553,6 +805,26 @@
                     IRSA progressif par tranches. Commerce extérieur : importateurs (DD 0-20%, accise 0-60%, TVA import 20%)
                     et exportateurs (vanille, nickel, textile). PIB = C + I + G + (X - M).
                     Transport : public 1 200 MGA/j, moto/voiture selon carburant (~5 500 MGA/L).</p>
+                <hr />
+                <p class="mb-0"><strong>🍚 Riz :</strong> Consommation ~130 kg/pers/an (source FAO/INSTAT, 1er consommateur d'Afrique).
+                    Taille moyenne ménage ~4,5 personnes. Prix riz local ~2 400 MGA/kg, importé ~2 800 MGA/kg.
+                    Part importée ~18% (300-500 kt/an sur ~4 Mt consommées). Le coût quotidien du riz est une dépense
+                    incompressible déduite avant la consommation discrétionnaire.</p>
+                <p class="mb-0"><strong>💧⚡ JIRAMA :</strong> Monopole public (Jiro sy Rano Malagasy) — seul fournisseur d'eau et d'électricité.
+                    <em>Source : Tableau 21 JIRAMA/ORE — Évolution mensuelle production & consommation d'électricité (juil. 2023 – juin 2025).</em></p>
+                <ul class="mb-0 small">
+                    <li><strong>Production :</strong> ~986 023 MWh / semestre (jan-juin 2025). Part hydraulique ~51,6%, thermique ~48,4%.
+                        Tendance : production hydraulique -12,7% en 2025 vs 2024 (sécheresse), thermique +12,8%.</li>
+                    <li><strong>Prix moyen :</strong> 653 Ar/KWh (cumul jan-juin 2025), contre 624 Ar/KWh en 2024 (+4,7%).
+                        Historique : 610 Ar/KWh (juil. 2023) → 672 Ar/KWh (janv. 2025) → 646 Ar/KWh (mai 2025).</li>
+                    <li><strong>Consommation :</strong> 701 336 MWh / semestre. Ménages 47,4% (332 284 MWh), Industries 51,9% (363 763 MWh),
+                        Éclairage public 0,75% (5 290 MWh). Tendance ménages +0,4%, industrie -7,0%.</li>
+                    <li><strong>Par ménage connecté :</strong> ~30,8 KWh/mois (~1,03 KWh/jour). Facture moy. ~20 100 MGA/mois (~670 MGA/jour).
+                        Consommation différenciée par classe socio-éco (subsistance ×0.5 → cadre ×2.5).</li>
+                    <li><strong>Pertes de distribution :</strong> ~28,9% (norme internationale 8-12%). Reflète la vétusté du réseau.</li>
+                    <li><strong>Accès :</strong> électricité ~30% des ménages (65% urbain, 10% rural), eau ~25% (55% urbain, 10% rural).</li>
+                    <li><strong>Eau :</strong> facture moy. ~15 000 MGA/mois (~500 MGA/jour).</li>
+                </ul>
             </div>
         }
     </div>
