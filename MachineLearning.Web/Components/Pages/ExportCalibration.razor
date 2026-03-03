@@ -1,0 +1,339 @@
+@page "/calibration-exports"
+@rendermode InteractiveServer
+@using MachineLearning.Web.Models.Simulation
+@inject CalibratedConfigStore ConfigStore
+@inject NavigationManager Navigation
+
+<PageTitle>Calibration Exports — ML</PageTitle>
+
+<h1>🔬 Calibration des Exportations par Machine Learning</h1>
+<p class="text-muted">
+    Ajustement automatique des paramètres du simulateur pour coïncider avec les données INSTAT.
+    <strong>Pipeline : Génération de données → MLP surrogate → Optimisation CMA-ES.</strong>
+</p>
+
+<div class="row">
+    <!-- ══════════════ DONNÉES INSTAT ══════════════ -->
+    <div class="col-md-8">
+        <div class="card mb-3">
+            <div class="card-header bg-dark text-white">
+                <strong>📊 Tableau 32 — Exportations FOB mensuelles (millions MGA) — Source INSTAT</strong>
+            </div>
+            <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                <table class="table table-sm table-striped table-hover">
+                    <thead class="table-dark sticky-top">
+                        <tr>
+                            <th>Période</th>
+                            <th class="text-end">Total FOB</th>
+                            <th class="text-end">Biens alim.</th>
+                            <th class="text-end">Vanille</th>
+                            <th class="text-end">Crevettes</th>
+                            <th class="text-end">Café</th>
+                            <th class="text-end">Girofle</th>
+                            <th class="text-end">Prod. miniers</th>
+                            <th class="text-end">Zones franches</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var d in _donnees)
+                        {
+                            <tr class="@(_moisSelectionne == d ? "table-primary" : "")"
+                                style="cursor: pointer;"
+                                @onclick="() => SelectionnerMois(d)">
+                                <td><strong>@d.Periode</strong></td>
+                                <td class="text-end fw-bold">@Fmt(d.TotalFOB)</td>
+                                <td class="text-end">@Fmt(d.BiensAlimentaires)</td>
+                                <td class="text-end">@Fmt(d.Vanille)</td>
+                                <td class="text-end">@Fmt(d.Crevettes)</td>
+                                <td class="text-end">@Fmt(d.Cafe)</td>
+                                <td class="text-end">@Fmt(d.Girofle)</td>
+                                <td class="text-end">@Fmt(d.ProduitsMiniers)</td>
+                                <td class="text-end">@Fmt(d.ZonesFranches)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Variations annuelles -->
+        <div class="card mb-3">
+            <div class="card-header bg-secondary text-white">
+                📉 Variations janv–sept 2025 vs 2024
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    @foreach (var v in ExportHistoricalData.VariationsAnnuelles)
+                    {
+                        <span class="badge @(v.Value >= 0 ? "bg-success" : "bg-danger") fs-6">
+                            @v.Key : @(v.Value >= 0 ? "+" : "")@v.Value.ToString("F1")%
+                        </span>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ PANNEAU DE CALIBRATION ══════════════ -->
+    <div class="col-md-4">
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">
+                <strong>🎯 Calibration ML</strong>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Mois cible</label>
+                    <p class="text-info fw-bold">
+                        @(_moisSelectionne?.Periode ?? "Cliquez sur un mois dans le tableau")
+                    </p>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Nb simulations (dataset) : <strong>@_nbSimulations</strong></label>
+                    <input type="range" class="form-range" min="50" max="1000" step="50"
+                           @bind="_nbSimulations" @bind:event="oninput" disabled="@_enCours" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Epochs (entraînement) : <strong>@_epochs</strong></label>
+                    <input type="range" class="form-range" min="50" max="500" step="50"
+                           @bind="_epochs" @bind:event="oninput" disabled="@_enCours" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Hidden dim (MLP) : <strong>@_hiddenDim</strong></label>
+                    <input type="range" class="form-range" min="16" max="128" step="16"
+                           @bind="_hiddenDim" @bind:event="oninput" disabled="@_enCours" />
+                </div>
+
+                <button class="btn btn-success btn-lg w-100"
+                        @onclick="LancerCalibration"
+                        disabled="@(_enCours || _moisSelectionne == null)">
+                    @if (_enCours)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        <span>@_calibrateur.Progress.Phase — @(_calibrateur.Progress.Pourcentage.ToString("F0"))%</span>
+                    }
+                    else
+                    {
+                        <text>🚀 Lancer la calibration</text>
+                    }
+                </button>
+
+                @if (_enCours)
+                {
+                    <div class="progress mt-2" style="height: 20px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated"
+                             style="width: @_calibrateur.Progress.Pourcentage%">
+                            @_calibrateur.Progress.Current / @_calibrateur.Progress.Total
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @if (_trainingResult != null)
+        {
+            <div class="card mb-3">
+                <div class="card-header bg-info text-white">
+                    📈 Résultat entraînement MLP
+                </div>
+                <div class="card-body">
+                    <p>Échantillons : <strong>@_trainingResult.NbEchantillons</strong></p>
+                    <p>Best test loss : <strong>@_trainingResult.BestTestLoss.ToString("F6")</strong></p>
+                    <table class="table table-sm">
+                        <thead><tr><th>Epoch</th><th>Train</th><th>Test</th></tr></thead>
+                        <tbody>
+                            @foreach (var l in _trainingResult.HistoriqueLoss.TakeLast(8))
+                            {
+                                <tr>
+                                    <td>@l.Epoch</td>
+                                    <td>@l.TrainLoss.ToString("F4")</td>
+                                    <td>@l.TestLoss.ToString("F4")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- ══════════════ RÉSULTATS DE CALIBRATION ══════════════ -->
+@if (_calibResult != null)
+{
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-3 border-success">
+                <div class="card-header bg-success text-white">
+                    ✅ Paramètres optimaux — MAPE : @_calibResult.MAPE.ToString("F1")%
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <thead class="table-dark"><tr><th>Paramètre</th><th>Valeur optimale</th><th>Défaut</th></tr></thead>
+                        <tbody>
+                            @foreach (var p in ExportCalibrator.Parametres)
+                            {
+                                double optimal = _calibResult.ParametresOptimaux.GetValueOrDefault(p.Nom, p.Default);
+                                <tr>
+                                    <td>@p.Nom</td>
+                                    <td class="fw-bold text-success">@FormatParam(p.Nom, optimal)</td>
+                                    <td class="text-muted">@FormatParam(p.Nom, p.Default)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-3 border-warning">
+                <div class="card-header bg-warning">
+                    📊 Cible INSTAT vs Prédiction Surrogate vs Validation Sim (millions MGA/mois)
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Catégorie</th>
+                                <th>INSTAT</th>
+                                <th>Surrogate</th>
+                                <th>Écart</th>
+                                <th>Validation sim</th>
+                                <th>Écart val.</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{
+                                var cible = _calibResult.Cible;
+                                double[] cibles = [cible.BiensAlimentaires, cible.Vanille, cible.Crevettes,
+                                    cible.Cafe, cible.Girofle, cible.ProduitsMiniers, cible.ZonesFranches];
+
+                                for (int i = 0; i < 7; i++)
+                                {
+                                    double pred = _calibResult.PredictionFOB[i];
+                                    double ecart = cibles[i] > 1 ? (pred - cibles[i]) / cibles[i] * 100 : 0;
+                                    double valid = _calibResult.ValidationFOB.Length > i ? _calibResult.ValidationFOB[i] : 0;
+                                    double ecartVal = cibles[i] > 1 ? (valid - cibles[i]) / cibles[i] * 100 : 0;
+                                    <tr>
+                                        <td>@_calibResult.NomsCategories[i]</td>
+                                        <td>@Fmt(cibles[i])</td>
+                                        <td class="fw-bold">@Fmt(pred)</td>
+                                        <td class="@(Math.Abs(ecart) < 30 ? "text-success" : "text-danger")">
+                                            @(ecart >= 0 ? "+" : "")@ecart.ToString("F1")%
+                                        </td>
+                                        <td class="fw-bold text-primary">@Fmt(valid)</td>
+                                        <td class="@(Math.Abs(ecartVal) < 30 ? "text-success" : "text-danger")">
+                                            @(ecartVal >= 0 ? "+" : "")@ecartVal.ToString("F1")%
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                    <small class="text-muted">
+                        Surrogate = prédiction du MLP. Validation = simulation réelle avec params calibrés.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3 border-primary">
+        <div class="card-header bg-primary text-white">
+            🏭 Configuration calibrée prête à utiliser dans le simulateur
+        </div>
+        <div class="card-body">
+            <pre class="bg-light p-3 rounded"><code>var config = new ScenarioConfig
+{
+    Name = "@_calibResult.ConfigCalibree.Name",
+    TauxExportateurs = @_calibResult.ConfigCalibree.TauxExportateurs.ToString("F4"),
+    TauxTaxeExport = @_calibResult.ConfigCalibree.TauxTaxeExport.ToString("F4"),
+    NombreEntreprises = @_calibResult.ConfigCalibree.NombreEntreprises,
+    TauxInflation = @_calibResult.ConfigCalibree.TauxInflation.ToString("F4"),
+};</code></pre>
+            <button class="btn btn-primary btn-lg" @onclick="AppliquerDansSimulateur">
+                🚀 Lancer le simulateur avec ces paramètres
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ExportHistoricalData> _donnees = ExportHistoricalData.DonneesINSTAT();
+    private ExportHistoricalData? _moisSelectionne;
+    private ExportCalibrator _calibrateur = new();
+    private SurrogateTrainingResult? _trainingResult;
+    private ExportCalibrationResult? _calibResult;
+    private bool _enCours;
+
+    private int _nbSimulations = 300;
+    private int _epochs = 200;
+    private int _hiddenDim = 64;
+
+    protected override void OnInitialized()
+    {
+        _moisSelectionne = _donnees.LastOrDefault();
+    }
+
+    private void SelectionnerMois(ExportHistoricalData mois)
+    {
+        _moisSelectionne = mois;
+    }
+
+    private async Task LancerCalibration()
+    {
+        if (_moisSelectionne == null || _enCours) return;
+        _enCours = true;
+        _calibResult = null;
+        _trainingResult = null;
+        StateHasChanged();
+
+        await Task.Run(() =>
+        {
+            _calibrateur = new ExportCalibrator();
+
+            // Phase 1 : Génération du dataset (simulations réelles)
+            var dataset = _calibrateur.GenererDataset(_nbSimulations);
+            InvokeAsync(StateHasChanged);
+
+            // Phase 2 : Entraînement du surrogate MLP
+            _trainingResult = _calibrateur.EntrainerSurrogate(dataset, _hiddenDim, _epochs);
+            InvokeAsync(StateHasChanged);
+
+            // Phase 3 : Calibration CMA-ES (MAPE)
+            _calibResult = _calibrateur.Calibrer(_moisSelectionne);
+            InvokeAsync(StateHasChanged);
+
+            // Phase 4 : Validation par re-simulation réelle
+            _calibResult.ValidationFOB = _calibrateur.ValiderParSimulation(_calibResult);
+        });
+
+        _enCours = false;
+        StateHasChanged();
+    }
+
+    private static string Fmt(double valeur) => valeur.ToString("N0");
+
+    private static string FormatParam(string nom, double valeur)
+    {
+        if (nom.Contains("Taux") || nom.Contains("Marge"))
+            return $"{(valeur * 100):F2}%";
+        if (nom.StartsWith("FOB"))
+            return $"{valeur:N0} M/j";
+        return valeur.ToString("N0");
+    }
+
+    private void AppliquerDansSimulateur()
+    {
+        if (_calibResult == null) return;
+
+        // Stocker la config calibrée dans le service singleton
+        ConfigStore.Store(_calibResult.ConfigCalibree);
+
+        // Naviguer vers le simulateur
+        Navigation.NavigateTo("/economie", forceLoad: true);
+    }
+}

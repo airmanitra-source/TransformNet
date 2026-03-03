@@ -1,5 +1,7 @@
 using MachineLearning.Web;
 using MachineLearning.Web.Components;
+using MachineLearning.Web.Models.Simulation;
+using MachineLearning.Web.Models.Simulation.Config;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,15 +12,18 @@ builder.AddServiceDefaults();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddOutputCache();
+builder.Services.AddScoped<EconomicSimulator>();
+builder.Services.AddSingleton<CalibratedConfigStore>();
 
+builder.Services.AddOutputCache();
+/*
 builder.Services.AddHttpClient<WeatherApiClient>(client =>
     {
         // This URL uses "https+http://" to indicate HTTPS is preferred over HTTP.
         // Learn more about service discovery scheme resolution at https://aka.ms/dotnet/sdschemes.
         client.BaseAddress = new("https+http://apiservice");
     });
-
+*/
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())

@@ -10,4 +10,8 @@
     <ProjectReference Include="..\MachineLearning.ServiceDefaults\MachineLearning.ServiceDefaults.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Models\Simulation\Models\" />
+  </ItemGroup>
+
 </Project>
