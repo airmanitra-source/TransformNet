@@ -26,6 +26,7 @@ public partial class DocumentationCalibration
         new(7, "Loyers imputés (SCN 2008)", "+5-8% PIB", "~1 200 Mds MGA/an", "SCN 2008", "bg-warning text-dark"),
         new(8, "FBCF (investissement réel)", "Corrige PIB demande", "~18% du PIB", "Banque Mondiale", "bg-info"),
         new(9, "Salaires fonctionnaires + JIRAMA", "Corrige PIB revenus", "~200 000 agents", "Min. Finances", "bg-info"),
+        new(10, "Lien emploi ménage ↔ entreprise", "Cohérence micro/macro salaires", "1 chef de ménage employé = 1 employeur simulé", "Hypothèse modèle", "bg-primary"),
     ];
 
     private static readonly FormulaItem[] FormulesPIB =

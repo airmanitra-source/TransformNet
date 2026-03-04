@@ -1,4 +1,4 @@
-using MachineLearning.Web.Models.Agents.Companies;
+﻿using MachineLearning.Web.Models.Agents.Companies;
 using MachineLearning.Web.Models.Agents.Government;
 using MachineLearning.Web.Models.Agents.Household;
 using MachineLearning.Web.Models.Simulation.Config;
@@ -124,9 +124,9 @@ public class EconomicSimulator
         {
             var categorie = categoriesImport[random.Next(categoriesImport.Length)];
 
-            // Utiliser le CIF configuré par catégorie (en millions MGA → MGA brut)
+            // Utiliser le CIF configuré par catégorie (en millions MGA â†’ MGA brut, mis à l'échelle)
             double cifJourCategorie = _config.CIFJourParCategorie.GetValueOrDefault(categorie, 500);
-            double cifJourMGA = cifJourCategorie * 1_000_000 * (0.8 + random.NextDouble() * 0.4);
+            double cifJourMGA = cifJourCategorie * 1_000_000 * _facteurEchelle * (0.8 + random.NextDouble() * 0.4);
 
             var imp = new Importer
             {
@@ -145,7 +145,7 @@ public class EconomicSimulator
             _importateurs.Add(imp);
         }
 
-        // Exportateurs — distribués par catégorie selon la config
+        // Exportateurs â€” distribués par catégorie selon la config
         var repartition = _config.RepartitionExportCategories;
         double totalPoids = repartition.Values.Sum();
         int exporteurCree = 0;
@@ -175,8 +175,8 @@ public class EconomicSimulator
                     Tresorerie = Company.GetTresorerieInitialeParSecteur(secteur, _config.TresorerieInitialeParSecteur) * (0.5 + random.NextDouble()),
                     Categorie = categorie,
                     SecteurActivite = secteur,
-                    // Config en millions MGA/jour → Exporter en MGA brut/jour
-                    ValeurFOBJour = fobJourCategorie * 1_000_000 * (0.8 + random.NextDouble() * 0.4),
+                    // Config en millions MGA/jour â†’ Exporter en MGA brut/jour (mis à l'échelle)
+                    ValeurFOBJour = fobJourCategorie * 1_000_000 * _facteurEchelle * (0.8 + random.NextDouble() * 0.4),
                     PartExport = 0.50 + random.NextDouble() * 0.40
                 };
                 _exportateurs.Add(exp);
@@ -201,8 +201,8 @@ public class EconomicSimulator
                 Tresorerie = Company.GetTresorerieInitialeParSecteur(secteur, _config.TresorerieInitialeParSecteur) * (0.5 + random.NextDouble()),
                 Categorie = cat,
                 SecteurActivite = secteur,
-                // Config en millions MGA/jour → Exporter en MGA brut/jour
-                ValeurFOBJour = fobBase * 1_000_000 * (0.8 + random.NextDouble() * 0.4),
+                // Config en millions MGA/jour â†’ Exporter en MGA brut/jour (mis à l'échelle)
+                ValeurFOBJour = fobBase * 1_000_000 * _facteurEchelle * (0.8 + random.NextDouble() * 0.4),
                 PartExport = 0.50 + random.NextDouble() * 0.40
             };
             _exportateurs.Add(exp);
@@ -261,6 +261,7 @@ public class EconomicSimulator
         toutesEntreprises.AddRange(_importateurs);
         toutesEntreprises.AddRange(_exportateurs);
         int entrepriseIndex = 0;
+        var salairesParEmployeur = new Dictionary<int, List<double>>();
 
         // Pré-calculer le coût quotidien du riz par ménage (taille ménage ~4.5 personnes)
         double taillesMenage = 4.5;
@@ -284,6 +285,22 @@ public class EconomicSimulator
             // Déterminer la classe socio-économique
             var classe = _distribution.DeterminerClasse(salaire);
             var comportement = HouseholdSalaryDistribution.ComportementParClasse(classe, random);
+
+            bool estEmploye = random.NextDouble() < comportement.ProbabiliteEmploi;
+            int? employeurId = null;
+            if (estEmploye)
+            {
+                var employeur = toutesEntreprises[entrepriseIndex];
+                employeurId = employeur.Id;
+
+                if (!salairesParEmployeur.TryGetValue(employeur.Id, out var salairesEmployeur))
+                {
+                    salairesEmployeur = [];
+                    salairesParEmployeur[employeur.Id] = salairesEmployeur;
+                }
+                salairesEmployeur.Add(salaire);
+                entrepriseIndex = (entrepriseIndex + 1) % toutesEntreprises.Count;
+            }
 
             // Accès eau et électricité JIRAMA (probabilité selon config)
             bool accesEau = random.NextDouble() < _config.TauxAccesEau;
@@ -314,8 +331,8 @@ public class EconomicSimulator
                 TauxEpargne = comportement.TauxEpargne,
                 PropensionConsommation = comportement.PropensionConsommation,
                 Epargne = comportement.EpargneInitiale,
-                EstEmploye = random.NextDouble() < comportement.ProbabiliteEmploi,
-                EmployeurId = toutesEntreprises[entrepriseIndex].Id,
+                EstEmploye = estEmploye,
+                EmployeurId = employeurId,
                 DepensesAlimentairesJour = comportement.DepensesAlimentairesJour,
                 DepensesDiversJour = comportement.DepensesDiversJour,
                 Transport = comportement.Transport,
@@ -329,8 +346,19 @@ public class EconomicSimulator
                 EstProprietaire = random.NextDouble() < _config.TauxMenagesProprietaires
             };
             _menages.Add(menage);
+        }
 
-            entrepriseIndex = (entrepriseIndex + 1) % toutesEntreprises.Count;
+        foreach (var entreprise in toutesEntreprises)
+        {
+            if (salairesParEmployeur.TryGetValue(entreprise.Id, out var salairesEmployeur) && salairesEmployeur.Count > 0)
+            {
+                entreprise.NombreEmployes = salairesEmployeur.Count;
+                entreprise.SalaireMoyenMensuel = salairesEmployeur.Average();
+            }
+            else
+            {
+                entreprise.NombreEmployes = 0;
+            }
         }
 
         // Mettre à jour les compteurs JIRAMA
@@ -530,8 +558,8 @@ public class EconomicSimulator
         foreach (var menage in _menages)
         {
             // Déterminer si le ménage travaille aujourd'hui :
-            // - Jour ouvrable (lun-ven) → tout le monde travaille
-            // - Weekend → seuls les employés du commerce/agriculture travaillent
+            // - Jour ouvrable (lun-ven) â†’ tout le monde travaille
+            // - Weekend â†’ seuls les employés du commerce/agriculture travaillent
             bool estJourDeTravail = jourOuvrable;
             if (!jourOuvrable && menage.EmployeurId.HasValue)
             {
@@ -544,11 +572,11 @@ public class EconomicSimulator
             var r = menage.SimulerJournee(_etat, _config.PrixCarburantLitre, _jirama, estJourDeTravail,
                 _jourCourant, _config.CoutTransportPaiementJirama);
 
-            // Remittances (transferts diaspora) — ajoutées au revenu
+            // Remittances (transferts diaspora) â€” ajoutées au revenu
             r.Remittance = remittanceParMenage;
             menage.Epargne += remittanceParMenage;
 
-            // Loyer imputé (SCN 2008) — propriétaires occupants uniquement
+            // Loyer imputé (SCN 2008) â€” propriétaires occupants uniquement
             r.LoyerImpute = menage.EstProprietaire ? loyerImputeJour : 0;
 
             // Cotisation salariale CNaPS (1%, prélevée sur le salaire)
@@ -588,16 +616,16 @@ public class EconomicSimulator
         // Importateurs
         if (_config.UseImportCalibresDirectement && _config.CIFCalibresJour.Count > 0)
         {
-            // ══════════════════════════════════════════════════════
+            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
             // MODE INJECTION DIRECTE DES IMPORTS (INSTAT)
-            // ══════════════════════════════════════════════════════
+            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
             // On ne simule PAS l'approvisionnement import : on répartit les CIF INSTAT
             // entre les importateurs existants (au prorata de leur catégorie).
             // Les importateurs conservent leur rôle de vendeurs locaux (B2C/B2B).
             //
             // CIFCalibresJour : millions MGA/jour par catégorie (= mensuel INSTAT / 30)
             // On convertit en MGA brut puis on répartit entre les importateurs de la catégorie.
-            // ══════════════════════════════════════════════════════
+            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
             var importateursParCategorie = _importateurs
                 .GroupBy(e => e.Categorie)
@@ -605,14 +633,15 @@ public class EconomicSimulator
 
             foreach (var importateur in _importateurs)
             {
-                // CIF calibré pour la catégorie (millions MGA/jour → MGA brut)
-                double cifCalibréCategorie = _config.CIFCalibresJour
-                    .GetValueOrDefault(importateur.Categorie, 0) * 1_000_000;
+                // CIF calibré pour la catégorie (millions MGA/jour â†’ MGA brut, mis à l'échelle)
+                // Les données INSTAT sont au niveau national (~6M ménages) â†’ proportionnel au nb simulé
+                double cifCalibreCategorie = _config.CIFCalibresJour
+                    .GetValueOrDefault(importateur.Categorie, 0) * 1_000_000 * _facteurEchelle;
 
                 // Répartir entre les importateurs de la même catégorie
                 int nbDansCategorie = importateursParCategorie
                     .GetValueOrDefault(importateur.Categorie)?.Count ?? 1;
-                double cifJourImportateur = cifCalibréCategorie / nbDansCategorie;
+                double cifJourImportateur = cifCalibreCategorie / nbDansCategorie;
 
                 // Calculer les droits et taxes comme d'habitude
                 double droitsDouaneTaux = _config.TauxDroitsDouane * importateur.CoefficientDDParCategorie();
@@ -701,16 +730,16 @@ public class EconomicSimulator
         // Exportateurs
         if (_config.UseExportCalibresDirectement && _config.FOBCalibresJour.Count > 0)
         {
-            // ══════════════════════════════════════════════════════
+            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
             // MODE INJECTION DIRECTE DES EXPORTS CALIBRÉS (ML/INSTAT)
-            // ══════════════════════════════════════════════════════
+            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
             // On ne simule PAS la production export : on répartit les FOB calibrés
             // entre les exportateurs existants (au prorata de leur catégorie).
             // Les exportateurs conservent leur rôle de vendeurs locaux (B2C/B2B).
             //
             // FOBCalibresJour : millions MGA/jour par catégorie (= mensuel INSTAT / 30)
             // On convertit en MGA brut puis on répartit entre les exportateurs de la catégorie.
-            // ══════════════════════════════════════════════════════
+            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
             // Regrouper les exportateurs par catégorie
             var exportateursParCategorie = _exportateurs
@@ -719,14 +748,15 @@ public class EconomicSimulator
 
             foreach (var exportateur in _exportateurs)
             {
-                // FOB calibré pour la catégorie (millions MGA/jour → MGA brut)
-                double fobCalibréCategorie = _config.FOBCalibresJour
-                    .GetValueOrDefault(exportateur.Categorie, 0) * 1_000_000;
+                // FOB calibré pour la catégorie (millions MGA/jour â†’ MGA brut, mis à l'échelle)
+                // Les données INSTAT sont au niveau national (~6M ménages) â†’ proportionnel au nb simulé
+                double fobCalibreCategorie = _config.FOBCalibresJour
+                    .GetValueOrDefault(exportateur.Categorie, 0) * 1_000_000 * _facteurEchelle;
 
                 // Répartir entre les exportateurs de la même catégorie
                 int nbDansCategorie = exportateursParCategorie
                     .GetValueOrDefault(exportateur.Categorie)?.Count ?? 1;
-                double fobJourExportateur = fobCalibréCategorie / nbDansCategorie;
+                double fobJourExportateur = fobCalibreCategorie / nbDansCategorie;
 
                 // Calculer les taxes et devises comme d'habitude
                 double taxeTaux = _config.TauxTaxeExport;
@@ -915,33 +945,35 @@ public class EconomicSimulator
             // FBCF (Formation Brute de Capital Fixe)
             FBCF = resultEtat.FBCF,
 
-            // Variation de stocks importateurs (ΔS) :
-            // Les importateurs achètent au CIF mais ne revendent pas tout.
-            // ΔS = CIF importé - valeur revente effective. Si ΔS > 0, constitution de stocks.
-            VariationStocksImportateurs = resultsImportateurs.Sum(r => r.ReventeImport)
-                                        - resultsImportateurs.Sum(r => r.ValeurCIF),
+            // Variation de stocks (Î”S) : pas de suivi physique des inventaires dans cette simulation.
+            // L'ancienne formule (ReventeImport - CIF = marge import) double-comptait le CIF
+            // puisque la balance commerciale (X - M) le soustrait déjà.
+            VariationStocksImportateurs = 0,
 
-            // PIB par la demande = C + I (FBCF + ΔS) + G + (X - M) + Loyers imputés
+            // PIB par la demande = C + I (FBCF) + G + (X - M) + Loyers imputés
             // G = ConsommationFinaleEtat (exclut FBCF publique pour éviter le double-comptage avec FBCF)
-            // Note : ΔS absorbe l'écart entre imports CIF et consommation effective des imports
+            // (X - M) = BalanceCommerciale = FOB - CIF (déjà mis à l'échelle)
             PIBProxy = resultsMenages.Sum(r => r.Consommation)
                      + resultEtat.FBCF
-                     + (resultsImportateurs.Sum(r => r.ReventeImport)
-                        - resultsImportateurs.Sum(r => r.ValeurCIF))
                      + resultEtat.ConsommationFinaleEtat
                      + resultEtat.BalanceCommerciale
                      + resultsMenages.Sum(r => r.LoyerImpute),
 
-            // PIB par la valeur ajoutée : entreprises + JIRAMA + Administration publique + loyers imputés
+            // PIB par la valeur ajoutée (aux prix du marché) :
+            // PIB = Î£(VA aux prix de base) + Impôts sur les produits
+            // VA entreprises inclut déjà la TVA collectée (ventesTotales est TTC)
+            // Il faut ajouter : TVA JIRAMA (non incluse dans VA JIRAMA qui est HT) + Recettes douanières
             // VA Admin publique = rémunération des fonctionnaires (SCN 2008 : production non marchande = coûts)
             PIBParValeurAjoutee = tousResultsEntreprises.Sum(r => r.ValeurAjoutee)
                                + _jirama.ValeurAjouteeJour
                                + resultEtat.SalairesFonctionnaires
-                               + resultsMenages.Sum(r => r.LoyerImpute),
+                               + resultsMenages.Sum(r => r.LoyerImpute)
+                               + _jirama.TVACollecteeJour
+                               + resultEtat.RecettesDouanieres,
 
             // PIB par les revenus (approche revenu du SCN) :
             // PIB = Rémunération des salariés + EBE (Excédent Brut d'Exploitation) + Impôts sur la production - Subventions
-            // Note : IR et IS sont des impôts sur le revenu, PAS des impôts sur la production → exclus
+            // Note : IR et IS sont des impôts sur le revenu, PAS des impôts sur la production â†’ exclus
             PIBParRevenus = tousResultsEntreprises.Sum(r => r.ChargesSalariales)                    // Salaires versés par les entreprises
                           + tousResultsEntreprises.Sum(r => r.CotisationsCNaPS)                     // Cotisations patronales CNaPS
                           + resultEtat.SalairesFonctionnaires                                       // Salaires fonctionnaires (VA Admin)
@@ -1027,7 +1059,7 @@ public class EconomicSimulator
     private static int JourDeLaSemaine(int jourCourant)
     {
         // jourCourant commence à 1
-        // 1→Lun(1), 2→Mar(2), ..., 5→Ven(5), 6→Sam(6), 7→Dim(7), 8→Lun(1)...
+        // 1â†’Lun(1), 2â†’Mar(2), ..., 5â†’Ven(5), 6â†’Sam(6), 7â†’Dim(7), 8â†’Lun(1)...
         int j = ((jourCourant - 1) % 7) + 1;
         return j;
     }
@@ -1071,3 +1103,9 @@ public class EconomicSimulator
         _ => "?"
     };
 }
+
+
+
+
+
+
