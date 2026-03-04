@@ -11,6 +11,7 @@ using MachineLearning.Web.Models.Simulation.Config;
 using Government.Module;
 using Household.Module;
 using Company.Module;
+using Household.Leisure.Spending.Module;
 using Price.Module;
 
 namespace MachineLearning.Web.Models.Simulation;
@@ -21,6 +22,7 @@ public class EconomicSimulatorViewModel
     private readonly IHouseholdModule _householdModule;
     private readonly ICompanyModule _companyModule;
     private readonly IPriceModule _priceModule;
+    private readonly IHouseholdLeisureSpendingModule _householdLeisureSpendingModule;
     private readonly List<AgentHousehold> _menages = [];
     private readonly List<AgentCompany> _entreprises = [];
     private readonly List<AgentImporter> _importateurs = [];
@@ -48,12 +50,14 @@ public class EconomicSimulatorViewModel
         IGovernmentModule governmentModule,
         IHouseholdModule householdModule,
         ICompanyModule companyModule,
-        IPriceModule priceModule)
+        IPriceModule priceModule,
+        IHouseholdLeisureSpendingModule householdLeisureSpendingModule)
     {
         _governmentModule = governmentModule;
         _householdModule  = householdModule;
         _companyModule    = companyModule;
         _priceModule      = priceModule;
+        _householdLeisureSpendingModule = householdLeisureSpendingModule;
     }
 
     /// <summary>
@@ -264,12 +268,7 @@ public class EconomicSimulatorViewModel
                 _entreprisesTourisme.Add(entreprise);
         }
 
-        // Créer les ménages avec distribution salariale log-normale
-        string[] prenomsHommes = ["Rakoto", "Andry", "Hery", "Jean", "Faly", "Toky", "Rado", "Naina"];
-        string[] prenomsFemmes = ["Ravo", "Voahirana", "Nirina", "Lalao", "Fara", "Haingo", "Miora", "Soa"];
-        string[] noms = ["Razafindrabe", "Rasolofo", "Andriamahefa", "Rajaonarivelo",
-                         "Ratsimba", "Raharison", "Ramanantsoa", "Rabearivelo"];
-
+        
         var salairesGeneres = new double[_config.NombreMenages];
         // Toutes les entreprises (normales + import + export) pour l'affectation des ménages
         var toutesEntreprises = new List<AgentCompany>();
@@ -296,7 +295,6 @@ public class EconomicSimulatorViewModel
         for (int i = 0; i < _config.NombreMenages; i++)
         {
             bool estHomme = random.NextDouble() > 0.5;
-            var prenoms = estHomme ? prenomsHommes : prenomsFemmes;
 
             // Déterminer si ce ménage sera fonctionnaire
             // Les fonctionnaires sont affectés en premier, avec le salaire TOFE
@@ -360,7 +358,6 @@ public class EconomicSimulatorViewModel
 
             var menage = new AgentHousehold
             {
-                Name = $"{prenoms[random.Next(prenoms.Length)]} {noms[random.Next(noms.Length)]}",
                 SalaireMensuel = salaire,
                 Classe = classe,
                 TauxEpargne = comportement.TauxEpargne,
@@ -686,7 +683,7 @@ public class EconomicSimulatorViewModel
                 ? _entreprisesTourisme[_random.Next(_entreprisesTourisme.Count)]
                 : null;
 
-            var loisirs = _householdModule.CalculerDepensesLoisirs(
+            var loisirs = _householdLeisureSpendingModule.CalculerDepensesLoisirs(
                 classe:                     menage.Classe,
                 budgetSortieWeekend:        menage.BudgetSortieWeekend,
                 budgetVacances:             menage.BudgetVacances,

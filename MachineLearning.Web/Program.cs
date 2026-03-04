@@ -1,6 +1,7 @@
 using Government.Module;
 using Company.Module;
 using Household.Module;
+using Household.Leisure.Spending.Module;
 using Household.Salary.Distribution.Module;
 using MachineLearning.Web.Components;
 using MachineLearning.Web.Models.Simulation;
@@ -19,6 +20,7 @@ builder.Services.AddScoped<IGovernmentModule, GovernmentModule>();
 builder.Services.AddScoped<ICompanyModule, CompanyModule>();
 builder.Services.AddScoped<IPriceModule, PriceModule>();
 builder.Services.AddScoped<IHouseholdModule, HouseholdModule>();
+builder.Services.AddScoped<IHouseholdLeisureSpendingModule, HouseholdLeisureSpendingModule>();
 builder.Services.AddScoped<IHouseholdSalaryDistributionModule>(sp =>
     new HouseholdSalaryDistributionModule(
         salaireMedian: 170_000,

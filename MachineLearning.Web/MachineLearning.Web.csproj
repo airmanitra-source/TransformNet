@@ -11,6 +11,7 @@
     <ProjectReference Include="..\Company.Module\Company.Module.csproj" />
     <ProjectReference Include="..\Government.Module\Government.Module.csproj" />
     <ProjectReference Include="..\Household.Module\Household.Module.csproj" />
+    <ProjectReference Include="..\Household.Leisure.Spending.Module\Household.Leisure.Spending.Module.csproj" />
     <ProjectReference Include="..\Household.Salary.Distribution.Module\Household.Salary.Distribution.Module.csproj" />
     <ProjectReference Include="..\Price.Module\Price.Module.csproj" />
   </ItemGroup>

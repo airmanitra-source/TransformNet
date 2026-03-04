@@ -31,7 +31,6 @@ public class HouseholdViewModel : IFromBusinessModel<HhModel, HouseholdViewModel
     public void FromBusinessModel(HhModel model)
     {
         Id = model.Id;
-        Name = model.Name;
         SalaireMensuel = model.SalaireMensuel;
         SalaireJournalier = model.SalaireJournalier;
         Epargne = model.Epargne;

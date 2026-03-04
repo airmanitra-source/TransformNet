@@ -13,7 +13,6 @@ public class Household
     public static void ResetIdCounter() => _nextId = 1;
 
     public int Id { get; } = _nextId++;
-    public string Name { get; set; } = string.Empty;
 
     // --- Revenus (en Ariary - MGA) ---
     /// <summary>Salaire mensuel brut (SMIG Madagascar ≈ 200 000 MGA)</summary>
