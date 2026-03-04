@@ -1,0 +1,529 @@
+@page "/doc-prix"
+@rendermode InteractiveServer
+
+<PageTitle>Documentation — Mécanismes de prix et élasticité</PageTitle>
+
+<div class="container py-4 doc-container">
+
+    <h1>💰 Mécanismes de prix et ajustements d'élasticité</h1>
+    <p class="lead text-muted">
+        Documentation des chocs de prix, transmission aux marchandises locales, et comportement d'adaptation des ménages.
+    </p>
+
+    <hr />
+
+    @* ══════════ TABLE DES MATIÈRES ══════════ *@
+    <nav class="card section-card border-secondary mb-4">
+        <div class="card-header bg-secondary text-white">📑 Table des matières</div>
+        <div class="card-body">
+            <ol class="mb-0">
+                <li><a href="#overview">Vue d'ensemble : chaîne de transmission des prix</a></li>
+                <li><a href="#elasticite-prix">Élasticité-prix des marchandises (carburant → prix locaux)</a></li>
+                <li><a href="#volatilite">Aléa de marché et volatilité</a></li>
+                <li><a href="#panier-alimentaire">Panier alimentaire et comportement du ménage</a></li>
+                <li><a href="#reduction-quantites">Réduction progressive des quantités (courbe logistique)</a></li>
+                <li><a href="#parametres">Paramètres ajustables sur l'interface</a></li>
+                <li><a href="#scenarios">Scénarios d'application</a></li>
+                <li><a href="#implementation">Détails techniques (modules et interfaces)</a></li>
+            </ol>
+        </div>
+    </nav>
+
+    @* ══════════ 1. OVERVIEW ══════════ *@
+    <div id="overview" class="card section-card border-warning mb-4">
+        <div class="card-header bg-warning text-dark">
+            <strong>⛽🏪📦 1. Vue d'ensemble : chaîne de transmission des prix</strong>
+        </div>
+        <div class="card-body">
+            <p>
+                Les <strong>chocs de prix du carburant</strong> se propagent dans l'économie par plusieurs canaux :
+            </p>
+            <div class="alert alert-light border">
+                <strong>Chaîne causale :</strong><br />
+                1️⃣ <strong>Choc carburant</strong> (gouvernement, marché international)<br />
+                2️⃣ <strong>Augmentation des coûts de transport</strong> pour entreprises<br />
+                3️⃣ <strong>Hausse des prix des marchandises locales</strong> (avec délai d'ajustement)<br />
+                4️⃣ <strong>Inflation alimentaire</strong> (panier ménages)<br />
+                5️⃣ <strong>Réduction progressive des quantités achetées</strong> (surtout pauvres)<br />
+                6️⃣ <strong>Baisse consommation</strong> → baisse PIB
+            </div>
+
+            <p class="mt-3">
+                <strong>Réalisme Madagascar :</strong> Économie très dépendante du carburant importé.
+                Une augmentation de 10% du prix du carburant entraîne ~2-7% d'inflation locale (selon élasticité calibrée).
+            </p>
+
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <div class="card border-info">
+                        <div class="card-body">
+                            <h6 class="card-title text-info">⚙️ Élasticité forte (0.7-1.0)</h6>
+                            <ul class="list-unstyled small">
+                                <li>✓ Transmission rapide carburant → prix</li>
+                                <li>✓ Secteurs informels très exposés</li>
+                                <li>✓ Impacts majeurs sur pauvres</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border-success">
+                        <div class="card-body">
+                            <h6 class="card-title text-success">⚙️ Élasticité faible (0.3-0.5)</h6>
+                            <ul class="list-unstyled small">
+                                <li>✓ Absorption chocs par commerce</li>
+                                <li>✓ Marges comprimées</li>
+                                <li>✓ Protège consommateurs court terme</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ══════════ 2. ÉLASTICITÉ-PRIX ══════════ *@
+    <div id="elasticite-prix" class="card section-card border-primary mb-4">
+        <div class="card-header bg-primary text-white">
+            <strong>📈 2. Élasticité-prix des marchandises</strong>
+        </div>
+        <div class="card-body">
+            <p>
+                L'<strong>élasticité-prix</strong> mesure la sensibilité des prix locaux aux variations du carburant.
+            </p>
+
+            <div class="formula-block">
+                <div class="formula-name">Formule d'ajustement des prix</div>
+                <code>Prix_ajusté = Prix_base × [1 + ε × (ΔCarburant / Carburant_réf)] × (1 + aléa)</code>
+                <div class="formula-desc">
+                    Où :<br />
+                    • <code>ε</code> = élasticité-prix (paramètre, 0.3-1.0)<br />
+                    • <code>ΔCarburant</code> = variation du prix du carburant<br />
+                    • <code>Carburant_réf</code> = prix de référence (5 500 MGA/L)<br />
+                    • <code>aléa</code> = choc aléatoire ~ N(0, σ_volatilité)
+                </div>
+            </div>
+
+            <div class="alert alert-info mt-3">
+                <strong>Exemple numérique :</strong><br />
+                Carburant : 5 500 → 6 050 MGA/L (+10%)<br />
+                Élasticité : 0.70<br />
+                Impact prix marchandises : +7% (0.70 × 10%)<br />
+                + aléa ±10% : résultat final 0%-14% (+6.5% en moyenne)
+            </div>
+
+            <table class="table table-sm mt-3 param-table">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Paramètre</th>
+                        <th>Valeur défaut</th>
+                        <th>Intervalle recommandé</th>
+                        <th>Interprétation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>ElasticitePrixParCarburant</strong></td>
+                        <td><code>0.70</code></td>
+                        <td>0.3 - 1.0</td>
+                        <td>Transmission 70% du choc carburant aux prix</td>
+                    </tr>
+                    <tr>
+                        <td><strong>PrixCarburantReference</strong></td>
+                        <td><code>5 500</code></td>
+                        <td>4000 - 8000</td>
+                        <td>Base de calibrage des élasticités</td>
+                    </tr>
+                    <tr>
+                        <td><strong>VolatiliteAleatoireMarche</strong></td>
+                        <td><code>0.10</code></td>
+                        <td>0.05 - 0.20</td>
+                        <td>Aléa ±10% sur prix (marchés volatiles)</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="p-3 border rounded bg-light mt-3">
+                <strong>💡 Calibrage Madagascar :</strong><br />
+                Élasticité 0.70 reflète :<br />
+                • Secteur formel absorbe ~30% du choc (marge comprimée)<br />
+                • Secteur informel transmet ~90% du choc<br />
+                • Transport (25% du panier) très sensible (ε≈0.9)<br />
+                • Alimentaires moins sensibles (ε≈0.4, nécessités)
+            </div>
+        </div>
+    </div>
+
+    @* ══════════ 3. VOLATILITÉ ══════════ *@
+    <div id="volatilite" class="card section-card border-info mb-4">
+        <div class="card-header bg-info text-white">
+            <strong>📊 3. Aléa de marché et volatilité</strong>
+        </div>
+        <div class="card-body">
+            <p>
+                En plus de l'élasticité systématique, les prix fluctuent aléatoirement selon les conditions de marché
+                (saisonnalité, spéculation, offre/demande locale).
+            </p>
+
+            <div class="alert alert-secondary">
+                <strong>Distribution des prix :</strong> Gaussienne log-normale<br />
+                Chaque prix ~ N(Prix_ajusté, σ = VolatiliteAleatoireMarche × Prix_ajusté)<br />
+                <br />
+                Exemple : σ = 0.10 = ±10% de volatilité quotidienne
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <div class="card border-success">
+                        <div class="card-header bg-success bg-opacity-25">Marchés stables</div>
+                        <div class="card-body">
+                            <code>VolatiliteAleatoireMarche = 0.05</code><br />
+                            <small class="text-muted">±5% variation quotidienne</small><br />
+                            <small>Cas : secteur formel réglementé</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border-danger">
+                        <div class="card-header bg-danger bg-opacity-25">Marchés volatiles</div>
+                        <div class="card-body">
+                            <code>VolatiliteAleatoireMarche = 0.15</code><br />
+                            <small class="text-muted">±15% variation quotidienne</small><br />
+                            <small>Cas : informel, fruits/légumes</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ══════════ 4. PANIER ALIMENTAIRE ══════════ *@
+    <div id="panier-alimentaire" class="card section-card border-success mb-4">
+        <div class="card-header bg-success text-white">
+            <strong>🛒 4. Panier alimentaire et comportement du ménage</strong>
+        </div>
+        <div class="card-body">
+            <p>
+                Les ménages achètent leurs produits alimentaires <strong>quotidiennement</strong> via deux canaux :
+            </p>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="alert alert-light border-success border-2">
+                        <strong>📍 Secteur informel (85%)</strong><br />
+                        • Marchés de quartier, vendeurs ambulants<br />
+                        • Prix volatiles, sans TVA<br />
+                        • Marge commerce : ~0%<br />
+                        • Très sensibles aux chocs
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="alert alert-light border-info border-2">
+                        <strong>🏪 Secteur formel (15%)</strong><br />
+                        • Épiceries, supermarchés<br />
+                        • Prix stables, TVA 20%<br />
+                        • Marge commerce : ~20%<br />
+                        • Plus protégés
+                    </div>
+                </div>
+            </div>
+
+            <div class="formula-block mt-3">
+                <div class="formula-name">Coût panier alimentaire</div>
+                <code>Coût = (Dépense_base × 0.85 × prix_informel) + (Dépense_base × 0.15 × prix_formel × 1.20)</code>
+                <div class="formula-desc">
+                    Le coût varie selon :<br />
+                    • Part du revenu consacrée (PartRevenuAlimentaire)<br />
+                    • Facteur de réduction des quantités (privation)
+                </div>
+            </div>
+
+            <table class="table table-sm mt-3 param-table">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Paramètre</th>
+                        <th>Valeur défaut</th>
+                        <th>Signification</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>PartRevenuAlimentaire</strong></td>
+                        <td><code>0.40 (40%)</code></td>
+                        <td>40% du revenu en alimentation (réaliste Madagascar pauvres)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>ElasticiteComportementMenage</strong></td>
+                        <td><code>0.65</code></td>
+                        <td>Sensibilité du ménage aux prix (réduit quantités si chocs répétés)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @* ══════════ 5. RÉDUCTION QUANTITÉS ══════════ *@
+    <div id="reduction-quantites" class="card section-card border-danger mb-4">
+        <div class="card-header bg-danger text-white">
+            <strong>📉 5. Réduction progressive des quantités (courbe logistique)</strong>
+        </div>
+        <div class="card-body">
+            <p>
+                Face à des <strong>augmentations répétitives de prix</strong>, les ménages réduisent progressivement
+                les quantités achetées plutôt que les prix (inélasticité demande pour alimentaires).
+            </p>
+
+            <div class="formula-block">
+                <div class="formula-name">Facteur de réduction des quantités</div>
+                <code>Facteur = 1 / (1 + e^(k × (cumulHausse - 25)))</code>
+                <div class="formula-desc">
+                    Courbe logistique inversée :<br />
+                    • <code>cumulHausse</code> = somme des % d'augmentation successives<br />
+                    • <code>k</code> = 0.15 / ElasticiteComportementMenage (pente)<br />
+                    • Point d'inflexion à 25% d'augmentation<br />
+                    • Plancher biologique : facteur ≥ 0.30 (minimum subsistance)
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header bg-light">
+                    <strong>📈 Exemple de progression</strong>
+                </div>
+                <div class="card-body">
+                    <canvas id="courbeReduction" style="max-width: 100%;" height="40"></canvas>
+                    <table class="table table-sm mt-3">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Cumul augmentation prix</th>
+                                <th>Facteur de réduction</th>
+                                <th>Quantité achetée</th>
+                                <th>Interprétation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>0%</td>
+                                <td>1.00</td>
+                                <td>100%</td>
+                                <td>Pas d'ajustement</td>
+                            </tr>
+                            <tr>
+                                <td>10%</td>
+                                <td>0.98</td>
+                                <td>98%</td>
+                                <td>Légère compression</td>
+                            </tr>
+                            <tr>
+                                <td>25%</td>
+                                <td>0.50</td>
+                                <td>50%</td>
+                                <td>Point d'inflexion (adaptation rapide)</td>
+                            </tr>
+                            <tr>
+                                <td>40%</td>
+                                <td>0.25</td>
+                                <td>25%</td>
+                                <td>Privation sévère</td>
+                            </tr>
+                            <tr class="table-danger">
+                                <td>60%+</td>
+                                <td>0.30</td>
+                                <td>30%</td>
+                                <td>Plancher biologique (limite/mort faim)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="alert alert-warning mt-3">
+                <strong>⚠️ Implication économique :</strong><br />
+                Une inflation répétitive de 50% → ménages réduits à 30% de consommation<br />
+                Impact PIB : baisse forte de la demande → chômage → cercle vicieux
+            </div>
+        </div>
+    </div>
+
+    @* ══════════ 6. PARAMÈTRES ══════════ *@
+    <div id="parametres" class="card section-card border-secondary mb-4">
+        <div class="card-header bg-secondary text-white">
+            <strong>⚙️ 6. Paramètres ajustables sur l'interface</strong>
+        </div>
+        <div class="card-body">
+            <p>
+                Tous les paramètres de prix et élasticité sont <strong>accessibles</strong> sur la page
+                <a href="/economie" target="_blank">Simulateur Économique</a> dans la section
+                <strong>« Transport & Carburant »</strong> et <strong>« Configuration avancée »</strong>.
+            </p>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card border-warning">
+                        <div class="card-header bg-warning bg-opacity-25">
+                            <strong>Transport & Carburant</strong>
+                        </div>
+                        <div class="card-body small">
+                            <div class="mb-2">
+                                <strong>Prix carburant/L</strong><br />
+                                <input type="range" class="form-range" min="3000" max="15000" step="100" disabled />
+                                <small class="text-muted">Ajuster le prix du carburant pour voir les impacts</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border-info">
+                        <div class="card-header bg-info bg-opacity-25">
+                            <strong>Paramètres élasticité (Configuration avancée)</strong>
+                        </div>
+                        <div class="card-body small">
+                            <div class="mb-2">
+                                <strong>Élasticité prix/carburant</strong><br />
+                                <input type="range" class="form-range" min="0.3" max="1.0" step="0.05" disabled /><br />
+                                <small class="text-muted">0.3=absorption, 1.0=transmission complète</small>
+                            </div>
+                            <div class="mb-2">
+                                <strong>Volatilité marché</strong><br />
+                                <input type="range" class="form-range" min="0.05" max="0.20" step="0.01" disabled /><br />
+                                <small class="text-muted">Aléa quotidien des prix</small>
+                            </div>
+                            <div class="mb-2">
+                                <strong>Part revenu alimentaire</strong><br />
+                                <input type="range" class="form-range" min="0.20" max="0.60" step="0.02" disabled /><br />
+                                <small class="text-muted">% du revenu en nourriture</small>
+                            </div>
+                            <div>
+                                <strong>Élasticité comportement ménage</strong><br />
+                                <input type="range" class="form-range" min="0.3" max="1.0" step="0.05" disabled /><br />
+                                <small class="text-muted">Sensibilité aux prix répétitifs</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ══════════ 7. SCÉNARIOS ══════════ *@
+    <div id="scenarios" class="card section-card border-success mb-4">
+        <div class="card-header bg-success text-white">
+            <strong>🎯 7. Scénarios d'application</strong>
+        </div>
+        <div class="card-body">
+            <h6>Scénario 1 : Choc carburant modéré (court terme)</h6>
+            <div class="card border-info mb-3">
+                <div class="card-body small">
+                    <strong>Paramètres :</strong><br />
+                    • Carburant : 5 500 → 6 050 MGA/L (+10%)<br />
+                    • Élasticité : 0.70 → Hausse prix marchandises +7%<br />
+                    • Volatilité : ±10% → aléa de marché<br />
+                    • Part alim : 40% → impact ménages moyens<br />
+                    <br />
+                    <strong>Résultat attendu :</strong> Inflation alimentaire 4-5%, réduction quantités &lt;5%, peu d'impact PIB court terme
+                </div>
+            </div>
+
+            <h6>Scénario 2 : Crise carburant sévère (stagflation)</h6>
+            <div class="card border-danger mb-3">
+                <div class="card-body small">
+                    <strong>Paramètres :</strong><br />
+                    • Carburant : 5 500 → 9 900 MGA/L (+80%)<br />
+                    • Élasticité : 0.80 (transmission forte)<br />
+                    • Volatilité : ±15% (marchés paniqués)<br />
+                    • Part alim : 50% (pauvres très exposés)<br />
+                    <br />
+                    <strong>Résultat attendu :</strong> Inflation 45-55%, réduction quantités 30-50%, chômage accru, cercle vicieux
+                </div>
+            </div>
+
+            <h6>Scénario 3 : Absorption par commerce (résilience)</h6>
+            <div class="card border-success mb-3">
+                <div class="card-body small">
+                    <strong>Paramètres :</strong><br />
+                    • Carburant : 5 500 → 8 250 MGA/L (+50%)<br />
+                    • Élasticité : 0.30 (commerce absorbe chocs)<br />
+                    • Volatilité : ±5% (marché stable)<br />
+                    • Élasticité comportement : 0.30 (ménages peu sensibles)<br />
+                    <br />
+                    <strong>Résultat attendu :</strong> Inflation modérée 8-10%, peu de réduction quantités, résilience économique
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ══════════ 8. IMPLÉMENTATION ══════════ *@
+    <div id="implementation" class="card section-card border-primary mb-4">
+        <div class="card-header bg-primary text-white">
+            <strong>🔧 8. Détails techniques (modules et interfaces)</strong>
+        </div>
+        <div class="card-body">
+            <p>
+                L'ajustement de prix est implémenté via des <strong>modules métier</strong> exposant des
+                <strong>contrats (interfaces)</strong> injectables dans <code>EconomicSimulatorViewModel</code>.
+            </p>
+
+            <h6 class="mt-3">Modules et interfaces</h6>
+            <table class="table table-sm table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Module</th>
+                        <th>Interface</th>
+                        <th>Responsabilité</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>Company.Module</code></td>
+                        <td><code>IPriceModule</code></td>
+                        <td>Calcul élasticité prix, aléa, réduction quantités</td>
+                    </tr>
+                    <tr>
+                        <td><code>Household.Module</code></td>
+                        <td><code>IHouseholdModule</code></td>
+                        <td>Achat produits alimentaires, partage informel/formel</td>
+                    </tr>
+                    <tr>
+                        <td><code>MachineLearning.Web</code></td>
+                        <td><code>ScenarioConfigViewModel</code></td>
+                        <td>Stockage paramètres élasticité et volatilité</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h6 class="mt-3">Flux de données</h6>
+            <div class="bg-light border rounded p-3">
+                <code>ScenarioConfigViewModel</code> (paramètres)<br />
+                ↓<br />
+                <code>EconomicSimulatorViewModel.SimulerUnJour()</code><br />
+                ↓<br />
+                <code>IPriceModule.AjusterPrixParCarburant()</code> (élasticité)<br />
+                ↓<br />
+                <code>IHouseholdModule.AcheteProduitsAlimentaires()</code> (panier)<br />
+                ↓<br />
+                <code>DailySnapshotViewModel</code> (résultats)<br />
+            </div>
+
+            <h6 class="mt-3">Fichiers modifiés</h6>
+            <ul class="list-unstyled">
+                <li>✅ <code>Company.Module/IPriceModule.cs</code> — Interface contrat</li>
+                <li>✅ <code>Company.Module/PriceModule.cs</code> — Implémentation élasticité</li>
+                <li>✅ <code>Household.Module/IHouseholdModule.cs</code> — Ajout AcheteProduitsAlimentaires()</li>
+                <li>✅ <code>Household.Module/HouseholdModule.cs</code> — Implémentation achat alimentaires</li>
+                <li>✅ <code>ScenarioConfigViewModel.cs</code> — 4 nouveaux paramètres</li>
+                <li>🔄 <code>EconomicSimulatorViewModel.cs</code> — À refactoriser (injection modules)</li>
+                <li>🔄 <code>EconomySimulator.razor</code> — UI sliders paramètres</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="alert alert-info mt-4">
+        <strong>📖 Pour en savoir plus :</strong><br />
+        Consultez aussi la <a href="/doc-calibration" target="_blank">Documentation générale</a> pour les autres
+        hypothèses du simulateur (PIB, secteurs, TOFE, etc.).
+    </div>
+
+</div>
+
+@code {
+    // Le CSS pour cette page est défini dans DocumentationCalibration.razor.css
+}

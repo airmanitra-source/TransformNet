@@ -1,21 +1,21 @@
-using MachineLearning.Web.Models.Agents.Companies;
 using MachineLearning.Web.Models.Simulation;
 using MachineLearning.Web.Models.Simulation.Config;
+using Company.Module.Models;
 using Microsoft.AspNetCore.Components;
 
 namespace MachineLearning.Web.Components.Pages;
 
 public partial class EconomySimulator : IDisposable
 {
-    private ScenarioConfig _config = new();
-    private List<ScenarioConfig> _scenarios = ScenarioConfig.TousLesScenarios();
+    private ScenarioConfigViewModel _config = new();
+    private List<ScenarioConfigViewModel> _scenarios = ScenarioConfigViewModel.TousLesScenarios();
     private bool _initialized = false;
 
     protected override void OnInitialized()
     {
         if (!_initialized)
         {
-            _config = ScenarioConfig.BaseMadagascar();
+            _config = ScenarioConfigViewModel.BaseMadagascar();
             _initialized = true;
         }
 
@@ -68,14 +68,14 @@ public partial class EconomySimulator : IDisposable
         return (double)Simulator.JourCourant / _config.DureeJours * 100;
     }
 
-    private List<DailySnapshot> GetSampledSnapshots()
+    private List<DailySnapshotViewModel> GetSampledSnapshots()
     {
         var snapshots = Simulator.Result.Snapshots;
         if (snapshots.Count <= 30) return snapshots;
 
         // Échantillonner pour garder ~30 lignes
         int step = snapshots.Count / 30;
-        var sampled = new List<DailySnapshot>();
+        var sampled = new List<DailySnapshotViewModel>();
         for (int i = 0; i < snapshots.Count; i += step)
         {
             sampled.Add(snapshots[i]);

@@ -2,7 +2,8 @@
 @rendermode InteractiveServer
 @using MachineLearning.Web.Models.Agents.Companies
 @using MachineLearning.Web.Models.Simulation
-@inject EconomicSimulator Simulator
+@using Company.Module.Models
+@inject EconomicSimulatorViewModel Simulator
 @implements IDisposable
 
 <PageTitle>Simulateur Économique - Madagascar</PageTitle>
@@ -324,6 +325,35 @@
                     <div class="mt-1">
                         <small class="text-muted">🔋 Part hydraulique : @((_config.PartProductionHydraulique * 100).ToString("F0"))% | Thermique : @(((1 - _config.PartProductionHydraulique) * 100).ToString("F0"))%</small>
                     </div>
+                </div>
+
+                <hr />
+                <h6>📈 Élasticité & Prix — Configuration avancée</h6>
+                <p class="small text-muted">Paramètres de transmission carburant → prix. <a href="/doc-prix" target="_blank">📖 Doc</a></p>
+
+                <div class="mb-2">
+                    <label class="form-label">Élasticité prix/carburant : <strong>@_config.ElasticitePrixParCarburant.ToString("F2")</strong></label>
+                    <input type="range" class="form-range" min="0.30" max="1.00" step="0.05"
+                           @bind="_config.ElasticitePrixParCarburant" @bind:event="oninput" />
+                    <small class="text-muted">0.30=absorption | 0.70=modérée | 1.0=complète</small>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label">Volatilité marché : <strong>±@((_config.VolatiliteAleatoireMarche * 100).ToString("F0"))%</strong></label>
+                    <input type="range" class="form-range" min="0.05" max="0.20" step="0.01"
+                           @bind="_config.VolatiliteAleatoireMarche" @bind:event="oninput" />
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label">Part revenu alimentaire : <strong>@((_config.PartRevenuAlimentaire * 100).ToString("F0"))%</strong></label>
+                    <input type="range" class="form-range" min="0.20" max="0.60" step="0.02"
+                           @bind="_config.PartRevenuAlimentaire" @bind:event="oninput" />
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label">Élasticité comportement ménage : <strong>@_config.ElasticiteComportementMenage.ToString("F2")</strong></label>
+                    <input type="range" class="form-range" min="0.30" max="1.00" step="0.05"
+                           @bind="_config.ElasticiteComportementMenage" @bind:event="oninput" />
                 </div>
             </div>
         </div>
@@ -892,5 +922,6 @@
                 </ul>
             </div>
         }
-    </div>
+    }
+</div>
 </div>

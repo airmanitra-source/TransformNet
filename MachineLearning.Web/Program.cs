@@ -1,6 +1,10 @@
+using Government.Module;
+using Company.Module;
+using Household.Module;
+using Household.Salary.Distribution.Module;
 using MachineLearning.Web.Components;
 using MachineLearning.Web.Models.Simulation;
-
+using Price.Module;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add service defaults & Aspire client integrations.
@@ -10,8 +14,19 @@ builder.AddServiceDefaults();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddScoped<EconomicSimulator>();
+// Enregistrer les modules métier comme services injectables
+builder.Services.AddScoped<IGovernmentModule, GovernmentModule>();
+builder.Services.AddScoped<ICompanyModule, CompanyModule>();
+builder.Services.AddScoped<IPriceModule, PriceModule>();
+builder.Services.AddScoped<IHouseholdModule, HouseholdModule>();
+builder.Services.AddScoped<IHouseholdSalaryDistributionModule>(sp =>
+    new HouseholdSalaryDistributionModule(
+        salaireMedian: 170_000,
+        sigma: 0.85,
+        salairePlancher: 50_000
+    ));
 
+builder.Services.AddScoped<EconomicSimulatorViewModel>();
 builder.Services.AddOutputCache();
 /*
 builder.Services.AddHttpClient<WeatherApiClient>(client =>

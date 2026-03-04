@@ -1,0 +1,89 @@
+namespace MachineLearning.Web.Models.Simulation;
+
+public class DailySnapshotViewModel
+{
+    public int Jour { get; set; }
+    public int JourSemaine { get; set; }
+    public string NomJour { get; set; } = string.Empty;
+    public bool EstJourOuvrable { get; set; }
+    public double EpargneMoyenneMenages { get; set; }
+    public double EpargneTotaleMenages { get; set; }
+    public double ConsommationTotaleMenages { get; set; }
+    public double RevenuTotalMenages { get; set; }
+    public double TauxEmploi { get; set; }
+    public double RemittancesTotales { get; set; }
+    public double LoyersImputesTotaux { get; set; }
+    public double CotisationsCNaPSSalariales { get; set; }
+    public double DepensesRizTotales { get; set; }
+    public double RecettesEauJirama { get; set; }
+    public double RecettesElectriciteJirama { get; set; }
+    public double RecettesTotalesJirama { get; set; }
+    public int NbAbonnesEau { get; set; }
+    public int NbAbonnesElectricite { get; set; }
+    public double ConsommationMenagesKWh { get; set; }
+    public double ConsommationEntreprisesKWh { get; set; }
+    public double ConsommationEtatKWh { get; set; }
+    public double ProductionElecKWh { get; set; }
+    public double PrixElectriciteArKWh { get; set; }
+    public double FactureElecMoyenneParMenage { get; set; }
+    public double TVAJiramaJour { get; set; }
+    public double DepensesTransportJirama { get; set; }
+    public double ValeurAjouteeJirama { get; set; }
+    public double ChiffreAffairesTotalEntreprises { get; set; }
+    public double TresorerieMoyenneEntreprises { get; set; }
+    public double BeneficeTotalEntreprises { get; set; }
+    public double VentesB2CTotales { get; set; }
+    public double VentesB2BTotales { get; set; }
+    public double DepensesElectriciteEntreprises { get; set; }
+    public double CotisationsCNaPSPatronales { get; set; }
+    public int NbEntreprisesInformelles { get; set; }
+    public double RecettesFiscalesTotales { get; set; }
+    public double RecettesIR { get; set; }
+    public double RecettesIS { get; set; }
+    public double RecettesTVA { get; set; }
+    public double DepensesPubliques { get; set; }
+    public double DepensesElectriciteEtat { get; set; }
+    public double AideInternationale { get; set; }
+    public double SubventionsJirama { get; set; }
+    public double SalairesFonctionnaires { get; set; }
+    public int NbFonctionnaires { get; set; }
+    public double SoldeBudgetaire { get; set; }
+    public double DettePublique { get; set; }
+    public double PIBProxy { get; set; }
+    public double FBCF { get; set; }
+    public double VariationStocksImportateurs { get; set; }
+    public double PIBParValeurAjoutee { get; set; }
+    public double PIBParRevenus { get; set; }
+    public double ChargesSalarialesTotalesEntreprises { get; set; }
+    public double CotisationsCNaPSPatronalesTotales { get; set; }
+    public double ExcedentBrutExploitation { get; set; }
+    public double ValeurAjouteeAdminPublique { get; set; }
+    public double ImportationsCIF { get; set; }
+    public double ExportationsFOB { get; set; }
+    public double BalanceCommerciale { get; set; }
+    public double RecettesDouanieres { get; set; }
+    public double DroitsDouaneJour { get; set; }
+    public double AcciseJour { get; set; }
+    public int NbImportateurs { get; set; }
+    public int NbExportateurs { get; set; }
+    public double Gini { get; set; }
+    public double RatioD9D1 { get; set; }
+    public double EpargneQ1 { get; set; }
+    public double EpargneQ2 { get; set; }
+    public double EpargneQ3 { get; set; }
+    public double EpargneQ4 { get; set; }
+    public double EpargneQ5 { get; set; }
+    public int NbSubsistance { get; set; }
+    public int NbInformelBas { get; set; }
+    public int NbFormelBas { get; set; }
+    public int NbFormelQualifie { get; set; }
+    public int NbCadre { get; set; }
+    public int NbEntreprisesAssujettiesTVA { get; set; }
+    public double PourcentageCoherenceCA { get; set; }
+    public double CAMoyenParEmploye { get; set; }
+    public double CAMoyenParEmployeTextile { get; set; }
+    public double CAMoyenParEmployeCommerce { get; set; }
+    public double CAMoyenParEmployeMinier { get; set; }
+}
+
+

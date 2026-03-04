@@ -2,10 +2,12 @@
   <Project Path="Company.Module/Company.Module.csproj" Id="f267ad7b-aea3-49ec-8bba-eac69e230112" />
   <Project Path="Government.Module/Government.Module.csproj" Id="b622bebf-a733-4b71-9d77-4d3d10688b2b" />
   <Project Path="Household.Module/Household.Module.csproj" Id="33aab999-bf99-47c2-b81c-002adfce10b3" />
+  <Project Path="Household.Salary.Distribution.Module/Household.Salary.Distribution.Module.csproj" Id="582aa487-07be-4d6f-b3c0-4ff2529171e0" />
   <Project Path="MachineLearning.ApiService/MachineLearning.ApiService.csproj" />
   <Project Path="MachineLearning.AppHost/MachineLearning.AppHost.csproj" />
   <Project Path="MachineLearning.ServiceDefaults/MachineLearning.ServiceDefaults.csproj" />
   <Project Path="MachineLearning.Tests/MachineLearning.Tests.csproj" />
   <Project Path="MachineLearning.Web/MachineLearning.Web.csproj" />
   <Project Path="MachineTraining/MachineTraining.csproj" Id="1bd382ae-c27d-4dbc-bbd8-deb55eca1677" />
+  <Project Path="Price.Module/Price.Module.csproj" Id="04f5d96d-d348-4cae-87e0-66542bcbfc2a" />
 </Solution>

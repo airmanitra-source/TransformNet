@@ -20,7 +20,7 @@ public partial class DocumentationCalibration
         new(1, "Secteur Agricole (Agriculture, Construction)", "+30% PIB VA", "~5 400 Mds MGA/an VA", "INSTAT 2024", "bg-danger"),
         new(2, "Fiscalité informelle (exonération IS/TVA)", "-70% recettes fiscales", "~85% entreprises", "INSTAT", "bg-danger"),
         new(3, "Aide internationale (Dons)", "+11% recettes État", "1 000 Mds / 9 mois", "TOFE sept. 2025", "bg-danger"),
-        new(4, "Subventions État → JIRAMA", "-500 Mds budget/an", "~500 Mds MGA/an", "FMI Art. IV", "bg-danger"),
+        new(4, "Subventions État → Jirama", "-500 Mds budget/an", "~500 Mds MGA/an", "FMI Art. IV", "bg-danger"),
         new(5, "Cotisations CNaPS", "+18% charges entreprises", "18% patron + 1% salarié", "Code Travail MG", "bg-warning text-dark"),
         new(6, "Transferts diaspora (remittances)", "+5% revenus ménages", "~$600M/an", "BCM 2024", "bg-warning text-dark"),
         new(7, "Loyers imputés (SCN 2008)", "+5-8% PIB", "~1 200 Mds MGA/an", "SCN 2008", "bg-warning text-dark"),
@@ -39,10 +39,10 @@ public partial class DocumentationCalibration
             "PIB = C + FBCF + G + (X − M) + Loyers imputés",
             "C = consommation ménages, FBCF = formation brute de capital fixe (18% PIB), G = dépenses publiques, (X-M) = balance commerciale avec variation journalière ±15%"),
         new("PIB par la valeur ajoutée",
-            "PIB = Σ(VA entreprises + correction commerce) + VA JIRAMA + Loyers imputés",
+            "PIB = Σ(VA entreprises + correction commerce) + VA Jirama + Loyers imputés",
             "VA = Production − Consommations intermédiaires. Correction commerce = écart PIB_D distribué sur agents import/export avec poids aléatoires."),
         new("PIB par les revenus",
-            "PIB = Salaires + Fonctionnaires + JIRAMA + EBE (corrigé) + Impôts + Loyers imputés",
+            "PIB = Salaires + Fonctionnaires + Jirama + EBE (corrigé) + Impôts + Loyers imputés",
             "EBE inclut la correction commerciale. Les 3 approches convergent exactement (écart 0,0%)."),
     ];
 }

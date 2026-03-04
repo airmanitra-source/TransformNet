@@ -22,9 +22,10 @@
                 <li><a href="#secteurs">Secteurs d'activité et informalité</a></li>
                 <li><a href="#jours">Jours ouvrables et repos hebdomadaire</a></li>
                 <li><a href="#emploi-menages">Mécanisme emploi ménages ↔ entreprises</a></li>
-                <li><a href="#jirama">JIRAMA — Eau et électricité</a></li>
+                <li><a href="#Jirama">Jirama — Eau et électricité</a></li>
                 <li><a href="#exports">Commerce extérieur — Injection directe INSTAT</a></li>
                 <li><a href="#tofe">Calibration TOFE — Budget de l'État sept. 2025</a></li>
+                <li><a href="#prix-elasticite">📈 Mécanismes de prix et élasticité (→ <a href="/doc-prix" target="_blank">documentation dédiée</a>)</a></li>
                 <li><a href="#fichiers">Détails techniques (fichiers modifiés)</a></li>
                 <li><a href="#validite">Validité des hypothèses</a></li>
             </ol>
@@ -154,7 +155,7 @@
     @* --- Aide + Subventions + CNaPS --- *@
     <div class="card section-card border-info mb-3">
         <div class="card-header bg-info text-white">
-            🏛️ Points 3-5 — Aide internationale, Subventions JIRAMA, CNaPS
+            🏛️ Points 3-5 — Aide internationale, Subventions Jirama, CNaPS
         </div>
         <div class="card-body">
             <div class="row">
@@ -168,12 +169,12 @@
                     </ul>
                 </div>
                 <div class="col-md-4">
-                    <h6>⚡ Subventions JIRAMA</h6>
+                    <h6>⚡ Subventions Jirama</h6>
                     <ul>
                         <li><code>SubventionJiramaJour</code> = 1,37 Mds MGA/jour</li>
                         <li>~500 Mds MGA/an (FMI)</li>
                         <li>Déduite des dépenses publiques</li>
-                        <li>Ajoutée à la trésorerie JIRAMA</li>
+                        <li>Ajoutée à la trésorerie Jirama</li>
                     </ul>
                 </div>
                 <div class="col-md-4">
@@ -238,11 +239,11 @@
                 <div class="col-md-6">
                     <h6>👔 Salaires fonctionnaires</h6>
                     <p>Avant : <span class="correction-before">PIB revenus = Salaires ménages + Profits + Impôts</span></p>
-                    <p>Après : <span class="correction-after">+ Fonctionnaires + JIRAMA</span></p>
+                    <p>Après : <span class="correction-after">+ Fonctionnaires + Jirama</span></p>
                     <ul>
                         <li><code>NombreFonctionnaires</code> = 200 000 agents</li>
                         <li><code>SalaireMoyenFonctionnaireMensuel</code> = 300 000 MGA</li>
-                        <li>Salaires JIRAMA = 5 000 employés × 350 000 MGA/mois</li>
+                        <li>Salaires Jirama = 5 000 employés × 350 000 MGA/mois</li>
                     </ul>
                 </div>
             </div>
@@ -311,7 +312,7 @@
                         <td class="table-success">✅ Dépenses publiques</td>
                     </tr>
                     <tr>
-                        <td><strong>JIRAMA</strong></td>
+                        <td><strong>Jirama</strong></td>
                         <td class="table-success">✅ Facture tous secteurs</td>
                         <td class="table-success">✅ Facture (réduit 30% entreprises)</td>
                     </tr>
@@ -343,15 +344,15 @@
             </ul>
             <div class="alert alert-info mb-0">
                 <strong>Effet :</strong> cohérence renforcée entre revenus des ménages et masse salariale des entreprises,
-                sans changer les autres mécanismes macro (consommation, fiscalité, JIRAMA, PIB).
+                sans changer les autres mécanismes macro (consommation, fiscalité, Jirama, PIB).
             </div>
         </div>
     </div>
 
-    @* ══════════ 6. JIRAMA ══════════ *@
-    <div id="jirama" class="card section-card border-warning mb-4">
+    @* ══════════ 6. Jirama ══════════ *@
+    <div id="Jirama" class="card section-card border-warning mb-4">
         <div class="card-header bg-warning text-dark">
-            <strong>⚡ 6. JIRAMA — Eau et électricité (3 secteurs)</strong>
+            <strong>⚡ 6. Jirama — Eau et électricité (3 secteurs)</strong>
         </div>
         <div class="card-body">
             <table class="table table-sm table-bordered">
@@ -380,14 +381,14 @@
                 </tbody>
             </table>
             <div class="formula-block">
-                <div class="formula-name">Production JIRAMA</div>
+                <div class="formula-name">Production Jirama</div>
                 <code>Production KWh = (Conso ménages + Conso entreprises + Conso État) ÷ (1 − 0.289)</code>
-                <div class="formula-desc">Pertes de distribution ~28,9%. Source : Tableau 21 JIRAMA/ORE jan-juin 2025.</div>
+                <div class="formula-desc">Pertes de distribution ~28,9%. Source : Tableau 21 Jirama/ORE jan-juin 2025.</div>
             </div>
             <div class="formula-block">
-                <div class="formula-name">Valeur ajoutée JIRAMA</div>
+                <div class="formula-name">Valeur ajoutée Jirama</div>
                 <code>VA = Recettes HT − Combustible thermique (48,4% × Prod × 350 Ar/KWh) − Maintenance (5% recettes)</code>
-                <div class="formula-desc">La VA JIRAMA est ajoutée au PIB par la valeur ajoutée.</div>
+                <div class="formula-desc">La VA Jirama est ajoutée au PIB par la valeur ajoutée.</div>
             </div>
         </div>
     </div>
@@ -493,7 +494,7 @@
             <p>
                 Données du <strong>Tableau des Opérations Financières de l'État (TOFE)</strong>, réalisations cumulées
                 janvier – septembre 2025. Chaque ligne budgétaire est convertie en <strong>valeur journalière</strong>
-                (cumul ÷ 270 jours) puis injectée dans <code>ScenarioConfig</code>.
+                (cumul ÷ 270 jours) puis injectée dans <code>ScenarioConfigViewModel</code>.
             </p>
 
             <h6 class="mt-3">📊 Extraction TOFE → Paramètres simulateur</h6>
@@ -503,7 +504,7 @@
                         <th>Ligne TOFE</th>
                         <th>Cumul sept. (Mds MGA)</th>
                         <th>Journalier (Mds)</th>
-                        <th>Paramètre <code>ScenarioConfig</code></th>
+                        <th>Paramètre <code>ScenarioConfigViewModel</code></th>
                         <th>Utilisé dans</th>
                     </tr>
                 </thead>
@@ -519,7 +520,7 @@
                             <code>NombreFonctionnaires</code> = 350 000<br />
                             <code>SalaireMoyenFonctionnaireMensuel</code> = 863 000
                         </td>
-                        <td><code>Government.SimulerJournee</code> → étape 8d</td>
+                        <td><code>GovernmentViewModel.SimulerJournee</code> → étape 8d</td>
                     </tr>
                     <tr>
                         <td>
@@ -529,44 +530,44 @@
                         <td>1 238,6</td>
                         <td>4,59 <small>(brut)</small><br /><strong>3,22</strong> <small>(net)</small></td>
                         <td><code>DepensesPubliquesJour</code> = 3 218 M<br /><small class="text-muted">⚠️ = 4 588 − SubvJIRAMA (1 370)</small></td>
-                        <td><code>Government.SimulerJournee</code> → étape 8 (base dépenses)</td>
+                        <td><code>GovernmentViewModel.SimulerJournee</code> → étape 8 (base dépenses)</td>
                     </tr>
                     <tr class="table-warning">
                         <td><strong>Intérêts dette ext. + int.</strong></td>
                         <td>164,6 + 288,4 = 453,0</td>
                         <td>1,68</td>
                         <td><code>InteretsDetteJour</code> = 1 678 M <span class="badge bg-success">NEW</span></td>
-                        <td><code>Government.SimulerJournee</code> → étape 8e</td>
+                        <td><code>GovernmentViewModel.SimulerJournee</code> → étape 8e</td>
                     </tr>
                     <tr class="table-warning">
                         <td><strong>Dépenses en capital</strong></td>
                         <td>3 651,9</td>
                         <td>13,53</td>
                         <td><code>DepensesCapitalJour</code> = 13 526 M <span class="badge bg-success">NEW</span></td>
-                        <td><code>Government.SimulerJournee</code> → étape 8f + FBCF</td>
+                        <td><code>GovernmentViewModel.SimulerJournee</code> → étape 8f + FBCF</td>
                     </tr>
                     <tr>
                         <td><strong>Dons (courants + capital)</strong></td>
                         <td>1 000,1</td>
                         <td>3,70</td>
                         <td><code>AideInternationaleJour</code> = 3 704 M</td>
-                        <td><code>Government.SimulerJournee</code> → étape 7b (recettes)</td>
+                        <td><code>GovernmentViewModel.SimulerJournee</code> → étape 7b (recettes)</td>
                     </tr>
                     <tr class="table-warning">
                         <td><strong>Dette publique totale</strong></td>
                         <td>~29 250 (FMI)</td>
                         <td>—</td>
                         <td><code>DettePubliqueInitiale</code> = 29 250 Mds <span class="badge bg-success">NEW</span></td>
-                        <td><code>Government.DettePublique</code> (init)</td>
+                        <td><code>GovernmentViewModel.DettePublique</code> (init)</td>
                     </tr>
                 </tbody>
             </table>
 
             <h6 class="mt-3">🔄 Flux budgétaire dans le simulateur</h6>
-            <p>Voici comment chaque ligne TOFE s'intègre dans <code>Government.SimulerJournee()</code> :</p>
+            <p>Voici comment chaque ligne TOFE s'intègre dans <code>GovernmentViewModel.SimulerJournee()</code> :</p>
             <div class="formula-block">
                 <div class="formula-name">Dépenses totales État / jour</div>
-                <code>Dépenses = Fonctionnement (net) + Électricité JIRAMA + Subventions JIRAMA + Personnel + Intérêts dette + Capital</code>
+                <code>Dépenses = Fonctionnement (net) + Électricité Jirama + Subventions Jirama + Personnel + Intérêts dette + Capital</code>
                 <div class="formula-desc">
                     = 3,2 Mds + Élec. + 1,4 Mds + 10,1 Mds + 1,7 Mds + 13,5 Mds ≈ 29,9 Mds/jour (hors élec.)<br />
                     <span class="text-danger">⚠️ Fonctionnement = TOFE brut (4,6 Mds) − SubventionJIRAMA (1,4 Mds) = 3,2 Mds pour éviter le double-comptage.</span>
@@ -574,7 +575,7 @@
             </div>
             <div class="formula-block">
                 <div class="formula-name">Consommation finale État (G dans PIB)</div>
-                <code>G = Dépenses − Subventions JIRAMA − Dépenses capital − Intérêts dette</code>
+                <code>G = Dépenses − Subventions Jirama − Dépenses capital − Intérêts dette</code>
                 <div class="formula-desc">
                     G exclut les transferts (subventions), l'investissement (→ FBCF) et les intérêts (→ créancier).
                     Conforme au SCN 2008.
@@ -700,7 +701,7 @@
                         <td>+Agriculture, +Construction</td>
                     </tr>
                     <tr>
-                        <td><code>Company.cs</code></td>
+                        <td><code>CompanyViewModel.cs</code></td>
                         <td>+EstInformel, +TotalCotisationsCNaPS, exonération IS/TVA informel, CNaPS patronale dans charges</td>
                     </tr>
                     <tr>
@@ -708,7 +709,7 @@
                         <td>+CotisationsCNaPS</td>
                     </tr>
                     <tr>
-                        <td><code>Household.cs</code></td>
+                        <td><code>HouseholdViewModel.cs</code></td>
                         <td>+EstProprietaire</td>
                     </tr>
                     <tr>
@@ -716,19 +717,19 @@
                         <td>+Remittance, +LoyerImpute, +CotisationCNaPSSalariale</td>
                     </tr>
                     <tr>
-                        <td><code>Government.cs</code></td>
-                        <td>+Aide internationale, +Subventions JIRAMA, +Personnel TOFE (350k agents), +CNaPS, +FBCF publique TOFE, +Intérêts dette TOFE, +Dépenses capital TOFE, +Dette initiale</td>
+                        <td><code>GovernmentViewModel.cs</code></td>
+                        <td>+Aide internationale, +Subventions Jirama, +Personnel TOFE (350k agents), +CNaPS, +FBCF publique TOFE, +Intérêts dette TOFE, +Dépenses capital TOFE, +Dette initiale</td>
                     </tr>
                     <tr>
                         <td><code>DailyGovernmentResult.cs</code></td>
                         <td>+AideInternationale, +CotisationsCNaPS, +SubventionsJirama, +SalairesFonctionnaires, +FBCF, +DepensesCapital</td>
                     </tr>
                     <tr>
-                        <td><code>ScenarioConfig.cs</code></td>
+                        <td><code>ScenarioConfigViewModel.cs</code></td>
                         <td>1 agent/catégorie INSTAT, +16 paramètres (CNaPS, aide, subventions, remittances, loyers, FBCF, fonctionnaires, DepensesCapitalJour, InteretsDetteJour, DettePubliqueInitiale). Calibré sur TOFE sept. 2025.</td>
                     </tr>
                     <tr>
-                        <td><code>DailySnapshot.cs</code></td>
+                        <td><code>DailySnapshotViewModel.cs</code></td>
                         <td>+9 champs (remittances, loyers, CNaPS, informel, aide, subventions, fonctionnaires, FBCF)</td>
                     </tr>
                     <tr>
@@ -736,7 +737,7 @@
                         <td>1 agent/catégorie INSTAT, variation CIF/FOB ±15%/jour, trésorerie pondérée [0.5–1.5], réconciliation PIB (VA+EBE), PIB corrigé</td>
                     </tr>
                     <tr>
-                        <td><code>Importer.cs / Exporter.cs</code></td>
+                        <td><code>ImporterViewModel.cs / ExporterViewModel.cs</code></td>
                         <td>+tauxCNaPSPatronale propagé au SimulerJournee de base</td>
                     </tr>
                 </tbody>
