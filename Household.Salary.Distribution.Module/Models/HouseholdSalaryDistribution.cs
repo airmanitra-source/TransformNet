@@ -171,6 +171,13 @@ public class HouseholdSalaryDistribution
                 ProbabiliteEmploi = 0.70 + random.NextDouble() * 0.10,    // 70-80%
                 Transport = ModeTransport.TransportPublic,                 // marche ou taxi-be
                 DistanceDomicileTravailKm = 3 + random.NextDouble() * 5,
+                // Loisirs : aucun budget, survie pure
+                BudgetSortieWeekend = 0,
+                BudgetVacances = 0,
+                ProbabiliteSortieWeekend = 0,
+                FrequenceVacancesJours = 0,
+                ProbabiliteVacances = 0,
+                DureeVacancesJours = 0,
             },
             ClasseSocioEconomique.InformelBas => new HouseholdBehavior
             {
@@ -182,6 +189,13 @@ public class HouseholdSalaryDistribution
                 ProbabiliteEmploi = 0.78 + random.NextDouble() * 0.10,
                 Transport = ModeTransport.TransportPublic,                 // taxi-be
                 DistanceDomicileTravailKm = 5 + random.NextDouble() * 8,
+                // Loisirs : très rare, petite sortie occasionnelle
+                BudgetSortieWeekend = 0,
+                BudgetVacances = 0,
+                ProbabiliteSortieWeekend = 0,
+                FrequenceVacancesJours = 0,
+                ProbabiliteVacances = 0,
+                DureeVacancesJours = 0,
             },
             ClasseSocioEconomique.FormelBas => new HouseholdBehavior
             {
@@ -193,6 +207,13 @@ public class HouseholdSalaryDistribution
                 ProbabiliteEmploi = 0.88 + random.NextDouble() * 0.08,
                 Transport = random.NextDouble() > 0.4 ? ModeTransport.Moto : ModeTransport.TransportPublic,
                 DistanceDomicileTravailKm = 5 + random.NextDouble() * 12,
+                // Loisirs : sorties occasionnelles le weekend, pas de vacances
+                BudgetSortieWeekend = 3_000 + random.NextDouble() * 2_000,     // 3 000-5 000 MGA (gargote, petit loisir)
+                BudgetVacances = 0,
+                ProbabiliteSortieWeekend = 0.15 + random.NextDouble() * 0.10,   // 15-25% (1 weekend sur 4-6)
+                FrequenceVacancesJours = 0,
+                ProbabiliteVacances = 0,
+                DureeVacancesJours = 0,
             },
             ClasseSocioEconomique.FormelQualifie => new HouseholdBehavior
             {
@@ -204,6 +225,13 @@ public class HouseholdSalaryDistribution
                 ProbabiliteEmploi = 0.92 + random.NextDouble() * 0.06,
                 Transport = random.NextDouble() > 0.5 ? ModeTransport.Voiture : ModeTransport.Moto,
                 DistanceDomicileTravailKm = 8 + random.NextDouble() * 15,
+                // Loisirs : sorties régulières, vacances rares (~1 fois/an)
+                BudgetSortieWeekend = 10_000 + random.NextDouble() * 10_000,   // 10 000-20 000 MGA (restaurant, sortie)
+                BudgetVacances = 15_000 + random.NextDouble() * 10_000,        // 15 000-25 000 MGA/jour de vacances
+                ProbabiliteSortieWeekend = 0.40 + random.NextDouble() * 0.20,   // 40-60% (presque chaque weekend)
+                FrequenceVacancesJours = 180,                                   // ~2 fois/an
+                ProbabiliteVacances = 0.40 + random.NextDouble() * 0.20,        // 40-60% quand la période arrive
+                DureeVacancesJours = 3 + random.Next(3),                        // 3-5 jours
             },
             ClasseSocioEconomique.Cadre => new HouseholdBehavior
             {
@@ -215,6 +243,13 @@ public class HouseholdSalaryDistribution
                 ProbabiliteEmploi = 0.95 + random.NextDouble() * 0.04,
                 Transport = ModeTransport.Voiture,                          // voiture
                 DistanceDomicileTravailKm = 10 + random.NextDouble() * 20,
+                // Loisirs : sorties fréquentes, vacances trimestrielles
+                BudgetSortieWeekend = 25_000 + random.NextDouble() * 25_000,   // 25 000-50 000 MGA (restaurant chic, loisirs)
+                BudgetVacances = 40_000 + random.NextDouble() * 30_000,        // 40 000-70 000 MGA/jour (hôtel, activités)
+                ProbabiliteSortieWeekend = 0.60 + random.NextDouble() * 0.25,   // 60-85% (quasi chaque weekend)
+                FrequenceVacancesJours = 90,                                    // trimestriel (~4 fois/an)
+                ProbabiliteVacances = 0.65 + random.NextDouble() * 0.20,        // 65-85% quand la période arrive
+                DureeVacancesJours = 4 + random.Next(4),                        // 4-7 jours
             },
             _ => throw new ArgumentOutOfRangeException(nameof(classe))
         };

@@ -57,6 +57,8 @@ public class ScenarioConfigViewModel
     public double ProductiviteParEmploye { get; set; } = 15_000;
     public double PartEntreprisesAgricoles { get; set; } = 0.30;
     public double PartEntreprisesConstruction { get; set; } = 0.05;
+    /// <summary>Part des entreprises dans le secteur hôtellerie/tourisme (~3-4% à Madagascar)</summary>
+    public double PartEntreprisesHotellerieTourisme { get; set; } = 0.03;
 
     public double TauxCotisationsPatronalesCNaPS { get; set; } = 0.18;
     public double TauxCotisationsSalarialesCNaPS { get; set; } = 0.01;

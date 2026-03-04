@@ -101,6 +101,23 @@ public class DailySnapshotViewModel
     /// 1.00 = aucune privation | 0.30 = plancher biologique.
     /// </summary>
     public double FacteurReductionAlimentaireMoyen { get; set; }
+
+    // ─── Loisirs et vacances ──────────────────────────────────────────────────
+
+    /// <summary>Total des dépenses de loisirs (sorties + vacances) tous ménages (MGA).</summary>
+    public double DepensesLoisirsTotales { get; set; }
+
+    /// <summary>Nombre de ménages en sortie weekend ce jour.</summary>
+    public int NbMenagesEnSortie { get; set; }
+
+    /// <summary>Nombre de ménages en vacances ce jour.</summary>
+    public int NbMenagesEnVacances { get; set; }
+
+    /// <summary>
+    /// Facteur de réduction moyen des loisirs dû à la hausse des prix (0-1).
+    /// 1.0 = aucune réduction | 0.0 = loisirs totalement supprimés.
+    /// </summary>
+    public double FacteurReductionLoisirsMoyen { get; set; }
 }
 
 

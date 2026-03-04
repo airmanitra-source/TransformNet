@@ -1,3 +1,5 @@
+using Company.Module;
+
 namespace Company.Module.Models;
 
 /// <summary>
@@ -55,6 +57,7 @@ public class Importer : Company
         double tauxDirecteur,
         double tauxDroitsDouane,
         double tauxAccise,
+        ICompanyModule companyModule,
         bool estJourOuvrable = true,
         Jirama? Jirama = null,
         double consoElecParEmployeKWhJour = 0,
@@ -105,7 +108,8 @@ public class Importer : Company
         result.CoutTotalImport = coutTotalImport;
 
         // 7. Simulation entreprise classique (production + ventes locales)
-        var baseResult = SimulerJournee(
+        var baseResult = companyModule.SimulerJournee(
+            this,
             demandeConsommationMenages,
             tauxIS, tauxTVA, tauxInflation, tauxDirecteur, estJourOuvrable,
             Jirama, consoElecParEmployeKWhJour, tauxCNaPSPatronale);

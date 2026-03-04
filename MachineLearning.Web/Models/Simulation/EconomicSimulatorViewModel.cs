@@ -29,6 +29,7 @@ public class EconomicSimulatorViewModel
     private AgentGovernment _etat = new();
     private ScenarioConfigViewModel _config = new();
     private SimulationResultViewModel _result = new();
+    private readonly List<AgentCompany> _entreprisesTourisme = [];
     private CancellationTokenSource? _cts;
     private int _jourCourant;
     private double _facteurEchelle = 1.0;
@@ -203,6 +204,15 @@ public class EconomicSimulatorViewModel
         // Entreprises normales (marché local)
         int nbAgricoles = (int)(nbEntreprisesNormales * _config.PartEntreprisesAgricoles);
         int nbConstruction = (int)(nbEntreprisesNormales * _config.PartEntreprisesConstruction);
+        int nbHotellerieTourisme = Math.Max(1, (int)(nbEntreprisesNormales * _config.PartEntreprisesHotellerieTourisme));
+
+        string[] nomsHotels = [
+            "Carlton Madagascar", "Colbert Hotel", "Ibis Antsirabe",
+            "Nosy Be Lodge", "Isalo Rock Lodge", "Anjajavy le Lodge",
+            "Mantasoa Lodge", "Vakona Forest Lodge"
+        ];
+
+        _entreprisesTourisme.Clear();
 
         for (int i = 0; i < nbEntreprisesNormales; i++)
         {
@@ -211,33 +221,47 @@ public class EconomicSimulatorViewModel
                 secteur = ESecteurActivite.Agriculture;
             else if (i < nbAgricoles + nbConstruction)
                 secteur = ESecteurActivite.Construction;
+            else if (i < nbAgricoles + nbConstruction + nbHotellerieTourisme)
+                secteur = ESecteurActivite.HotellerieTourisme;
             else
                 secteur = secteursLocaux[2 + random.Next(secteursLocaux.Length - 2)]; // hors Agriculture/Construction
 
-            // Probabilité informel : agriculture ~95%, commerce ~80%, autres ~70%
+            // Probabilité informel : agriculture ~95%, commerce ~80%, tourisme ~40%, autres ~70%
             bool estInformel = secteur switch
             {
                 ESecteurActivite.Agriculture => random.NextDouble() < 0.95,
                 ESecteurActivite.Commerces => random.NextDouble() < 0.80,
                 ESecteurActivite.Construction => random.NextDouble() < 0.75,
                 ESecteurActivite.SecteurMinier => random.NextDouble() < 0.20,
+                ESecteurActivite.HotellerieTourisme => random.NextDouble() < 0.40, // mix formel/informel
                 _ => random.NextDouble() < _config.PartSecteurInformel
             };
 
+            int indexTourisme = i - nbAgricoles - nbConstruction;
+            string nomEntreprise;
+            if (secteur == ESecteurActivite.HotellerieTourisme && indexTourisme >= 0 && indexTourisme < nomsHotels.Length)
+                nomEntreprise = nomsHotels[indexTourisme];
+            else if (i < nomsEntreprises.Length)
+                nomEntreprise = nomsEntreprises[i];
+            else
+                nomEntreprise = $"Entreprise {i + 1}";
+
             var entreprise = new AgentCompany
             {
-                Name = i < nomsEntreprises.Length ? nomsEntreprises[i] : $"Entreprise {i + 1}",
+                Name = nomEntreprise,
                 NombreEmployes = employesParEntreprise,
                 SalaireMoyenMensuel = _distribution.TirerSalaire(random) * (0.9 + random.NextDouble() * 0.2),
-                MargeBeneficiaire = _config.MargeBeneficiaireEntreprise,
-                // was: AgentCompany.GetProductiviteParSecteur(secteur)
+                MargeBeneficiaire = secteur == ESecteurActivite.HotellerieTourisme ? 0.25 : _config.MargeBeneficiaireEntreprise,
                 ProductiviteParEmployeJour = _companyModule.GetProductiviteParSecteur(secteur) * (0.8 + random.NextDouble() * 0.4),
-                // was: AgentCompany.GetTresorerieInitialeParSecteur(secteur, _config.TresorerieInitialeParSecteur)
                 Tresorerie = GetTresorerieInitiale(secteur) * (0.5 + random.NextDouble()),
                 SecteurActivite = secteur,
                 EstInformel = estInformel
             };
             _entreprises.Add(entreprise);
+
+            // Collecter les entreprises tourisme pour le routage des loisirs
+            if (secteur == ESecteurActivite.HotellerieTourisme)
+                _entreprisesTourisme.Add(entreprise);
         }
 
         // Créer les ménages avec distribution salariale log-normale
@@ -355,7 +379,14 @@ public class EconomicSimulatorViewModel
                 DepensesEauJour = accesEau ? _config.TarifEauJourMenage : 0,
                 ConsommationElecKWhJour = consoElecKWhJour,
                 DepensesElectriciteJour = consoElecKWhJour * _config.PrixElectriciteArKWh,
-                EstProprietaire = random.NextDouble() < _config.TauxMenagesProprietaires
+                EstProprietaire = random.NextDouble() < _config.TauxMenagesProprietaires,
+                // Loisirs et vacances
+                BudgetSortieWeekend = comportement.BudgetSortieWeekend,
+                BudgetVacances = comportement.BudgetVacances,
+                ProbabiliteSortieWeekend = comportement.ProbabiliteSortieWeekend,
+                FrequenceVacancesJours = comportement.FrequenceVacancesJours,
+                ProbabiliteVacances = comportement.ProbabiliteVacances,
+                DureeVacancesJours = comportement.DureeVacancesJours
             };
             _menages.Add(menage);
         }
@@ -578,7 +609,8 @@ public class EconomicSimulatorViewModel
                 estJourDeTravail = jourOuvrable;
             }
 
-            var r = menage.SimulerJournee(
+            var r = _householdModule.SimulerJournee(
+                menage,
                 _governmentModule.CalculerIRSAJournalier(_etat, menage.SalaireMensuel),
                 _governmentModule.TauxEffectifIRSA(_etat, menage.SalaireMensuel),
                 _etat.TauxInflation,
@@ -641,6 +673,58 @@ public class EconomicSimulatorViewModel
             r.ReductionQuantiteAlimentaire = achat.QuantiteReduite;
             // ─────────────────────────────────────────────────────────────────────────
 
+            // ── Loisirs et vacances ──────────────────────────────────────────────────
+            // Détermine si le ménage fait une sortie weekend ou part en vacances.
+            // Chaque ménage est aléatoirement dirigé vers une compagnie tourisme différente.
+            bool estWeekend = !jourOuvrable;
+            bool estPeriodeVacances = menage.FrequenceVacancesJours > 0
+                && (_jourCourant - menage.DerniereVacanceJour) >= menage.FrequenceVacancesJours;
+            bool estDejaEnVacances = menage.JoursVacanceRestants > 0;
+
+            // Choisir aléatoirement une compagnie tourisme pour ce ménage
+            AgentCompany? compagnieTourismeChoisie = _entreprisesTourisme.Count > 0
+                ? _entreprisesTourisme[_random.Next(_entreprisesTourisme.Count)]
+                : null;
+
+            var loisirs = _householdModule.CalculerDepensesLoisirs(
+                classe:                     menage.Classe,
+                budgetSortieWeekend:        menage.BudgetSortieWeekend,
+                budgetVacances:             menage.BudgetVacances,
+                probabiliteSortieWeekend:   menage.ProbabiliteSortieWeekend,
+                probabiliteVacances:        menage.ProbabiliteVacances,
+                estWeekend:                 estWeekend,
+                estPeriodeVacances:         estPeriodeVacances,
+                estEnVacancesEnCours:       estDejaEnVacances,
+                cumulHaussePrix:            _etat.TauxInflation * 100,
+                revenuDisponible:           revenuDisponible,
+                compagnieTourisme:          compagnieTourismeChoisie,
+                random:                     _random);
+
+            r.DepensesLoisirs = loisirs.DepensesLoisirs;
+            r.EstEnSortie = loisirs.EstEnSortie;
+            r.EstEnVacances = loisirs.EstEnVacances;
+            r.FacteurReductionLoisirs = loisirs.FacteurReduction;
+
+            // Gérer l'état des vacances du ménage
+            if (loisirs.EstEnVacances && !estDejaEnVacances)
+            {
+                // Départ en vacances : initialiser le compteur
+                menage.JoursVacanceRestants = menage.DureeVacancesJours;
+                menage.DerniereVacanceJour = _jourCourant;
+            }
+            if (menage.JoursVacanceRestants > 0)
+            {
+                menage.JoursVacanceRestants--;
+            }
+
+            // Dépenser les loisirs (puiser dans le budget discrétionnaire ou l'épargne)
+            if (loisirs.DepensesLoisirs > 0)
+            {
+                menage.TotalDepensesLoisirs += loisirs.DepensesLoisirs;
+                menage.Epargne -= Math.Min(loisirs.DepensesLoisirs, menage.Epargne);
+            }
+            // ─────────────────────────────────────────────────────────────────────────
+
             resultsMenages.Add(r);
             demandeConsommationTotale += r.Consommation;
         }
@@ -692,13 +776,36 @@ public class EconomicSimulatorViewModel
         double demandeHorsAlimFormelParEntreprise   = demandeHorsAlim * 0.15 / Math.Max(nbFormelles, 1);
         // ─────────────────────────────────────────────────────────────────────────
 
+        // ── Routage des dépenses de loisirs vers les compagnies tourisme ────────
+        // Les dépenses de loisirs (sorties weekend + vacances) sont déjà comptabilisées
+        // directement sur chaque compagnie tourisme via CalculerDepensesLoisirs().
+        // Ici on calcule la demande par compagnie tourisme pour SimulerJournee()
+        // (production, charges, IS, TVA) en répartissant uniformément.
+        double demandeLoisirsTotale = resultsMenages.Sum(r => r.DepensesLoisirs);
+        int nbEntreprisesTourisme = Math.Max(_entreprisesTourisme.Count, 1);
+        double demandeLoisirParEntrepriseTourisme = demandeLoisirsTotale / nbEntreprisesTourisme;
+
         foreach (var entreprise in _entreprises)
         {
             bool travailleCeJour = EntrepriseTravailleCeJour(_jourCourant, entreprise.SecteurActivite);
-            double demandeEffective = entreprise.EstInformel
-                ? demandeHorsAlimInformelParEntreprise + bonusDemandeAlimParEntrepriseInformelle
-                : demandeHorsAlimFormelParEntreprise   + bonusDemandeAlimParEntrepriseFormelle;
-            var r = entreprise.SimulerJournee(
+
+            // Les compagnies tourisme reçoivent les dépenses de loisirs réparties
+            // Les autres entreprises reçoivent la demande habituelle (alimentaire + non-alimentaire)
+            double demandeEffective;
+            if (entreprise.SecteurActivite == ESecteurActivite.HotellerieTourisme)
+            {
+                demandeEffective = demandeLoisirParEntrepriseTourisme;
+            }
+            else if (entreprise.EstInformel)
+            {
+                demandeEffective = demandeHorsAlimInformelParEntreprise + bonusDemandeAlimParEntrepriseInformelle;
+            }
+            else
+            {
+                demandeEffective = demandeHorsAlimFormelParEntreprise + bonusDemandeAlimParEntrepriseFormelle;
+            }
+            var r = _companyModule.SimulerJournee(
+                entreprise,
                 demandeEffective,
                 _etat.TauxIS,
                 _etat.TauxTVA,
@@ -743,7 +850,8 @@ public class EconomicSimulatorViewModel
                 importateur.TotalRedevanceStatistique += redevance;
 
                 bool importeurTravaille = EntrepriseTravailleCeJour(_jourCourant, importateur.SecteurActivite);
-                var baseResult = importateur.SimulerJournee(
+                var baseResult = _companyModule.SimulerJournee(
+                    importateur,
                     demandeHorsAlimFormelParEntreprise + bonusDemandeAlimParEntrepriseFormelle,
                     _etat.TauxIS, _etat.TauxTVA, _etat.TauxInflation, _etat.TauxDirecteur, importeurTravaille,
                     _jirama, _config.ConsommationElecParEmployeKWhJour, _config.TauxCotisationsPatronalesCNaPS);
@@ -792,6 +900,7 @@ public class EconomicSimulatorViewModel
                     _etat.TauxDirecteur,
                     _config.TauxDroitsDouane,
                     _config.TauxAccise,
+                    _companyModule,
                     travailleCeJour,
                     _jirama,
                     _config.ConsommationElecParEmployeKWhJour,
@@ -821,7 +930,8 @@ public class EconomicSimulatorViewModel
                 exportateur.TotalDevisesRapatriees += devisesNettes;
 
                 bool exporteurTravaille = EntrepriseTravailleCeJour(_jourCourant, exportateur.SecteurActivite);
-                var baseResult = exportateur.SimulerJournee(
+                var baseResult = _companyModule.SimulerJournee(
+                    exportateur,
                     (demandeHorsAlimFormelParEntreprise + bonusDemandeAlimParEntrepriseFormelle) * (1.0 - exportateur.PartExport),
                     _etat.TauxIS, _etat.TauxTVA, _etat.TauxInflation, _etat.TauxDirecteur, exporteurTravaille,
                     _jirama, _config.ConsommationElecParEmployeKWhJour, _config.TauxCotisationsPatronalesCNaPS);
@@ -865,6 +975,7 @@ public class EconomicSimulatorViewModel
                     _etat.TauxInflation,
                     _etat.TauxDirecteur,
                     _config.TauxTaxeExport,
+                    _companyModule,
                     travailleCeJour,
                     _jirama,
                     _config.ConsommationElecParEmployeKWhJour,
@@ -876,8 +987,8 @@ public class EconomicSimulatorViewModel
 
         // 3. L'État consolide (entreprises + importateurs + exportateurs + Jirama)
         // Les paramètres macro absolus sont mis à l'échelle par facteurEchelle
-        var resultEtat = _etat.SimulerJournee(
-            resultsMenages, resultsEntreprises, resultsImportateurs, resultsExportateurs,
+        var resultEtat = _governmentModule.SimulerJournee(
+            _etat, resultsMenages, resultsEntreprises, resultsImportateurs, resultsExportateurs,
             _jirama, _config.ConsommationElecEtatKWhJour * _facteurEchelle,
             _config.AideInternationaleJour * _facteurEchelle,
             _config.SubventionJiramaJour * _facteurEchelle,
@@ -1132,6 +1243,14 @@ public class EconomicSimulatorViewModel
             DepensesAlimentairesFormelTotal   = resultsMenages.Sum(r => r.DepensesAlimentairesFormel),
             FacteurReductionAlimentaireMoyen  = resultsMenages.Count > 0
                 ? resultsMenages.Average(r => r.ReductionQuantiteAlimentaire)
+                : 1.0,
+
+            // Loisirs et vacances
+            DepensesLoisirsTotales = resultsMenages.Sum(r => r.DepensesLoisirs),
+            NbMenagesEnSortie = resultsMenages.Count(r => r.EstEnSortie),
+            NbMenagesEnVacances = resultsMenages.Count(r => r.EstEnVacances),
+            FacteurReductionLoisirsMoyen = resultsMenages.Count > 0
+                ? resultsMenages.Average(r => r.FacteurReductionLoisirs)
                 : 1.0
         };
 
@@ -1188,8 +1307,9 @@ public class EconomicSimulatorViewModel
     /// </summary>
     private static bool EntrepriseTravailleCeJour(int jourCourant, ESecteurActivite secteur)
     {
-        // Les commerces travaillent 7j/7
-        if (secteur == ESecteurActivite.Commerces) return true;
+        // Les commerces et l'hôtellerie/tourisme travaillent 7j/7
+        if (secteur == ESecteurActivite.Commerces || secteur == ESecteurActivite.HotellerieTourisme)
+            return true;
 
         // Les autres secteurs ne travaillent que du lundi au vendredi
         return EstJourOuvrable(jourCourant);

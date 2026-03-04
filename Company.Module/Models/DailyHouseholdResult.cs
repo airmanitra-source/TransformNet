@@ -33,7 +33,7 @@ public class DailyHouseholdResult
     // ─── Achat alimentaire journalier (IHouseholdModule.AcheteProduitsAlimentaires) ───
 
     /// <summary>
-    /// Composant alimentaire calculé par <c>Household.SimulerJournee()</c>
+    /// Composant alimentaire calculé par <c>IHouseholdModule.SimulerJournee()</c>
     /// (DepensesAlimentairesJour × facteurInflation × facteurChocPrix × (1 − réductionInterne)).
     /// Utilisé pour isoler la demande non-alimentaire dans le routage B2C.
     /// </summary>
@@ -73,6 +73,24 @@ public class DailyHouseholdResult
     /// 1.00 = aucune privation | 0.30 = plancher biologique (seuil de survie).
     /// </summary>
     public double ReductionQuantiteAlimentaire { get; set; } = 1.0;
+
+    // ─── Loisirs et vacances ──────────────────────────────────────────────────
+
+    /// <summary>Dépenses loisirs du jour (sortie weekend ou vacances, MGA)</summary>
+    public double DepensesLoisirs { get; set; }
+
+    /// <summary>Indique si le ménage est en sortie weekend ce jour</summary>
+    public bool EstEnSortie { get; set; }
+
+    /// <summary>Indique si le ménage est en vacances ce jour</summary>
+    public bool EstEnVacances { get; set; }
+
+    /// <summary>
+    /// Facteur de réduction des loisirs dû à la hausse des prix (0-1).
+    /// 1.0 = aucune réduction | 0.0 = loisirs totalement supprimés.
+    /// Les ménages aisés réduisent les loisirs en priorité quand les prix montent.
+    /// </summary>
+    public double FacteurReductionLoisirs { get; set; } = 1.0;
 }
 
 

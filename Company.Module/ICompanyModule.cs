@@ -42,5 +42,20 @@ namespace Company.Module
         /// Certaines zones franches bénéficient de régimes fiscaux favorables.
         /// </summary>
         double GetCoefficientTaxeExportParCategorie(Models.ECategorieExport categorie);
+
+        /// <summary>
+        /// Simule une journée d'activité pour une entreprise.
+        /// </summary>
+        Models.CompanyDailyResult SimulerJournee(
+            Models.Company entreprise,
+            double demandeConsommationMenages,
+            double tauxIS,
+            double tauxTVA,
+            double tauxInflation,
+            double tauxDirecteur,
+            bool estJourOuvrable = true,
+            Models.Jirama? Jirama = null,
+            double consoElecParEmployeKWhJour = 0,
+            double tauxCNaPSPatronale = 0);
     }
 }

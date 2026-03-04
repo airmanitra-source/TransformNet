@@ -1,6 +1,7 @@
 <Solution>
   <Project Path="Company.Module/Company.Module.csproj" Id="f267ad7b-aea3-49ec-8bba-eac69e230112" />
   <Project Path="Government.Module/Government.Module.csproj" Id="b622bebf-a733-4b71-9d77-4d3d10688b2b" />
+  <Project Path="Household.Leisure.Spending.Module/Household.Leisure.Spending.Module.csproj" Id="40de940b-2c34-4d64-95d4-d79f0a5612d6" />
   <Project Path="Household.Module/Household.Module.csproj" Id="33aab999-bf99-47c2-b81c-002adfce10b3" />
   <Project Path="Household.Salary.Distribution.Module/Household.Salary.Distribution.Module.csproj" Id="582aa487-07be-4d6f-b3c0-4ff2529171e0" />
   <Project Path="MachineLearning.ApiService/MachineLearning.ApiService.csproj" />

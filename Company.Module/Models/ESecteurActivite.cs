@@ -13,7 +13,9 @@ public enum ESecteurActivite
     Services,
     SecteurMinier,
     /// <summary>BTP, construction, travaux publics (~5% du PIB)</summary>
-    Construction
+    Construction,
+    /// <summary>Hôtellerie, tourisme, restauration (~3-4% du PIB)</summary>
+    HotellerieTourisme
 }
 
 

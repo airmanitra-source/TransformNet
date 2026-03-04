@@ -1,3 +1,5 @@
+using Company.Module;
+
 namespace Company.Module.Models;
 
 /// <summary>
@@ -48,6 +50,7 @@ public class Exporter : Company
         double tauxInflation,
         double tauxDirecteur,
         double tauxTaxeExport,
+        ICompanyModule companyModule,
         bool estJourOuvrable = true,
         Jirama? Jirama = null,
         double consoElecParEmployeKWhJour = 0,
@@ -80,9 +83,10 @@ public class Exporter : Company
         double ventesLocalesDemande = demandeConsommationMenages * (1.0 - PartExport);
         
         // Simuler comme une entreprise normale pour les aspects communs
-        var baseResult = base.SimulerJournee(
+        var baseResult = companyModule.SimulerJournee(
+            this,
             ventesLocalesDemande,
-            tauxIS, tauxTVA, tauxInflation, tauxDirecteur, 
+            tauxIS, tauxTVA, tauxInflation, tauxDirecteur,
             estJourOuvrable, Jirama, consoElecParEmployeKWhJour, tauxCNaPSPatronale);
 
         // Ajuster les résultats : le CA total inclut les exportations FOB
