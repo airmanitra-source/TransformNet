@@ -21,6 +21,8 @@ public class DailyGovernmentResult
     public double SalairesFonctionnaires { get; set; }
     /// <summary>FBCF estimée ce jour (Formation Brute de Capital Fixe)</summary>
     public double FBCF { get; set; }
+    /// <summary>Dépenses en capital de l'État ce jour (TOFE : financement intérieur + extérieur)</summary>
+    public double DepensesCapital { get; set; }
     /// <summary>
     /// Consommation finale de l'État (G dans le PIB par la demande).
     /// = Dépenses totales - Subventions (transferts) - FBCF publique.

@@ -1,7 +1,5 @@
-using MachineLearning.Web;
 using MachineLearning.Web.Components;
 using MachineLearning.Web.Models.Simulation;
-using MachineLearning.Web.Models.Simulation.Config;
 
 var builder = WebApplication.CreateBuilder(args);
 

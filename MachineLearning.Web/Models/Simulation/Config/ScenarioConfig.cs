@@ -203,12 +203,12 @@ public class ScenarioConfig
 
     // --- Aide internationale ---
     /// <summary>
-    /// Aide internationale reçue par jour (MGA).
-    /// Madagascar reçoit ~$1,5 Mds/an ≈ 6 750 Mds MGA/an ≈ ~18 500 M MGA/jour.
-    /// Représente ~35% du budget de l'État.
-    /// Source : OCDE/CAD, Banque Mondiale 2024.
+    /// Dons reçus par jour (MGA).
+    /// TOFE sept. 2025 : 1 000,1 Mds MGA cumul 9 mois → ~3 704 M MGA/jour.
+    /// Inclut dons courants (27,3 Mds) + dons en capital (972,8 Mds).
+    /// Source : TOFE Madagascar sept. 2025.
     /// </summary>
-    public double AideInternationaleJour { get; set; } = 18_500_000_000;
+    public double AideInternationaleJour { get; set; } = 3_704_000_000;
 
     // --- Subventions État → JIRAMA ---
     /// <summary>
@@ -240,16 +240,32 @@ public class ScenarioConfig
 
     // --- Fonctionnaires ---
     /// <summary>
-    /// Nombre de fonctionnaires de l'État (~200 000 agents).
-    /// Source : Ministère des Finances 2024.
+    /// Nombre d'agents publics (fonctionnaires + contractuels + militaires + enseignants + santé).
+    ///
+    /// TOFE Tableau 6 sept. 2025 :
+    ///   Base engagement  : Personnel = 2 815 384 M → 10 427 M/jour → 350k × 894k/mois
+    ///   Base ordonnancement : Personnel = 2 716 852 M → 10 063 M/jour → 350k × 863k/mois
+    ///     dont salaires et traitements : 2 599 095 M (96%) + indemnités : 117 757 M (4%)
+    ///
+    /// On retient la base ordonnancement (montants réellement décaissés).
+    /// Source : TOFE Madagascar Tableau 6, sept. 2025.
     /// </summary>
-    public int NombreFonctionnaires { get; set; } = 200_000;
+    public int NombreFonctionnaires { get; set; } = 350_000;
 
     /// <summary>
-    /// Salaire moyen mensuel des fonctionnaires (MGA).
-    /// ~300 000 MGA/mois (estimation moyenne toutes catégories).
+    /// Salaire moyen mensuel des agents publics (MGA), toutes indemnités incluses.
+    ///
+    /// TOFE Tableau 6 sept. 2025 (base ordonnancement) :
+    ///   Personnel = 2 716 852 M / 9 mois / 350 000 agents = 863 000 MGA/mois
+    ///   (base engagement donnerait 894 000 MGA/mois)
+    ///
+    /// Décomposition TOFE :
+    ///   - Salaires et traitements : 2 599 095 M (96%)
+    ///   - Indemnités : 117 757 M (4%)
+    ///
+    /// Source : TOFE Madagascar Tableau 6, sept. 2025 (base ordonnancement).
     /// </summary>
-    public double SalaireMoyenFonctionnaireMensuel { get; set; } = 300_000;
+    public double SalaireMoyenFonctionnaireMensuel { get; set; } = 863_000;
 
     // --- FBCF (Formation Brute de Capital Fixe) ---
     /// <summary>
@@ -259,17 +275,48 @@ public class ScenarioConfig
     public double TauxReinvestissementPrive { get; set; } = 0.25;
 
     /// <summary>
-    /// Part des dépenses publiques consacrée à l'investissement public (infrastructures, équipements).
-    /// ~25-35% du budget à Madagascar. Source : Loi de Finances 2024.
+    /// Dépenses en capital de l'État par jour (MGA) = FBCF publique.
+    /// TOFE sept. 2025 : 3 651,9 Mds cumul 9 mois → ~13 526 M MGA/jour.
+    /// Inclut financement intérieur (1 050 Mds) + extérieur (2 601,9 Mds).
+    /// Source : TOFE Madagascar sept. 2025.
     /// </summary>
-    public double PartInvestissementPublic { get; set; } = 0.30;
+    public double DepensesCapitalJour { get; set; } = 13_526_000_000;
+
+    /// <summary>
+    /// Intérêts de la dette publique par jour (MGA).
+    /// TOFE sept. 2025 : dette extérieure (164,6 Mds) + intérieure (288,4 Mds) = 453 Mds / 9 mois.
+    /// → ~1 678 M MGA/jour.
+    /// Source : TOFE Madagascar sept. 2025.
+    /// </summary>
+    public double InteretsDetteJour { get; set; } = 1_678_000_000;
+
+    /// <summary>
+    /// Dette publique initiale (MGA).
+    /// Madagascar : dette totale ~$6,5 Mds ≈ 29 250 Mds MGA (au taux 4 500 MGA/USD).
+    /// Source : FMI Article IV 2024.
+    /// </summary>
+    public double DettePubliqueInitiale { get; set; } = 29_250_000_000_000;
 
     // --- Commerce extérieur (Import / Export) ---
-    /// <summary>Part des entreprises qui sont importatrices (~20% à Madagascar)</summary>
-    public double TauxImportateurs { get; set; } = 0.20;
+    // 1 agent agrégé par catégorie INSTAT (pas de nombre configurable d'importateurs/exportateurs)
 
-    /// <summary>Part des entreprises qui sont exportatrices (~10% à Madagascar)</summary>
-    public double TauxExportateurs { get; set; } = 0.10;
+    // --- Cibles de recettes fiscales (TOFE Tableau 5 sept. 2025, référence pour validation) ---
+    // Ces valeurs ne sont PAS des paramètres d'entrée : elles servent de cibles de validation.
+    // Si le simulateur produit des recettes très différentes, c'est un signal d'incohérence.
+    //
+    // TOFE Tableau 5 — Recettes fiscales intérieures, cumul sept. 2025 (M MGA) :
+    //   IRSA (salaires)     :   586 436 M →  2 172 M/jour
+    //   IS (sociétés)       :   106 705 M →    395 M/jour  (faible → 85% informel)
+    //   TVA intérieure      : 1 245 741 M →  4 614 M/jour
+    //   IMP (marchés publ.) :   201 566 M →    746 M/jour
+    //   DA (accise intér.)  :   536 530 M →  1 987 M/jour  (⚠️ non modélisé côté domestique)
+    //   IR (revenus)        : 1 143 597 M →  4 235 M/jour
+    //   Total fiscal intér. : 3 954 415 M → 14 646 M/jour
+    //
+    // Observations clés :
+    //   - IS très faible (395 M/j) confirme que ~85% des entreprises sont informelles
+    //   - TVA intérieure (4 614 M/j) implique ~23 Mds/j de ventes formelles assujetties
+    //   - DA domestique (1 987 M/j) : accise sur biens locaux, non captée dans le modèle actuel
 
     /// <summary>Taux de base des droits de douane (~12% moyenne pondérée Madagascar)</summary>
     public double TauxDroitsDouane { get; set; } = 0.12;
@@ -281,40 +328,24 @@ public class ScenarioConfig
     public double TauxTaxeExport { get; set; } = 0.03;
 
     /// <summary>
-    /// Répartition des exportateurs par catégorie (poids normalisés).
-    /// Calibré sur les données INSTAT 2024 (proportions des FOB totaux).
-    /// </summary>
-    public Dictionary<ECategorieExport, double> RepartitionExportCategories { get; set; } = new()
-    {
-        [ECategorieExport.BiensAlimentaires] = 0.25,
-        [ECategorieExport.Vanille] = 0.08,
-        [ECategorieExport.Crevettes] = 0.025,
-        [ECategorieExport.Cafe] = 0.015,
-        [ECategorieExport.Girofle] = 0.06,
-        [ECategorieExport.ProduitsMiniers] = 0.30,
-        [ECategorieExport.ZonesFranches] = 0.27,
-    };
-
-    /// <summary>
     /// Valeur FOB journalière par catégorie d'export (en millions MGA).
+    /// Chaque catégorie dispose d'un agent agrégé unique portant la moyenne INSTAT.
     /// INSTAT sept 2025 : total ~844 910 M MGA/mois → ~28 164 M MGA/jour.
-    /// Ces valeurs × nb exportateurs de la catégorie ≈ FOB journalier INSTAT.
     /// </summary>
     public Dictionary<ECategorieExport, double> FOBJourParCategorie { get; set; } = new()
     {
-        [ECategorieExport.BiensAlimentaires] = 280,   // ~8 400 M/mois pour ~30 exportateurs
-        [ECategorieExport.Vanille] = 150,              // très variable selon saison
-        [ECategorieExport.Crevettes] = 320,            // peu d'exportateurs, haute valeur unitaire
+        [ECategorieExport.BiensAlimentaires] = 280,
+        [ECategorieExport.Vanille] = 150,
+        [ECategorieExport.Crevettes] = 320,
         [ECategorieExport.Cafe] = 80,
         [ECategorieExport.Girofle] = 120,
-        [ECategorieExport.ProduitsMiniers] = 500,      // Ambatovy, QMM = gros volumes
-        [ECategorieExport.ZonesFranches] = 250,        // textile, stable
+        [ECategorieExport.ProduitsMiniers] = 500,
+        [ECategorieExport.ZonesFranches] = 250,
     };
 
     /// <summary>
     /// Valeur CIF journalière par catégorie d'import (en millions MGA).
-    /// Ces valeurs × nb importateurs de la catégorie ≈ CIF journalier INSTAT.
-    /// Utilisé pour paramétrer les importateurs lors de la génération du dataset (calibration).
+    /// Chaque catégorie dispose d'un agent agrégé unique portant la moyenne INSTAT.
     /// </summary>
     public Dictionary<ECategorieImport, double> CIFJourParCategorie { get; set; } = new()
     {
@@ -328,12 +359,20 @@ public class ScenarioConfig
 
     // --- Dépenses publiques ---
     /// <summary>
-    /// Budget journalier de dépenses publiques de fonctionnement (hors salaires fonctionnaires, hors subventions).
-    /// À l'échelle de référence Madagascar (~6M ménages).
-    /// Budget total ~8 000 Mds MGA/an. Fonctionnement hors salaires et transferts ≈ ~40% ≈ 3 200 Mds/an ≈ 8,8 Mds/jour.
-    /// Sera mis à l'échelle par facteurEchelle dans le simulateur.
+    /// Budget journalier de fonctionnement de l'État (hors personnel, hors subventions JIRAMA, hors capital, hors intérêts).
+    /// 
+    /// TOFE Tableau 6 sept. 2025 (base engagement) :
+    ///   Fonctionnement total = 1 238 649 M / 9 mois = 4 588 M/jour
+    ///   - Biens et services : 273 736 M → 1 014 M/jour
+    ///   - Transferts et subventions : 964 912 M → 3 574 M/jour
+    ///     dont SubventionJirama (~1 370 M/jour) comptée séparément
+    ///
+    /// ⚠️ DepensesPubliquesJour = Fonctionnement − SubventionJirama = 4 588 − 1 370 = 3 218 M/jour
+    /// Évite le double-comptage car SubventionJiramaJour est ajouté séparément dans Government.SimulerJournee.
+    ///
+    /// Source : TOFE Madagascar Tableau 6, sept. 2025 (base engagement).
     /// </summary>
-    public double DepensesPubliquesJour { get; set; } = 8_800_000_000;
+    public double DepensesPubliquesJour { get; set; } = 3_218_000_000;
 
     // --- Mode injection directe des exports (données INSTAT) ---
     /// <summary>
@@ -451,9 +490,7 @@ public class ScenarioConfig
     public static ScenarioConfig OuvertureCommerciale() => new()
     {
         Name = "Ouverture commerciale",
-        Description = "Hausse des importateurs/exportateurs, baisse des droits de douane",
-        TauxImportateurs = 0.35,
-        TauxExportateurs = 0.20,
+        Description = "Baisse des droits de douane et accises pour favoriser les échanges",
         TauxDroitsDouane = 0.08,
         TauxAccise = 0.07,
         TauxTaxeExport = 0.02
@@ -464,9 +501,7 @@ public class ScenarioConfig
         Name = "Protectionnisme douanier",
         Description = "L'État augmente les droits de douane et accises pour protéger l'industrie locale",
         TauxDroitsDouane = 0.25,
-        TauxAccise = 0.20,
-        TauxImportateurs = 0.10,
-        TauxExportateurs = 0.15
+        TauxAccise = 0.20
     };
 
     public static List<ScenarioConfig> TousLesScenarios() =>

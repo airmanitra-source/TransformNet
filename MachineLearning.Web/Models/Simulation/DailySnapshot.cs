@@ -90,6 +90,8 @@ public class DailySnapshot
     public double SubventionsJirama { get; set; }
     /// <summary>Masse salariale des fonctionnaires ce jour</summary>
     public double SalairesFonctionnaires { get; set; }
+    /// <summary>Nombre de ménages fonctionnaires dans la simulation</summary>
+    public int NbFonctionnaires { get; set; }
     public double SoldeBudgetaire { get; set; }
     public double DettePublique { get; set; }
 

@@ -97,6 +97,21 @@ public partial class EconomySimulator : IDisposable
         return $"{montant:F0} MGA";
     }
 
+    /// <summary>
+    /// Formate un montant en milliards d'Ariary (ex: "13,53 Mds MGA").
+    /// Utilisé pour les paramètres budgétaires TOFE.
+    /// </summary>
+    private static string FormatMds(double montant)
+    {
+        if (Math.Abs(montant) >= 1_000_000_000_000)
+            return $"{montant / 1_000_000_000_000:F1} Tds MGA";
+        if (Math.Abs(montant) >= 1_000_000_000)
+            return $"{montant / 1_000_000_000:F2} Mds MGA";
+        if (Math.Abs(montant) >= 1_000_000)
+            return $"{montant / 1_000_000:F1} M MGA";
+        return $"{montant:F0} MGA";
+    }
+
     private static string FormatTemps(int jours)
     {
         if (jours >= 365)

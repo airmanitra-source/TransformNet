@@ -90,8 +90,8 @@ public class Government
     /// <summary>Total des dépenses d'électricité JIRAMA de l'État (éclairage public + bâtiments)</summary>
     public double TotalDepensesElectricite { get; set; }
 
-    /// <summary>Dette publique cumulée</summary>
-    public double DettePublique { get; set; } = 10_000_000;
+    /// <summary>Dette publique cumulée (initialisée par ScenarioConfig.DettePubliqueInitiale)</summary>
+    public double DettePublique { get; set; }
 
     /// <summary>
     /// Calcule l'IRSA mensuel selon le barème progressif malgache.
@@ -153,10 +153,10 @@ public class Government
         double consoElecEtatKWhJour = 0,
         double aideInternationaleJour = 0,
         double subventionJiramaJour = 0,
-        int nbFonctionnaires = 0,
-        double salaireMoyenFonctionnaireMensuel = 0,
+        double masseSalarialeFonctionnairesJour = 0,
         double tauxReinvestissementPrive = 0,
-        double partInvestissementPublic = 0)
+        double depensesCapitalJour = 0,
+        double interetsDetteJour = 0)
     {
         var result = new DailyGovernmentResult();
 
@@ -254,49 +254,50 @@ public class Government
             jirama.Tresorerie += subventionJiramaJour;
         }
 
-        // 8d. Masse salariale des fonctionnaires
-        double salairesFonctionnairesJour = nbFonctionnaires * (salaireMoyenFonctionnaireMensuel / 30.0);
-        result.SalairesFonctionnaires = salairesFonctionnairesJour;
-        TotalSalairesFonctionnaires += salairesFonctionnairesJour;
-        depenses += salairesFonctionnairesJour;
+        // 8d. Masse salariale des fonctionnaires (calculée micro : somme des salaires des ménages fonctionnaires)
+        result.SalairesFonctionnaires = masseSalarialeFonctionnairesJour;
+        TotalSalairesFonctionnaires += masseSalarialeFonctionnairesJour;
+        depenses += masseSalarialeFonctionnairesJour;
+
+        // 8e. Intérêts de la dette publique (TOFE : dette extérieure + intérieure)
+        result.InteretsDette = interetsDetteJour;
+        depenses += interetsDetteJour;
+
+        // 8f. Dépenses en capital (FBCF publique, TOFE : financement intérieur + extérieur)
+        result.DepensesCapital = depensesCapitalJour;
+        depenses += depensesCapitalJour;
 
         TotalDepensesPubliques += depenses;
         result.DepensesPubliques = depenses;
 
-        // 8e. FBCF (Formation Brute de Capital Fixe) — approche non-circulaire
+        // 9. FBCF (Formation Brute de Capital Fixe)
         // FBCF privée = part des bénéfices positifs réinvestie par les entreprises
         double profitPositifTotal = resultsEntreprises.Sum(r => Math.Max(0, r.BeneficeAvantImpot))
                                   + resultsImportateurs.Sum(r => Math.Max(0, r.BeneficeAvantImpot))
                                   + resultsExportateurs.Sum(r => Math.Max(0, r.BeneficeAvantImpot));
         double fbcfPrivee = profitPositifTotal * tauxReinvestissementPrive;
 
-        // FBCF publique = part des dépenses de fonctionnement consacrée à l'investissement
-        double fbcfPublique = DepensesPubliquesJour * partInvestissementPublic;
+        // FBCF publique = dépenses en capital de l'État (source TOFE directe)
+        result.FBCF = fbcfPrivee + depensesCapitalJour;
 
-        result.FBCF = fbcfPrivee + fbcfPublique;
+        // Consommation finale de l'État (G dans le PIB) = dépenses courantes - subventions (transferts)
+        // G exclut : subventions (transferts), dépenses en capital (dans FBCF), intérêts (transfert au créancier)
+        result.ConsommationFinaleEtat = depenses - subventionJiramaJour - depensesCapitalJour - interetsDetteJour;
 
-        // Consommation finale de l'État (G dans le PIB) = dépenses totales - subventions (transferts) - FBCF publique
-        // Les subventions JIRAMA sont des transferts, pas de la consommation finale
-        result.ConsommationFinaleEtat = depenses - subventionJiramaJour - fbcfPublique;
-
-        // 9. Transferts sociaux (redistribution, basée sur le budget hors électricité)
+        // 10. Transferts sociaux (redistribution)
         double transferts = DepensesPubliquesJour * TauxRedistribution;
         result.TransfertsSociaux = transferts;
 
-        // 10. Solde budgétaire
+        // 11. Solde budgétaire
         double soldeJour = recettesJour - depenses;
         SoldeBudgetaire += soldeJour;
         result.SoldeJour = soldeJour;
         result.SoldeCumule = SoldeBudgetaire;
 
-        // 8. Dette publique (augmente si déficit)
+        // 12. Dette publique (accumule les déficits)
         if (soldeJour < 0)
         {
             DettePublique += Math.Abs(soldeJour);
-            // Intérêts sur la dette (taux directeur)
-            double interetsJour = DettePublique * (TauxDirecteur / 365.0);
-            DettePublique += interetsJour;
-            result.InteretsDette = interetsJour;
         }
         result.DettePublique = DettePublique;
 

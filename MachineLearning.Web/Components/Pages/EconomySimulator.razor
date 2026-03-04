@@ -111,15 +111,8 @@
 
                 <hr />
                 <h6>🚢 Commerce extérieur</h6>
-                <div class="mb-2">
-                    <label class="form-label">Part importateurs : <strong>@((_config.TauxImportateurs * 100).ToString("F0"))%</strong></label>
-                    <input type="range" class="form-range" min="0.05" max="0.50" step="0.01"
-                           @bind="_config.TauxImportateurs" @bind:event="oninput" disabled="@Simulator.EnCours" />
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Part exportateurs : <strong>@((_config.TauxExportateurs * 100).ToString("F0"))%</strong></label>
-                    <input type="range" class="form-range" min="0.02" max="0.40" step="0.01"
-                           @bind="_config.TauxExportateurs" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                <div class="alert alert-info py-1 px-2 mb-2">
+                    <small>6 importateurs + 7 exportateurs (1 par catégorie INSTAT)</small>
                 </div>
                 <div class="mb-2">
                     <label class="form-label">Droits de douane : <strong>@((_config.TauxDroitsDouane * 100).ToString("F0"))%</strong></label>
@@ -168,6 +161,78 @@
                     <label class="form-label">Inflation : <strong>@(_config.TauxInflation * 100)%</strong></label>
                     <input type="range" class="form-range" min="0.01" max="0.30" step="0.005"
                            @bind="_config.TauxInflation" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                </div>
+
+                <hr />
+                <h6>🏛️ Budget de l'État <small class="text-muted">(TOFE sept. 2025)</small></h6>
+                <div class="alert alert-light border py-1 px-2 mb-2">
+                    <small>📋 Valeurs de départ calibrées sur le TOFE réel jan–sept 2025. Modifiables pour tester d'autres scénarios.</small>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Agents publics : <strong>@_config.NombreFonctionnaires.ToString("N0")</strong></label>
+                    <input type="range" class="form-range" min="100000" max="600000" step="10000"
+                           @bind="_config.NombreFonctionnaires" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                    <small class="text-muted">TOFE Personnel : @FormatMds(_config.NombreFonctionnaires * _config.SalaireMoyenFonctionnaireMensuel / 30.0)/jour</small>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Salaire moyen agent public : <strong>@FormatMGA(_config.SalaireMoyenFonctionnaireMensuel)/mois</strong></label>
+                    <input type="range" class="form-range" min="300000" max="2000000" step="10000"
+                           @bind="_config.SalaireMoyenFonctionnaireMensuel" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Fonctionnement État/jour : <strong>@FormatMds(_config.DepensesPubliquesJour)</strong></label>
+                    <input type="range" class="form-range" min="500000000" max="10000000000" step="100000000"
+                           @bind="_config.DepensesPubliquesJour" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                    <small class="text-muted">TOFE Tableau 6 : Fonctionnement (1 239 Mds) − SubventionJIRAMA</small>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Dépenses capital/jour (FBCF publique) : <strong>@FormatMds(_config.DepensesCapitalJour)</strong></label>
+                    <input type="range" class="form-range" min="1000000000" max="30000000000" step="500000000"
+                           @bind="_config.DepensesCapitalJour" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                    <small class="text-muted">TOFE : 3 651,9 Mds / 9 mois</small>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Intérêts dette/jour : <strong>@FormatMds(_config.InteretsDetteJour)</strong></label>
+                    <input type="range" class="form-range" min="0" max="5000000000" step="100000000"
+                           @bind="_config.InteretsDetteJour" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                    <small class="text-muted">TOFE : ext. 164,6 + int. 288,4 Mds</small>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Dons (aide internationale)/jour : <strong>@FormatMds(_config.AideInternationaleJour)</strong></label>
+                    <input type="range" class="form-range" min="0" max="20000000000" step="100000000"
+                           @bind="_config.AideInternationaleJour" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                    <small class="text-muted">TOFE : 1 000,1 Mds / 9 mois</small>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Subventions JIRAMA/jour : <strong>@FormatMds(_config.SubventionJiramaJour)</strong></label>
+                    <input type="range" class="form-range" min="0" max="5000000000" step="50000000"
+                           @bind="_config.SubventionJiramaJour" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                    <small class="text-muted">~500 Mds MGA/an (FMI Art. IV)</small>
+                </div>
+                <details class="mb-2">
+                    <summary class="fw-bold" style="cursor: pointer;">📊 Dette & investissement</summary>
+                    <div class="mt-2">
+                        <div class="mb-2">
+                            <label class="form-label">Dette publique initiale : <strong>@FormatMds(_config.DettePubliqueInitiale)</strong></label>
+                            <input type="range" class="form-range" min="10000000000000" max="60000000000000" step="500000000000"
+                                   @bind="_config.DettePubliqueInitiale" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                            <small class="text-muted">~$6,5 Mds ≈ 29 250 Mds MGA (FMI)</small>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Taux réinvestissement privé : <strong>@((_config.TauxReinvestissementPrive * 100).ToString("F0"))%</strong></label>
+                            <input type="range" class="form-range" min="0.05" max="0.50" step="0.01"
+                                   @bind="_config.TauxReinvestissementPrive" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                        </div>
+                    </div>
+                </details>
+                <div class="p-2 border rounded bg-light">
+                    <small class="fw-bold">📊 Budget résumé/jour :</small>
+                    <div class="d-flex flex-wrap gap-1 mt-1">
+                        <span class="badge bg-success">Dons: @FormatMds(_config.AideInternationaleJour)</span>
+                        <span class="badge bg-primary">Personnel: @FormatMds(_config.NombreFonctionnaires * _config.SalaireMoyenFonctionnaireMensuel / 30.0)</span>
+                        <span class="badge bg-info text-dark">Capital: @FormatMds(_config.DepensesCapitalJour)</span>
+                        <span class="badge bg-warning text-dark">Intérêts: @FormatMds(_config.InteretsDetteJour)</span>
+                    </div>
                 </div>
 
                 <hr />

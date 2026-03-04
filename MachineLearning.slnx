@@ -1,4 +1,7 @@
 <Solution>
+  <Project Path="Company.Module/Company.Module.csproj" Id="f267ad7b-aea3-49ec-8bba-eac69e230112" />
+  <Project Path="Government.Module/Government.Module.csproj" Id="b622bebf-a733-4b71-9d77-4d3d10688b2b" />
+  <Project Path="Household.Module/Household.Module.csproj" Id="33aab999-bf99-47c2-b81c-002adfce10b3" />
   <Project Path="MachineLearning.ApiService/MachineLearning.ApiService.csproj" />
   <Project Path="MachineLearning.AppHost/MachineLearning.AppHost.csproj" />
   <Project Path="MachineLearning.ServiceDefaults/MachineLearning.ServiceDefaults.csproj" />

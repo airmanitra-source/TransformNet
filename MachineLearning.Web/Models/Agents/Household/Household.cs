@@ -114,8 +114,15 @@ public class Household
     /// <summary>Indique si le ménage est employé</summary>
     public bool EstEmploye { get; set; } = true;
 
-    /// <summary>Identifiant de l'entreprise employeuse</summary>
+    /// <summary>Identifiant de l'entreprise employeuse (null si fonctionnaire ou chômeur)</summary>
     public int? EmployeurId { get; set; }
+
+    /// <summary>
+    /// Indique si le chef de ménage est fonctionnaire (agent public).
+    /// Les fonctionnaires travaillent lun-ven, sont payés par l'État,
+    /// et leur salaire provient du TOFE (SalaireMoyenFonctionnaireMensuel).
+    /// </summary>
+    public bool EstFonctionnaire { get; set; }
 
     /// <summary>
     /// Simule une journée pour ce ménage :
