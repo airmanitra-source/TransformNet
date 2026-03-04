@@ -11,6 +11,13 @@ namespace Household.Module
     /// </summary>
     public class HouseholdModule : IHouseholdModule
     {
+        /// <remarks>
+        /// NOTE DE CALIBRAGE : les valeurs de <c>DepensesAlimentairesJour</c> ici (15 000 MGA pour
+        /// Subsistance) sont sensiblement différentes de celles de
+        /// <c>HouseholdSalaryDistribution.ComportementParClasse</c> (2 000-3 500 MGA pour Subsistance),
+        /// qui est la source effectivement utilisée à l'initialisation dans
+        /// <c>EconomicSimulatorViewModel.Initialiser()</c>. À réconcilier.
+        /// </remarks>
         public (double TauxEpargne, double PropensionConsommation, double DepensesAlimentairesJour,
                  double DepensesDiversJour, string Transport, double DistanceDomicileTravailKm,
                  double EpargneInitiale) GetComportementParClasse(ClasseSocioEconomique classe)

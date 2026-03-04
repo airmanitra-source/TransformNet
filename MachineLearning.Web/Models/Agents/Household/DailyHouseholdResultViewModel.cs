@@ -22,6 +22,10 @@ public class DailyHouseholdResultViewModel : IFromBusinessModel<DailyHouseholdRe
     public double EpargneTotale { get; set; }
     public double FacteurChocPrix { get; set; }
     public double ReductionQuantiteAlimentaire { get; set; }
+    public double DepensesAlimentairesSimulee { get; set; }
+    public double DepensesAlimentaires { get; set; }
+    public double DepensesAlimentairesInformel { get; set; }
+    public double DepensesAlimentairesFormel { get; set; }
 
     public void FromBusinessModel(DailyHouseholdResult model)
     {
@@ -42,6 +46,10 @@ public class DailyHouseholdResultViewModel : IFromBusinessModel<DailyHouseholdRe
         EpargneTotale = model.EpargneTotale;
         FacteurChocPrix = model.FacteurChocPrix;
         ReductionQuantiteAlimentaire = model.ReductionQuantiteAlimentaire;
+        DepensesAlimentairesSimulee = model.DepensesAlimentairesSimulee;
+        DepensesAlimentaires = model.DepensesAlimentaires;
+        DepensesAlimentairesInformel = model.DepensesAlimentairesInformel;
+        DepensesAlimentairesFormel = model.DepensesAlimentairesFormel;
     }
 }
 

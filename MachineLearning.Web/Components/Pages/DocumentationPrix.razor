@@ -24,7 +24,14 @@
                 <li><a href="#reduction-quantites">Réduction progressive des quantités (courbe logistique)</a></li>
                 <li><a href="#parametres">Paramètres ajustables sur l'interface</a></li>
                 <li><a href="#scenarios">Scénarios d'application</a></li>
-                <li><a href="#implementation">Détails techniques (modules et interfaces)</a></li>
+                <li>
+                    <a href="#implementation">Détails techniques (modules et interfaces)</a>
+                    <ul>
+                        <li><a href="#implementation">Modules et interfaces</a></li>
+                        <li><a href="#implementation">Flux de données</a></li>
+                        <li><a href="#implementation">Détail : <code>AcheteProduitsAlimentaires</code> dans la boucle quotidienne</a></li>
+                    </ul>
+                </li>
             </ol>
         </div>
     </nav>
@@ -503,15 +510,111 @@
                 <code>DailySnapshotViewModel</code> (résultats)<br />
             </div>
 
+            @* ── Détail AcheteProduitsAlimentaires ── *@
+            <h6 class="mt-4">🛒 Détail : <code>AcheteProduitsAlimentaires</code> dans la boucle quotidienne</h6>
+            <p>
+                Chaque jour, pour chaque ménage, <code>SimulerUnJour()</code> appelle
+                <code>IHouseholdModule.AcheteProduitsAlimentaires()</code> après <code>menage.SimulerJournee()</code>.
+                Cet appel décompose la dépense alimentaire brute en deux flux économiques distincts.
+            </p>
+
+            <div class="formula-block">
+                <div class="formula-name">Signature de l'appel</div>
+                <code>
+                    var achat = _householdModule.AcheteProduitsAlimentaires(<br />
+                    &nbsp;&nbsp;depenseAlimentairesJourBase: menage.DepensesAlimentairesJour,<br />
+                    &nbsp;&nbsp;cumulHaussePrixAlimentaire:  _etat.TauxInflation × 100,<br />
+                    &nbsp;&nbsp;elasticiteUtilisateur:       _config.ElasticiteComportementMenage,<br />
+                    &nbsp;&nbsp;revenuDisponible:            r.RevenuBrut − r.ImpotIR);
+                </code>
+            </div>
+
+            <table class="table table-sm table-bordered mt-3">
+                <thead class="table-dark">
+                    <tr><th>Paramètre</th><th>Source</th><th>Rôle</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>depenseAlimentairesJourBase</code></td>
+                        <td><code>menage.DepensesAlimentairesJour</code></td>
+                        <td>Dépense alimentaire nominale fixée à l'initialisation selon la classe socio-éco</td>
+                    </tr>
+                    <tr>
+                        <td><code>cumulHaussePrixAlimentaire</code></td>
+                        <td><code>_etat.TauxInflation × 100</code></td>
+                        <td>Proxy du cumul d'inflation alimentaire en % (alimente la courbe logistique)</td>
+                    </tr>
+                    <tr>
+                        <td><code>elasticiteUtilisateur</code></td>
+                        <td><code>ElasticiteComportementMenage</code></td>
+                        <td>Pente de la courbe logistique — sensibilité du ménage aux hausses répétées</td>
+                    </tr>
+                    <tr>
+                        <td><code>revenuDisponible</code></td>
+                        <td><code>r.RevenuBrut − r.ImpotIR</code></td>
+                        <td>Plafond : le ménage ne peut dépenser plus de 80 % de son revenu net en alimentation</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h6 class="mt-3">Sorties et leur utilisation</h6>
+            <table class="table table-sm table-bordered">
+                <thead class="table-dark">
+                    <tr><th>Sortie</th><th>Stockée dans</th><th>Utilisation dans la simulation</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>CoutTotal</code></td>
+                        <td><code>r.DepensesAlimentaires</code></td>
+                        <td>Agrégé dans <code>DailySnapshotViewModel.DepensesAlimentairesTotales</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>CoutInformel</code></td>
+                        <td><code>r.DepensesAlimentairesInformel</code></td>
+                        <td>
+                            Réparti comme demande supplémentaire sur les entreprises
+                            <code>EstInformel = true</code> → augmente leur <code>VentesB2C</code>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><code>CoutFormel</code></td>
+                        <td><code>r.DepensesAlimentairesFormel</code></td>
+                        <td>
+                            Réparti sur les entreprises formelles + importateurs + exportateurs →
+                            alimente aussi la <code>TVACollectee</code> (TVA 20 % incluse)
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><code>QuantiteReduite</code></td>
+                        <td><code>r.ReductionQuantiteAlimentaire</code></td>
+                        <td>
+                            Moyenné dans <code>FacteurReductionAlimentaireMoyen</code> du snapshot —
+                            signal de privation alimentaire globale (1.0 = normal, 0.30 = survie)
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="alert alert-success mt-3">
+                <strong>✅ Impact macroéconomique du routage informel/formel :</strong><br />
+                En séparant la demande alimentaire, la simulation devient capable de mesurer l'<strong>effet de
+                canalisation</strong> de l'inflation sur le secteur informel vs. formel :<br />
+                • Une hausse de prix → ménages pauvres réduisent leurs quantités (<code>QuantiteReduite &lt; 1</code>)<br />
+                • Les entreprises informelles voient leur demande chuter → baisse de VA informelle<br />
+                • Les entreprises formelles maintiennent leurs ventes mais absorbent la TVA → marge comprimée
+            </div>
+
             <h6 class="mt-3">Fichiers modifiés</h6>
             <ul class="list-unstyled">
                 <li>✅ <code>Company.Module/IPriceModule.cs</code> — Interface contrat</li>
                 <li>✅ <code>Company.Module/PriceModule.cs</code> — Implémentation élasticité</li>
-                <li>✅ <code>Household.Module/IHouseholdModule.cs</code> — Ajout AcheteProduitsAlimentaires()</li>
+                <li>✅ <code>Household.Module/IHouseholdModule.cs</code> — Contrat AcheteProduitsAlimentaires()</li>
                 <li>✅ <code>Household.Module/HouseholdModule.cs</code> — Implémentation achat alimentaires</li>
-                <li>✅ <code>ScenarioConfigViewModel.cs</code> — 4 nouveaux paramètres</li>
-                <li>🔄 <code>EconomicSimulatorViewModel.cs</code> — À refactoriser (injection modules)</li>
-                <li>🔄 <code>EconomySimulator.razor</code> — UI sliders paramètres</li>
+                <li>✅ <code>Company.Module/Models/DailyHouseholdResult.cs</code> — +3 champs alimentaires</li>
+                <li>✅ <code>MachineLearning.Web/Models/Simulation/DailySnapshotViewModel.cs</code> — +4 métriques alimentaires</li>
+                <li>✅ <code>ScenarioConfigViewModel.cs</code> — Paramètres élasticité</li>
+                <li>✅ <code>EconomicSimulatorViewModel.cs</code> — Injection IHouseholdModule + appel boucle ménages + routage informel/formel</li>
+                <li>✅ <code>Program.cs</code> — DI : AddScoped&lt;IHouseholdModule, HouseholdModule&gt;()</li>
             </ul>
         </div>
     </div>

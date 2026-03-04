@@ -30,6 +30,34 @@ public class DailyHouseholdResult
     public double EpargneJour { get; set; }
     public double EpargneTotale { get; set; }
 
+    // ─── Achat alimentaire journalier (IHouseholdModule.AcheteProduitsAlimentaires) ───
+
+    /// <summary>
+    /// Composant alimentaire calculé par <c>Household.SimulerJournee()</c>
+    /// (DepensesAlimentairesJour × facteurInflation × facteurChocPrix × (1 − réductionInterne)).
+    /// Utilisé pour isoler la demande non-alimentaire dans le routage B2C.
+    /// </summary>
+    public double DepensesAlimentairesSimulee { get; set; }
+
+    /// <summary>
+    /// Coût total réel du panier alimentaire du jour après application du facteur de
+    /// réduction et plafonnement à 80 % du revenu disponible (MGA).
+    /// Calculé par <c>IHouseholdModule.AcheteProduitsAlimentaires()</c>.
+    /// </summary>
+    public double DepensesAlimentaires { get; set; }
+
+    /// <summary>
+    /// Part du panier achetée dans le secteur informel (85 % × dépense effective, MGA).
+    /// Alimente la demande des entreprises informelles.
+    /// </summary>
+    public double DepensesAlimentairesInformel { get; set; }
+
+    /// <summary>
+    /// Part du panier achetée dans le secteur formel (15 % × dépense effective × 1.20 TVA, MGA).
+    /// Alimente la demande des entreprises formelles + TVA collectée.
+    /// </summary>
+    public double DepensesAlimentairesFormel { get; set; }
+
     // ─── Élasticités & chocs de prix ───────────────────────────────────────────
 
     /// <summary>
@@ -40,11 +68,11 @@ public class DailyHouseholdResult
     public double FacteurChocPrix { get; set; } = 1.0;
 
     /// <summary>
-    /// Fraction des dépenses alimentaires réduite par le comportement du ménage (0 à 0.40).
-    /// Ex : 0.15 = le ménage a sacrifié 15 % de ses quantités alimentaires parce que
-    /// la part alimentaire dans son revenu net dépassait <c>PartRevenuAlimentaireNormale</c>.
+    /// Facteur de réduction des quantités alimentaires achetées ce jour (0.30–1.00).
+    /// Retourné par <c>IHouseholdModule.AcheteProduitsAlimentaires</c> via courbe logistique.
+    /// 1.00 = aucune privation | 0.30 = plancher biologique (seuil de survie).
     /// </summary>
-    public double ReductionQuantiteAlimentaire { get; set; } = 0.0;
+    public double ReductionQuantiteAlimentaire { get; set; } = 1.0;
 }
 
 

@@ -189,9 +189,11 @@ public class Company
     /// Retourne la productivité journalière réaliste par employé selon le secteur.
     /// Basé sur des données terrain malgaches (CA/employé/jour).
     /// </summary>
-    /// <param name="secteur">Secteur d'activité de l'entreprise</param>
-    /// <param name="moyenneBasse">Si true, utilise la borne basse de la fourchette</param>
-    /// <returns>Productivité en MGA/employé/jour</returns>
+    /// <remarks>
+    /// SUPERSEDED : cette méthode statique est conservée pour compatibilité.
+    /// Privilégier <c>ICompanyModule.GetProductiviteParSecteur()</c> injecté dans
+    /// <c>EconomicSimulatorViewModel</c> pour permettre la substitution et les tests.
+    /// </remarks>
     public static double GetProductiviteParSecteur(ESecteurActivite secteur, bool moyenneBasse = false)
     {
         return secteur switch
@@ -224,6 +226,11 @@ public class Company
     /// disposent de très peu de fonds de roulement, tandis que les entreprises minières
     /// ont une trésorerie conséquente pour financer leurs opérations.
     /// </summary>
+    /// <remarks>
+    /// SUPERSEDED : cette méthode statique est conservée pour compatibilité.
+    /// Privilégier <c>EconomicSimulatorViewModel.GetTresorerieInitiale()</c> qui combine
+    /// le dictionnaire de scénario config et <c>ICompanyModule.GetTresorerieInitialeParSecteur()</c>.
+    /// </remarks>
     public static double GetTresorerieInitialeParSecteur(
         ESecteurActivite secteur,
         Dictionary<ESecteurActivite, double>? configParSecteur = null)

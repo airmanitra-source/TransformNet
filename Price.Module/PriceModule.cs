@@ -46,6 +46,13 @@ namespace Price.Module
         /// - Partage 85% informel / 15% formel avec marge différente
         /// - Effet revenu (ménage compresse dépenses si inflation trop forte)
         /// </summary>
+        /// <remarks>
+        /// SUPERSEDED : cette méthode est conservée pour compatibilité. Le modèle actuel
+        /// utilise <c>IHouseholdModule.AcheteProduitsAlimentaires()</c> qui ajoute
+        /// la courbe logistique comportementale et le plafonnement à 80% du revenu disponible.
+        /// L'ajustement carburant est désormais appliqué en amont via
+        /// <c>IPriceModule.AjusterPrixParCarburant()</c> dans <c>EconomicSimulatorViewModel</c>.
+        /// </remarks>
         public double CalculerCoutPanierAlimentaire(
             double depenseAlimentairesJourBase,
             double prixCarburantCourant,

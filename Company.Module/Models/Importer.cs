@@ -140,6 +140,10 @@ public class Importer : Company
     /// Coefficient multiplicateur des droits de douane selon la catégorie.
     /// Le taux final = tauxDroitsDouane (config) × coefficient.
     /// </summary>
+    /// <remarks>
+    /// SUPERSEDED : privilégier <c>ICompanyModule.GetCoefficientDroitsDouaneParCategorie()</c>
+    /// injecté dans <c>EconomicSimulatorViewModel</c> pour centraliser les règles douanières.
+    /// </remarks>
     public double CoefficientDDParCategorie() => Categorie switch
     {
         ECategorieImport.Carburant => 0.0,           // DD 0% sur le carburant
@@ -154,6 +158,10 @@ public class Importer : Company
     /// <summary>
     /// Coefficient multiplicateur des accises selon la catégorie.
     /// </summary>
+    /// <remarks>
+    /// SUPERSEDED : privilégier <c>ICompanyModule.GetCoefficientAcciseParCategorie()</c>
+    /// injecté dans <c>EconomicSimulatorViewModel</c> pour centraliser les règles d'accise.
+    /// </remarks>
     public double CoefficientAcciseParCategorie() => Categorie switch
     {
         ECategorieImport.Carburant => 3.00,           // Accise très élevée (30-60%)

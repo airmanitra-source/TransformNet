@@ -1,5 +1,3 @@
-using Household.Module.Models;
-using Company.Module.Models;
 namespace Government.Module.Models;
 
 public class DailyGovernmentResult

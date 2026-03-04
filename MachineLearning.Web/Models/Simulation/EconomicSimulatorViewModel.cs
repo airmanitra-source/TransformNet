@@ -9,12 +9,18 @@ using Household.Module.Models;
 using Household.Salary.Distribution.Module.Models;
 using MachineLearning.Web.Models.Simulation.Config;
 using Government.Module;
+using Household.Module;
+using Company.Module;
+using Price.Module;
 
 namespace MachineLearning.Web.Models.Simulation;
 
 public class EconomicSimulatorViewModel
 {
     private readonly IGovernmentModule _governmentModule;
+    private readonly IHouseholdModule _householdModule;
+    private readonly ICompanyModule _companyModule;
+    private readonly IPriceModule _priceModule;
     private readonly List<AgentHousehold> _menages = [];
     private readonly List<AgentCompany> _entreprises = [];
     private readonly List<AgentImporter> _importateurs = [];
@@ -37,10 +43,27 @@ public class EconomicSimulatorViewModel
 
     public event Action? OnTickCompleted;
 
-    public EconomicSimulatorViewModel(IGovernmentModule governmentModule)
+    public EconomicSimulatorViewModel(
+        IGovernmentModule governmentModule,
+        IHouseholdModule householdModule,
+        ICompanyModule companyModule,
+        IPriceModule priceModule)
     {
         _governmentModule = governmentModule;
+        _householdModule  = householdModule;
+        _companyModule    = companyModule;
+        _priceModule      = priceModule;
     }
+
+    /// <summary>
+    /// Retourne la trésorerie initiale d'un secteur en donnant la priorité
+    /// au dictionnaire de scénario config, avec <c>ICompanyModule</c> comme fallback.
+    /// Remplace <c>AgentCompany.GetTresorerieInitialeParSecteur(secteur, config)</c>.
+    /// </summary>
+    private double GetTresorerieInitiale(ESecteurActivite secteur) =>
+        _config.TresorerieInitialeParSecteur.TryGetValue(secteur, out var v)
+            ? v
+            : _companyModule.GetTresorerieInitialeParSecteur(secteur);
 
     /// <summary>
     /// Initialise la simulation avec un scénario donné.
@@ -138,8 +161,10 @@ public class EconomicSimulatorViewModel
                 NombreEmployes = employesParEntreprise,
                 SalaireMoyenMensuel = _distribution.TirerSalaire(random) * (1.0 + random.NextDouble() * 0.3),
                 MargeBeneficiaire = _config.MargeBeneficiaireEntreprise,
-                ProductiviteParEmployeJour = AgentCompany.GetProductiviteParSecteur(ESecteurActivite.Commerces) * (0.8 + random.NextDouble() * 0.4),
-                Tresorerie = AgentCompany.GetTresorerieInitialeParSecteur(ESecteurActivite.Commerces, _config.TresorerieInitialeParSecteur)
+                // was: AgentCompany.GetProductiviteParSecteur(ESecteurActivite.Commerces)
+                ProductiviteParEmployeJour = _companyModule.GetProductiviteParSecteur(ESecteurActivite.Commerces) * (0.8 + random.NextDouble() * 0.4),
+                // was: AgentCompany.GetTresorerieInitialeParSecteur(ESecteurActivite.Commerces, _config.TresorerieInitialeParSecteur)
+                Tresorerie = GetTresorerieInitiale(ESecteurActivite.Commerces)
                              * (0.5 + random.NextDouble()),  // pondération aléatoire
                 Categorie = categorie,
                 SecteurActivite = ESecteurActivite.Commerces,
@@ -162,8 +187,10 @@ public class EconomicSimulatorViewModel
                 NombreEmployes = employesParEntreprise,
                 SalaireMoyenMensuel = _distribution.TirerSalaire(random) * (1.0 + random.NextDouble() * 0.3),
                 MargeBeneficiaire = _config.MargeBeneficiaireEntreprise,
-                ProductiviteParEmployeJour = AgentCompany.GetProductiviteParSecteur(secteur) * (0.8 + random.NextDouble() * 0.4),
-                Tresorerie = AgentCompany.GetTresorerieInitialeParSecteur(secteur, _config.TresorerieInitialeParSecteur)
+                // was: AgentCompany.GetProductiviteParSecteur(secteur)
+                ProductiviteParEmployeJour = _companyModule.GetProductiviteParSecteur(secteur) * (0.8 + random.NextDouble() * 0.4),
+                // was: AgentCompany.GetTresorerieInitialeParSecteur(secteur, _config.TresorerieInitialeParSecteur)
+                Tresorerie = GetTresorerieInitiale(secteur)
                              * (0.5 + random.NextDouble()),  // pondération aléatoire
                 Categorie = categorie,
                 SecteurActivite = secteur,
@@ -203,8 +230,10 @@ public class EconomicSimulatorViewModel
                 NombreEmployes = employesParEntreprise,
                 SalaireMoyenMensuel = _distribution.TirerSalaire(random) * (0.9 + random.NextDouble() * 0.2),
                 MargeBeneficiaire = _config.MargeBeneficiaireEntreprise,
-                ProductiviteParEmployeJour = AgentCompany.GetProductiviteParSecteur(secteur) * (0.8 + random.NextDouble() * 0.4),
-                Tresorerie = AgentCompany.GetTresorerieInitialeParSecteur(secteur, _config.TresorerieInitialeParSecteur) * (0.5 + random.NextDouble()),
+                // was: AgentCompany.GetProductiviteParSecteur(secteur)
+                ProductiviteParEmployeJour = _companyModule.GetProductiviteParSecteur(secteur) * (0.8 + random.NextDouble() * 0.4),
+                // was: AgentCompany.GetTresorerieInitialeParSecteur(secteur, _config.TresorerieInitialeParSecteur)
+                Tresorerie = GetTresorerieInitiale(secteur) * (0.5 + random.NextDouble()),
                 SecteurActivite = secteur,
                 EstInformel = estInformel
             };
@@ -582,6 +611,36 @@ public class EconomicSimulatorViewModel
                 masseSalarialeFonctionnairesJour += r.RevenuBrut;
             }
 
+            // ── Achat alimentaire journalier ──────────────────────────────────────────
+            // L'appel à IHouseholdModule décompose la dépense alimentaire en deux flux :
+            //   • secteur informel (85 %) → demande vers marchés de quartier / vendeurs
+            //   • secteur formel (15 % + TVA 20 %) → demande vers épiceries / supermarchés
+            // Le facteur logistique réduit les quantités en cas d'inflation cumulée élevée.
+            //
+            // Étape 1 : ajuster le prix de base avec IPriceModule (élasticité carburant + aléa)
+            // afin que la demande transmise aux entreprises reflète les chocs de prix du carburant.
+            // Auparavant, menage.DepensesAlimentairesJour était passé sans ajustement de prix.
+            double depenseAlimAjustee = _priceModule.AjusterPrixParCarburant(
+                prixBase:               menage.DepensesAlimentairesJour,
+                prixCarburantCourant:   _config.PrixCarburantLitre,
+                prixCarburantReference: _config.PrixCarburantReference,
+                elasticitePrix:         _config.ElasticitePrixParCarburant,
+                volatiliteAlea:         _config.VolatiliteAleatoireMarche,
+                random:                 _random);
+
+            double revenuDisponible = Math.Max(0, r.RevenuBrut - r.ImpotIR);
+            var achat = _householdModule.AcheteProduitsAlimentaires(
+                depenseAlimentairesJourBase:    depenseAlimAjustee,   // prix ajusté (was: menage.DepensesAlimentairesJour)
+                cumulHaussePrixAlimentaire:     _etat.TauxInflation * 100,
+                elasticiteUtilisateur:          _config.ElasticiteComportementMenage,
+                revenuDisponible:               revenuDisponible);
+
+            r.DepensesAlimentaires         = achat.CoutTotal;
+            r.DepensesAlimentairesInformel = achat.CoutInformel;
+            r.DepensesAlimentairesFormel   = achat.CoutFormel;
+            r.ReductionQuantiteAlimentaire = achat.QuantiteReduite;
+            // ─────────────────────────────────────────────────────────────────────────
+
             resultsMenages.Add(r);
             demandeConsommationTotale += r.Consommation;
         }
@@ -597,13 +656,50 @@ public class EconomicSimulatorViewModel
         var resultsExportateurs = new List<DailyExporterResult>();
 
         int totalEntreprises = _entreprises.Count + _importateurs.Count + _exportateurs.Count;
-        double demandeParEntreprise = demandeConsommationTotale / Math.Max(totalEntreprises, 1);
+
+        // ── Décomposition de la demande alimentaire informel/formel ──────────────
+        // Les achats alimentaires (IHouseholdModule.AcheteProduitsAlimentaires) sont
+        // dirigés vers les entreprises selon leur statut :
+        //   • CoutInformel → réparti sur les entreprises estInformel=true
+        //   • CoutFormel   → réparti sur les entreprises estInformel=false
+        //
+        // Pour éviter le double-comptage, on retire le composant alimentaire EXACT calculé
+        // par SimulerJournee (DepensesAlimentairesSimulee) de la demande totale, puis on
+        // re-route proprement via les résultats de AcheteProduitsAlimentaires.
+        //   demandeConsommationTotale = nourriture(SimulerJournee) + non-nourriture
+        //   demandeHorsAlim           = non-nourriture seule
+        //   demande effective  = demandeHorsAlim + bonusAlimInformel | bonusAlimFormel
+        double totalAlimInformel = resultsMenages.Sum(r => r.DepensesAlimentairesInformel);
+        double totalAlimFormel   = resultsMenages.Sum(r => r.DepensesAlimentairesFormel);
+
+        int nbInformelles = Math.Max(_entreprises.Count(e => e.EstInformel), 1);
+        int nbFormelles   = Math.Max(_entreprises.Count(e => !e.EstInformel)
+                                   + _importateurs.Count + _exportateurs.Count, 1);
+
+        double bonusDemandeAlimParEntrepriseInformelle = totalAlimInformel / nbInformelles;
+        double bonusDemandeAlimParEntrepriseFormelle   = totalAlimFormel   / nbFormelles;
+
+        // Soustraction du composant alimentaire exact issu de SimulerJournee (pas de AcheteProduitsAlimentaires)
+        // pour éviter tout double-comptage lors du re-routage ci-dessus.
+        double totalAlimSimulee = resultsMenages.Sum(r => r.DepensesAlimentairesSimulee);
+        double demandeHorsAlim = Math.Max(0, demandeConsommationTotale - totalAlimSimulee);
+
+        // Split 85 % informel / 15 % formel pour la consommation non-alimentaire.
+        // Reflète la structure duale de l'économie malgache : les ménages achètent
+        // la majorité de leurs biens courants (transport, divers) dans le secteur informel.
+        // Auparavant : demandeHorsAlim répartie uniformément sans distinction informel/formel.
+        double demandeHorsAlimInformelParEntreprise = demandeHorsAlim * 0.85 / Math.Max(nbInformelles, 1);
+        double demandeHorsAlimFormelParEntreprise   = demandeHorsAlim * 0.15 / Math.Max(nbFormelles, 1);
+        // ─────────────────────────────────────────────────────────────────────────
 
         foreach (var entreprise in _entreprises)
         {
             bool travailleCeJour = EntrepriseTravailleCeJour(_jourCourant, entreprise.SecteurActivite);
+            double demandeEffective = entreprise.EstInformel
+                ? demandeHorsAlimInformelParEntreprise + bonusDemandeAlimParEntrepriseInformelle
+                : demandeHorsAlimFormelParEntreprise   + bonusDemandeAlimParEntrepriseFormelle;
             var r = entreprise.SimulerJournee(
-                demandeParEntreprise,
+                demandeEffective,
                 _etat.TauxIS,
                 _etat.TauxTVA,
                 _etat.TauxInflation,
@@ -626,10 +722,12 @@ public class EconomicSimulatorViewModel
                 double cifJourImportateur = cifBase * (0.85 + rngJour.NextDouble() * 0.30);
 
                 // Calculer les droits et taxes
-                double droitsDouaneTaux = _config.TauxDroitsDouane * importateur.CoefficientDDParCategorie();
+                // was: importateur.CoefficientDDParCategorie()
+                double droitsDouaneTaux = _config.TauxDroitsDouane * _companyModule.GetCoefficientDroitsDouaneParCategorie(importateur.Categorie);
                 double droitsDouane = cifJourImportateur * droitsDouaneTaux;
 
-                double acciseTaux = _config.TauxAccise * importateur.CoefficientAcciseParCategorie();
+                // was: importateur.CoefficientAcciseParCategorie()
+                double acciseTaux = _config.TauxAccise * _companyModule.GetCoefficientAcciseParCategorie(importateur.Categorie);
                 double accise = (cifJourImportateur + droitsDouane) * acciseTaux;
 
                 double tvaImport = (cifJourImportateur + droitsDouane + accise) * _etat.TauxTVA;
@@ -646,7 +744,7 @@ public class EconomicSimulatorViewModel
 
                 bool importeurTravaille = EntrepriseTravailleCeJour(_jourCourant, importateur.SecteurActivite);
                 var baseResult = importateur.SimulerJournee(
-                    demandeParEntreprise,
+                    demandeHorsAlimFormelParEntreprise + bonusDemandeAlimParEntrepriseFormelle,
                     _etat.TauxIS, _etat.TauxTVA, _etat.TauxInflation, _etat.TauxDirecteur, importeurTravaille,
                     _jirama, _config.ConsommationElecParEmployeKWhJour, _config.TauxCotisationsPatronalesCNaPS);
 
@@ -687,7 +785,7 @@ public class EconomicSimulatorViewModel
             {
                 bool travailleCeJour = EntrepriseTravailleCeJour(_jourCourant, importateur.SecteurActivite);
                 var r = importateur.SimulerJourneeImport(
-                    demandeParEntreprise,
+                    demandeHorsAlimFormelParEntreprise + bonusDemandeAlimParEntrepriseFormelle,
                     _etat.TauxIS,
                     _etat.TauxTVA,
                     _etat.TauxInflation,
@@ -724,7 +822,7 @@ public class EconomicSimulatorViewModel
 
                 bool exporteurTravaille = EntrepriseTravailleCeJour(_jourCourant, exportateur.SecteurActivite);
                 var baseResult = exportateur.SimulerJournee(
-                    demandeParEntreprise * (1.0 - exportateur.PartExport),
+                    (demandeHorsAlimFormelParEntreprise + bonusDemandeAlimParEntrepriseFormelle) * (1.0 - exportateur.PartExport),
                     _etat.TauxIS, _etat.TauxTVA, _etat.TauxInflation, _etat.TauxDirecteur, exporteurTravaille,
                     _jirama, _config.ConsommationElecParEmployeKWhJour, _config.TauxCotisationsPatronalesCNaPS);
 
@@ -761,7 +859,7 @@ public class EconomicSimulatorViewModel
             {
                 bool travailleCeJour = EntrepriseTravailleCeJour(_jourCourant, exportateur.SecteurActivite);
                 var r = exportateur.SimulerJourneeExport(
-                    demandeParEntreprise,
+                    demandeHorsAlimFormelParEntreprise + bonusDemandeAlimParEntrepriseFormelle,
                     _etat.TauxIS,
                     _etat.TauxTVA,
                     _etat.TauxInflation,
@@ -1026,7 +1124,15 @@ public class EconomicSimulatorViewModel
                 toutesEntreprisesRef.Where(e => e.SecteurActivite == ESecteurActivite.Commerces 
                                               || e.SecteurActivite == ESecteurActivite.Services).ToList()),
             CAMoyenParEmployeMinier = CalculerCAMoyenParEmploye(
-                toutesEntreprisesRef.Where(e => e.SecteurActivite == ESecteurActivite.SecteurMinier).ToList())
+                toutesEntreprisesRef.Where(e => e.SecteurActivite == ESecteurActivite.SecteurMinier).ToList()),
+
+            // Achat alimentaire journalier (IHouseholdModule.AcheteProduitsAlimentaires)
+            DepensesAlimentairesTotales       = resultsMenages.Sum(r => r.DepensesAlimentaires),
+            DepensesAlimentairesInformelTotal = resultsMenages.Sum(r => r.DepensesAlimentairesInformel),
+            DepensesAlimentairesFormelTotal   = resultsMenages.Sum(r => r.DepensesAlimentairesFormel),
+            FacteurReductionAlimentaireMoyen  = resultsMenages.Count > 0
+                ? resultsMenages.Average(r => r.ReductionQuantiteAlimentaire)
+                : 1.0
         };
 
         _result.Snapshots.Add(snapshot);

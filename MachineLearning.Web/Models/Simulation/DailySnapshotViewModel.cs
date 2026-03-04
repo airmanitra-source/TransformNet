@@ -84,6 +84,23 @@ public class DailySnapshotViewModel
     public double CAMoyenParEmployeTextile { get; set; }
     public double CAMoyenParEmployeCommerce { get; set; }
     public double CAMoyenParEmployeMinier { get; set; }
+
+    // ─── Achat alimentaire journalier (IHouseholdModule.AcheteProduitsAlimentaires) ───
+
+    /// <summary>Somme des paniers alimentaires journaliers de tous les ménages (MGA).</summary>
+    public double DepensesAlimentairesTotales { get; set; }
+
+    /// <summary>Part informelle des achats alimentaires (85 %, marchés de quartier, MGA).</summary>
+    public double DepensesAlimentairesInformelTotal { get; set; }
+
+    /// <summary>Part formelle des achats alimentaires (15 % + TVA 20 %, épiceries, MGA).</summary>
+    public double DepensesAlimentairesFormelTotal { get; set; }
+
+    /// <summary>
+    /// Facteur de réduction moyen des quantités alimentaires (0.30–1.00).
+    /// 1.00 = aucune privation | 0.30 = plancher biologique.
+    /// </summary>
+    public double FacteurReductionAlimentaireMoyen { get; set; }
 }
 
 

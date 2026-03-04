@@ -245,6 +245,7 @@ public class Household
         }
 
         result.ReductionQuantiteAlimentaire = reductionQuantite;
+        result.DepensesAlimentairesSimulee  = depensesAlimentaires;   // composant brut pour routage B2C
         result.DepensesRiz = depensesRiz;
         TotalDepensesRiz += depensesRiz;
         // ────────────────────────────────────────────────────────────────────────
