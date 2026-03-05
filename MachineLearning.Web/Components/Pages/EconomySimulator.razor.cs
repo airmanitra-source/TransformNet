@@ -172,6 +172,7 @@ public partial class EconomySimulator : IDisposable
         ESecteurActivite.Services => "🔧",
         ESecteurActivite.SecteurMinier => "⛏️",
         ESecteurActivite.Construction => "🏗️",
+        ESecteurActivite.HotellerieTourisme => "🏨",
         _ => "🏢"
     };
 
@@ -195,6 +196,87 @@ public partial class EconomySimulator : IDisposable
         ESecteurActivite.SecteurMinier => 1_000_000,
         _ => 500_000
     };
+
+    // ═══════════════════════════════════════════
+    //  RECALIBRATION MENSUELLE
+    // ═══════════════════════════════════════════
+
+    private void AjouterCibleMensuelle()
+    {
+        int prochainMois = _config.CiblesMensuelles.Count > 0
+            ? _config.CiblesMensuelles.Max(c => c.Mois) + 1
+            : 1;
+
+        _config.CiblesMensuelles.Add(new MonthlyCalibrationTarget
+        {
+            Mois = prochainMois,
+            Label = $"Mois {prochainMois}"
+        });
+    }
+
+    private void SupprimerCibleMensuelle(int mois)
+    {
+        _config.CiblesMensuelles.RemoveAll(c => c.Mois == mois);
+    }
+
+    private static void SetCibleM3(MonthlyCalibrationTarget cible, ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out double val) && val > 0)
+            cible.M3Cible = val * 1_000_000_000;
+        else
+            cible.M3Cible = null;
+    }
+
+    private static void SetCibleFiscale(MonthlyCalibrationTarget cible, ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out double val) && val > 0)
+            cible.RecettesFiscalesCumuleesCible = val * 1_000_000_000;
+        else
+            cible.RecettesFiscalesCumuleesCible = null;
+    }
+
+    private static void SetCibleExports(MonthlyCalibrationTarget cible, ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out double val) && val > 0)
+            cible.ExportationsFOBCumuleesCible = val * 1_000_000_000;
+        else
+            cible.ExportationsFOBCumuleesCible = null;
+    }
+
+    private static void SetCibleImports(MonthlyCalibrationTarget cible, ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out double val) && val > 0)
+            cible.ImportationsCIFCumuleesCible = val * 1_000_000_000;
+        else
+            cible.ImportationsCIFCumuleesCible = null;
+    }
+
+    private static void SetCibleTourisme(MonthlyCalibrationTarget cible, ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out double val) && val > 0)
+            cible.DevisesTourismeCible = val * 1_000_000_000;
+        else
+            cible.DevisesTourismeCible = null;
+    }
+
+    private static void SetCibleCNaPS(MonthlyCalibrationTarget cible, ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int val) && val > 0)
+            cible.NouveauxAffiliesCNaPSCible = val;
+        else
+            cible.NouveauxAffiliesCNaPSCible = null;
+    }
+
+    private static string FormatSmallNumber(double val)
+    {
+        if (Math.Abs(val) < 0.001)
+            return val.ToString("E2");
+        if (Math.Abs(val) >= 1_000_000_000)
+            return $"{val / 1_000_000_000:F2} Mds";
+        if (Math.Abs(val) >= 1_000_000)
+            return $"{val / 1_000_000:F1} M";
+        return val.ToString("F4");
+    }
 
     public void Dispose()
     {

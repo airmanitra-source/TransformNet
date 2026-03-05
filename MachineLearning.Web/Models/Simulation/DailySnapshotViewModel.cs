@@ -85,6 +85,11 @@ public class DailySnapshotViewModel
     public double CAMoyenParEmployeCommerce { get; set; }
     public double CAMoyenParEmployeMinier { get; set; }
 
+    // --- Secteur Bancaire et Masse Monétaire ---
+    public double MasseMonetaireM3 { get; set; }
+    public double TotalDepotsBancaires { get; set; }
+    public double TotalCreditsAccordes { get; set; }
+
     // ─── Achat alimentaire journalier (IHouseholdModule.AcheteProduitsAlimentaires) ───
 
     /// <summary>Somme des paniers alimentaires journaliers de tous les ménages (MGA).</summary>
@@ -118,6 +123,39 @@ public class DailySnapshotViewModel
     /// 1.0 = aucune réduction | 0.0 = loisirs totalement supprimés.
     /// </summary>
     public double FacteurReductionLoisirsMoyen { get; set; }
+
+    // ─── Transport (ITransportationModule) ──────────────────────────────────────
+
+    /// <summary>Total des dépenses de transport tous ménages (MGA).</summary>
+    public double DepensesTransportTotales { get; set; }
+
+    /// <summary>Part des dépenses de transport routée vers le secteur informel (taxi-be, garagistes, MGA).</summary>
+    public double DepensesTransportInformel { get; set; }
+
+    /// <summary>Part des dépenses de transport routée vers le secteur formel (bus, stations-service, MGA).</summary>
+    public double DepensesTransportFormel { get; set; }
+
+    /// <summary>Part du transport liée au carburant (moto + voiture, alimente les importateurs, MGA).</summary>
+    public double DepensesTransportCarburant { get; set; }
+
+    // ─── Tourisme & Emploi formel (recalibration mensuelle) ─────────────────────
+
+    /// <summary>
+    /// CA cumulé des entreprises HôtellerieTourisme (proxy des recettes touristiques, MGA).
+    /// Utilisé comme comparable aux données BCM "apport en devises des visiteurs non-résidents".
+    /// </summary>
+    public double RecettesTourismeCumulees { get; set; }
+
+    /// <summary>
+    /// Nombre total de salariés dans les entreprises formelles (non-informelles).
+    /// Proxy du stock d'affiliés CNaPS dans la simulation.
+    /// </summary>
+    public int NbSalariesSecteurFormel { get; set; }
+
+    /// <summary>
+    /// Nombre d'entreprises dans le secteur HôtellerieTourisme.
+    /// </summary>
+    public int NbEntreprisesTourisme { get; set; }
 }
 
 

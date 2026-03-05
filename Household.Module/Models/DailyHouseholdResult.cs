@@ -1,5 +1,4 @@
-using Company.Module.Models;
-namespace Company.Module.Models;
+namespace Household.Module.Models;
 
 /// <summary>
 /// Résultat journalier d'un ménage.
@@ -92,6 +91,3 @@ public class DailyHouseholdResult
     /// </summary>
     public double FacteurReductionLoisirs { get; set; } = 1.0;
 }
-
-
-

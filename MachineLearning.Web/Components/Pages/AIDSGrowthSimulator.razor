@@ -1,0 +1,620 @@
+@page "/aids-croissance"
+@rendermode InteractiveServer
+@using MachineLearning.Web.Models.Simulation
+
+<PageTitle>AIDS — Objectif de Croissance</PageTitle>
+
+<div class="container py-4">
+
+    <h1>📊 AIDS — Objectif de Croissance Économique</h1>
+    <p class="lead text-muted">
+        Estimez les paramètres du modèle <strong>Almost Ideal Demand System</strong> (Deaton & Muellbauer, 1980)
+        à partir de votre objectif de croissance de la masse monétaire M3.
+    </p>
+    <p class="text-muted">
+        Le modèle AIDS décompose les parts budgétaires des ménages et prédit comment elles évoluent
+        en fonction de la croissance du revenu (M3) et des variations de prix.
+        <strong>Interprétation :</strong> quels secteurs profitent de la croissance, et comment atteindre vos objectifs.
+    </p>
+
+    @* ══════════ BANNIÈRE D'INTÉGRATION SIMULATION → AIDS ══════════ *@
+    @if (SimulationDisponible)
+    {
+        var simLast = Simulator.Result.Snapshots[^1];
+        <div class="alert alert-success d-flex align-items-center justify-content-between mb-3">
+            <div>
+                <strong>📊 Simulation terminée disponible !</strong>
+                <span class="ms-2 text-muted">
+                    @Simulator.Result.JoursSimules jours simulés —
+                    M3 finale : @FormatMGA(simLast.MasseMonetaireM3)
+                </span>
+                @if (_model.ImportéDepuisSimulation)
+                {
+                    <span class="badge bg-success ms-2">✅ Importé</span>
+                }
+            </div>
+            <button class="btn btn-success btn-sm" @onclick="ImporterDepuisSimulation">
+                📥 Importer les parts budgétaires observées
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-secondary py-2 mb-3">
+            <small>
+                💡 <strong>Astuce :</strong> Lancez d'abord une simulation sur la page
+                <a href="/economie">📊 Simulateur Économique</a>, puis revenez ici pour
+                importer les parts budgétaires observées automatiquement.
+            </small>
+        </div>
+    }
+
+    <hr />
+
+    <div class="row">
+        @* ══════════ PANNEAU GAUCHE : INPUTS ══════════ *@
+        <div class="col-md-5">
+            <div class="card border-primary mb-4">
+                <div class="card-header bg-primary text-white">
+                    <strong>🎯 1. Votre objectif de croissance</strong>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">💰 Masse monétaire initiale M3 (MGA)</label>
+                        <input type="number" class="form-control" step="1000000000000"
+                               @bind="_model.MasseMonetaireInitiale" />
+                        <small class="text-muted">
+                            Valeur actuelle : ~30 000 Mds MGA (BFM Madagascar 2025).
+                            Entrez la masse monétaire de départ.
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">📈 Objectif de croissance : <strong>+@(_model.ObjectifCroissancePourcent.ToString("F1"))%</strong></label>
+                        <input type="range" class="form-range" min="1" max="50" step="0.5"
+                               @bind="_model.ObjectifCroissancePourcent" @bind:event="oninput" />
+                        <div class="d-flex justify-content-between">
+                            <small class="text-muted">+1%</small>
+                            <small class="text-muted">+50%</small>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">⏱️ Horizon temporel</label>
+                        <div class="btn-group w-100" role="group">
+                            <button class="btn @(_horizonPreset == 90 ? "btn-primary" : "btn-outline-primary")"
+                                    @onclick="() => SetHorizon(90)">
+                                3 mois
+                            </button>
+                            <button class="btn @(_horizonPreset == 180 ? "btn-primary" : "btn-outline-primary")"
+                                    @onclick="() => SetHorizon(180)">
+                                6 mois
+                            </button>
+                            <button class="btn @(_horizonPreset == 365 ? "btn-primary" : "btn-outline-primary")"
+                                    @onclick="() => SetHorizon(365)">
+                                1 an
+                            </button>
+                            <button class="btn @(_horizonPreset == 730 ? "btn-primary" : "btn-outline-primary")"
+                                    @onclick="() => SetHorizon(730)">
+                                2 ans
+                            </button>
+                            <button class="btn @(_horizonPreset == 1825 ? "btn-primary" : "btn-outline-primary")"
+                                    @onclick="() => SetHorizon(1825)">
+                                5 ans
+                            </button>
+                        </div>
+                        <small class="text-muted d-block mt-1">
+                            Horizon : <strong>@FormatTemps(_model.HorizonJours)</strong> (@_model.HorizonJours jours)
+                        </small>
+                    </div>
+
+                    <div class="p-2 border rounded bg-light">
+                        <small class="fw-bold">📊 Résumé objectif :</small>
+                        <div class="d-flex flex-wrap gap-1 mt-1">
+                            <span class="badge bg-primary">M3 initiale: @FormatMGA(_model.MasseMonetaireInitiale)</span>
+                            <span class="badge bg-success">Cible: @FormatMGA(_model.MasseMonetaireInitiale * (1.0 + _model.ObjectifCroissancePourcent / 100.0))</span>
+                            <span class="badge bg-info text-dark">ΔM3: @FormatMGA(_model.MasseMonetaireInitiale * _model.ObjectifCroissancePourcent / 100.0)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @* ── Parts budgétaires ── *@
+            <div class="card border-success mb-4">
+                <div class="card-header bg-success text-white">
+                    <strong>🛒 2. Parts budgétaires actuelles (w_i)</strong>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">
+                        Répartition actuelle des dépenses des ménages par catégorie.
+                        La somme doit être ≈ 100%. Valeurs calibrées sur l'EPM INSTAT Madagascar.
+                    </p>
+
+                    @for (int i = 0; i < _model.N; i++)
+                    {
+                        int idx = i;
+                        <div class="mb-2">
+                            <label class="form-label mb-0">
+                                @AIDSGrowthSimulatorViewModel.CategoriesIcons[idx]
+                                @AIDSGrowthSimulatorViewModel.Categories[idx] :
+                                <strong>@((_model.PartsBudgetaires[idx] * 100).ToString("F1"))%</strong>
+                            </label>
+                            <input type="range" class="form-range" min="0.00" max="0.60" step="0.01"
+                                   value="@_model.PartsBudgetaires[idx]"
+                                   @oninput="(e) => OnPartBudgetaireChanged(idx, e)" />
+                        </div>
+                    }
+
+                    @{
+                        double sommeW = _model.PartsBudgetaires.Sum();
+                    }
+                    <div class="alert @(Math.Abs(sommeW - 1.0) < 0.05 ? "alert-success" : "alert-warning") py-1 mb-0">
+                        <small>
+                            Σw_i = <strong>@((sommeW * 100).ToString("F1"))%</strong>
+                            @if (Math.Abs(sommeW - 1.0) >= 0.05)
+                            {
+                                <span> — sera normalisé automatiquement à 100%</span>
+                            }
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            @* ── Prix projetés ── *@
+            <div class="card border-warning mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <strong>📈 3. Inflation projetée par catégorie</strong>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">
+                        Indices de prix projetés à l'horizon (base 1.00 = prix actuel).
+                        Exemple : 1.08 = +8% d'inflation.
+                    </p>
+
+                    <button class="btn btn-sm @(_showAdvanced ? "btn-warning" : "btn-outline-warning") mb-3"
+                            @onclick="() => _showAdvanced = !_showAdvanced">
+                        @(_showAdvanced ? "Masquer" : "Afficher") les prix actuels
+                    </button>
+
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Catégorie</th>
+                                @if (_showAdvanced)
+                                {
+                                    <th>Prix actuel</th>
+                                }
+                                <th>Prix projeté</th>
+                                <th>Inflation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (int i = 0; i < _model.N; i++)
+                            {
+                                int idx = i;
+                                double inflation = (_model.IndicesPrixProjectes[idx] / _model.IndicesPrix[idx] - 1.0) * 100.0;
+                                <tr>
+                                    <td>
+                                        @AIDSGrowthSimulatorViewModel.CategoriesIcons[idx]
+                                        <small>@AIDSGrowthSimulatorViewModel.Categories[idx]</small>
+                                    </td>
+                                    @if (_showAdvanced)
+                                    {
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm"
+                                                   step="0.01" min="0.50" max="3.00"
+                                                   value="@_model.IndicesPrix[idx]"
+                                                   @onchange="(e) => OnPrixActuelChanged(idx, e)" />
+                                        </td>
+                                    }
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm"
+                                               step="0.01" min="0.50" max="3.00"
+                                               value="@_model.IndicesPrixProjectes[idx]"
+                                               @onchange="(e) => OnPrixProjeteChanged(idx, e)" />
+                                    </td>
+                                    <td class="@(inflation > 0 ? "text-danger" : "text-success")">
+                                        @(inflation > 0 ? "+" : "")@(inflation.ToString("F1"))%
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            @* ── Boutons ── *@
+            <div class="d-grid gap-2 mb-4">
+                <button class="btn btn-success btn-lg" @onclick="LancerEstimation">
+                    🚀 Estimer les paramètres AIDS et simuler
+                </button>
+                <button class="btn btn-outline-secondary" @onclick="Reinitialiser">
+                    🔄 Réinitialiser
+                </button>
+            </div>
+        </div>
+
+        @* ══════════ PANNEAU DROIT : RÉSULTATS ══════════ *@
+        <div class="col-md-7">
+            @if (_model.EstEstime)
+            {
+                @* ── Résumé cible ── *@
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="card text-center border-primary kpi-card">
+                            <div class="card-body">
+                                <h6 class="card-title text-muted">💰 M3 initiale</h6>
+                                <h5 class="text-primary">@FormatMGA(_model.MasseMonetaireInitiale)</h5>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-center border-success kpi-card">
+                            <div class="card-body">
+                                <h6 class="card-title text-muted">🎯 M3 cible</h6>
+                                <h5 class="text-success">@FormatMGA(_model.MasseMonetaireCible)</h5>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-center border-info kpi-card">
+                            <div class="card-body">
+                                <h6 class="card-title text-muted">📈 Croissance/jour</h6>
+                                <h5 class="text-info">@((_model.TauxCroissanceJournalier * 100).ToString("F4"))%</h5>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                @* ── Paramètres AIDS estimés ── *@
+                <div class="card border-primary mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <strong>🧮 Paramètres AIDS estimés</strong>
+                    </div>
+                    <div class="card-body">
+                        <p class="small text-muted">
+                            <strong>w_i(T) = α_i + Σ_j γ_ij × ln(p_j) + β_i × ln(X/P*)</strong>
+                            — Deaton & Muellbauer (1980)
+                        </p>
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Catégorie</th>
+                                    <th>α_i</th>
+                                    <th>β_i</th>
+                                    <th>γ_ii</th>
+                                    <th>w_i actuel</th>
+                                    <th>w_i projeté</th>
+                                    <th>Δw</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (int i = 0; i < _model.N; i++)
+                                {
+                                    double dw = (_model.PartsBudgetairesProjetees[i] - _model.PartsBudgetaires[i]) * 100;
+                                    <tr>
+                                        <td>
+                                            @AIDSGrowthSimulatorViewModel.CategoriesIcons[i]
+                                            <small>@AIDSGrowthSimulatorViewModel.Categories[i]</small>
+                                        </td>
+                                        <td><code>@_model.Alpha[i].ToString("F4")</code></td>
+                                        <td class="@(_model.Beta[i] > 0 ? "text-success" : "text-danger")">
+                                            <code>@_model.Beta[i].ToString("F4")</code>
+                                        </td>
+                                        <td><code>@_model.Gamma[i, i].ToString("F4")</code></td>
+                                        <td><strong>@((_model.PartsBudgetaires[i] * 100).ToString("F1"))%</strong></td>
+                                        <td><strong>@((_model.PartsBudgetairesProjetees[i] * 100).ToString("F1"))%</strong></td>
+                                        <td class="@(dw > 0 ? "text-success fw-bold" : dw < 0 ? "text-danger fw-bold" : "")">
+                                            @(dw > 0 ? "+" : "")@dw.ToString("F2")%
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+
+                        <div class="alert alert-info py-2 mb-0">
+                            <small>
+                                <strong>Lecture :</strong>
+                                β > 0 = bien supérieur (part ↑ quand revenu ↑) |
+                                β &lt; 0 = bien de première nécessité (loi d'Engel) |
+                                γ_ii &lt; 0 = loi de la demande (prix ↑ → demande ↓)
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                @* ── Dépenses projetées ── *@
+                <div class="card border-success mb-3">
+                    <div class="card-header bg-success text-white">
+                        <strong>💰 Dépenses projetées par catégorie à l'horizon @FormatTemps(_model.HorizonJours)</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            @for (int i = 0; i < _model.N; i++)
+                            {
+                                double depActuelle = _model.PartsBudgetaires[i] * _model.MasseMonetaireInitiale;
+                                double variation = _model.DepensesProjetees[i] - depActuelle;
+                                double variationPct = depActuelle > 0 ? variation / depActuelle * 100 : 0;
+                                <div class="col-md-6 mb-2">
+                                    <div class="p-2 border rounded">
+                                        <strong>@AIDSGrowthSimulatorViewModel.CategoriesIcons[i] @AIDSGrowthSimulatorViewModel.Categories[i]</strong>
+                                        <br />
+                                        <span class="text-muted small">@FormatMGA(depActuelle)</span>
+                                        →
+                                        <strong>@FormatMGA(_model.DepensesProjetees[i])</strong>
+                                        <span class="@(variation >= 0 ? "text-success" : "text-danger") small">
+                                            (@(variationPct >= 0 ? "+" : "")@(variationPct.ToString("F1"))%)
+                                        </span>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                @* ── Trajectoire M3 ── *@
+                <div class="card border-info mb-3">
+                    <div class="card-header bg-info text-white">
+                        <strong>📉 Trajectoire de M3 sur @FormatTemps(_model.HorizonJours)</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-sm table-striped">
+                                <thead class="table-dark sticky-top">
+                                    <tr>
+                                        <th>Jour</th>
+                                        <th>Temps</th>
+                                        <th>M3</th>
+                                        <th>Progression</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var point in _model.TrajectoireM3)
+                                    {
+                                        double pct = _model.MasseMonetaireInitiale > 0
+                                            ? (point.M3 - _model.MasseMonetaireInitiale) / (_model.MasseMonetaireCible - _model.MasseMonetaireInitiale) * 100.0
+                                            : 0;
+                                        <tr>
+                                            <td>@point.Jour</td>
+                                            <td>@FormatTemps(point.Jour)</td>
+                                            <td><strong>@FormatMGA(point.M3)</strong></td>
+                                            <td>
+                                                <div class="progress" style="height: 18px;">
+                                                    <div class="progress-bar bg-info" style="width: @(Math.Min(pct, 100).ToString("F0"))%">
+                                                        @(pct.ToString("F1"))%
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                @* ── Recommandations AIDS ── *@
+                <div class="card border-dark mb-3">
+                    <div class="card-header bg-dark text-white">
+                        <strong>💡 Recommandations — Comment atteindre vos objectifs</strong>
+                    </div>
+                    <div class="card-body">
+                        <p class="small text-muted">
+                            Interprétation des résultats AIDS : quels leviers activer pour atteindre
+                            +@(_model.ObjectifCroissancePourcent.ToString("F1"))% de M3 en @FormatTemps(_model.HorizonJours).
+                        </p>
+
+                        @foreach (var reco in _model.Recommandations)
+                        {
+                            <div class="card mb-2 @(reco.Type == ETypeRecommandation.Alerte ? "border-danger" : "")">
+                                <div class="card-body py-2">
+                                    <div class="d-flex align-items-start gap-2">
+                                        <span style="font-size: 1.5rem;">@reco.Icone</span>
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex align-items-center gap-2 mb-1">
+                                                <span class="badge @GetBadgeClass(reco.Type)">@GetBadgeLabel(reco.Type)</span>
+                                                <strong>@reco.Titre</strong>
+                                            </div>
+                                            <p class="mb-1 small">@reco.Description</p>
+                                            <div class="alert alert-light py-1 px-2 mb-0">
+                                                <small class="fw-bold">🎯 Action :</small>
+                                                <small>@reco.ActionRecommandee</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @* ── EXPORT VERS SIMULATION ── *@
+                <div class="card border-success mb-3">
+                    <div class="card-header bg-success text-white">
+                        <strong>🔄 Intégration AIDS → Simulateur Économique</strong>
+                    </div>
+                    <div class="card-body">
+                        <p class="small text-muted">
+                            Générez un scénario de simulation calibré sur vos projections AIDS.
+                            Les paramètres du simulateur (taux de crédit, inflation, part alimentaire, carburant)
+                            seront ajustés pour converger vers l'objectif de +@(_model.ObjectifCroissancePourcent.ToString("F1"))%.
+                        </p>
+
+                        @if (_scenarioGenere == null)
+                        {
+                            <button class="btn btn-success btn-lg w-100" @onclick="ExporterVersSimulation">
+                                📤 Générer un scénario de simulation à partir des projections AIDS
+                            </button>
+                        }
+                        else
+                        {
+                            <div class="alert alert-success">
+                                <strong>✅ Scénario généré : @_scenarioGenere.Name</strong>
+                                <p class="mb-1 small">@_scenarioGenere.Description</p>
+                            </div>
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Paramètre</th>
+                                        <th>Valeur AIDS</th>
+                                        <th>Signification</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>DureeJours</code></td>
+                                        <td><strong>@_scenarioGenere.DureeJours</strong></td>
+                                        <td>Horizon temporel du modèle AIDS</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>CroissanceCreditJour</code></td>
+                                        <td><strong>@((_scenarioGenere.CroissanceCreditJour * 100).ToString("F4"))%</strong></td>
+                                        <td>Taux de création monétaire calibré sur l'objectif M3</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>TauxInflation</code></td>
+                                        <td><strong>@((_scenarioGenere.TauxInflation * 100).ToString("F1"))%</strong></td>
+                                        <td>Inflation pondérée par les parts budgétaires AIDS</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>PartRevenuAlimentaire</code></td>
+                                        <td><strong>@((_scenarioGenere.PartRevenuAlimentaire * 100).ToString("F1"))%</strong></td>
+                                        <td>Part alim. projetée (w₁ + w₂ + w₃)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>PrixCarburantLitre</code></td>
+                                        <td><strong>@_scenarioGenere.PrixCarburantLitre.ToString("N0") MGA</strong></td>
+                                        <td>Prix ajusté par l'indice transport projeté</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <button class="btn btn-primary btn-lg w-100" @onclick="LancerSimulationAIDS">
+                                🚀 Lancer la simulation avec ce scénario
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                @* ── Formule AIDS de référence ── *@
+                <div class="card border-secondary mb-3">
+                    <div class="card-header bg-secondary text-white">
+                        <strong>📚 Référence mathématique — Modèle AIDS</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="formula-block">
+                            <div class="formula-name">Équation des parts budgétaires AIDS</div>
+                            <code>w_i = α_i + Σ_j γ_ij × ln(p_j) + β_i × ln(X / P*)</code>
+                            <div class="formula-desc">
+                                w_i = part du budget | α_i = intercept |
+                                γ_ij = élasticité-prix croisée | β_i = élasticité-revenu |
+                                X = dépense totale (M3) | P* = indice de prix de Stone
+                            </div>
+                        </div>
+                        <div class="formula-block">
+                            <div class="formula-name">Indice de prix de Stone (linéarisé)</div>
+                            <code>ln(P*) = Σ_i w_i × ln(p_i)</code>
+                            <div class="formula-desc">
+                                Moyenne géométrique pondérée des prix, simplifie l'estimation (LA/AIDS).
+                            </div>
+                        </div>
+                        <div class="formula-block">
+                            <div class="formula-name">Contraintes théoriques</div>
+                            <code>Σ_i α_i = 1, Σ_i β_i = 0, Σ_i γ_ij = 0 (adding-up)</code>
+                            <div class="formula-desc">
+                                Homogénéité de degré 0, symétrie de Slutsky : γ_ij = γ_ji.
+                            </div>
+                        </div>
+                        <div class="alert alert-info py-2 mb-0 mt-2">
+                            <small>
+                                <strong>📚 Références :</strong>
+                                Deaton, A. & Muellbauer, J. (1980). "An Almost Ideal Demand System".
+                                <em>American Economic Review</em>, 70(3), 312-326.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                @* ── Guide d'utilisation ── *@
+                <div class="alert alert-info">
+                    <h5>📌 Comment utiliser cette page</h5>
+                    <ol>
+                        <li>Entrez votre <strong>masse monétaire initiale M3</strong> (ex : 30 000 Mds MGA)</li>
+                        <li>Définissez votre <strong>objectif de croissance</strong> en % (ex : +15%)</li>
+                        <li>Choisissez l'<strong>horizon temporel</strong> (3 mois à 5 ans)</li>
+                        <li>Ajustez les <strong>parts budgétaires</strong> si nécessaire (calibrées sur l'EPM INSTAT)</li>
+                        <li>Réglez l'<strong>inflation projetée</strong> par catégorie</li>
+                        <li>Cliquez sur <strong>« Estimer »</strong> pour obtenir les paramètres AIDS et les recommandations</li>
+                    </ol>
+                    <hr />
+                    <h6>🧮 Qu'est-ce que le modèle AIDS ?</h6>
+                    <p class="mb-1">
+                        Le <strong>Almost Ideal Demand System</strong> est un modèle microéconomique qui décompose
+                        la dépense totale des ménages en parts budgétaires (w_i) pour chaque catégorie de biens.
+                    </p>
+                    <p class="mb-1">
+                        Il permet de prédire comment les <strong>parts budgétaires évoluent</strong> quand :
+                    </p>
+                    <ul>
+                        <li>Le <strong>revenu total</strong> (M3) augmente → effet Engel (β_i)</li>
+                        <li>Les <strong>prix</strong> changent → substitution entre biens (γ_ij)</li>
+                    </ul>
+                    <p class="mb-0">
+                        <strong>Application :</strong> En partant de votre M3 initiale et d'un objectif de croissance,
+                        le modèle estime comment la structure de consommation évolue et quels secteurs doivent
+                        être renforcés pour atteindre cet objectif.
+                    </p>
+                </div>
+
+                <div class="card border-secondary">
+                    <div class="card-header bg-secondary text-white">
+                        <strong>📊 Catégories de dépenses (N = 8)</strong>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Catégorie</th>
+                                    <th>Part par défaut</th>
+                                    <th>Type de bien</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (int i = 0; i < _model.N; i++)
+                                {
+                                    <tr>
+                                        <td>@AIDSGrowthSimulatorViewModel.CategoriesIcons[i]</td>
+                                        <td>@AIDSGrowthSimulatorViewModel.Categories[i]</td>
+                                        <td><strong>@((_model.PartsBudgetaires[i] * 100).ToString("F0"))%</strong></td>
+                                        <td>
+                                            @if (i <= 3)
+                                            {
+                                                <span class="badge bg-danger">Nécessité</span>
+                                            }
+                                            else if (i <= 5)
+                                            {
+                                                <span class="badge bg-warning text-dark">Quasi-unitaire</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-success">Supérieur / Luxe</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="text-center mb-4 mt-3">
+        <a href="/economie" class="btn btn-success btn-lg me-2">📊 Simulateur Économique</a>
+        <a href="/doc-modele" class="btn btn-primary btn-lg me-2">🧮 Modèle Mathématique</a>
+        <a href="/doc-prix" class="btn btn-info btn-lg">📈 Prix & Élasticité</a>
+    </div>
+</div>

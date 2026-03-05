@@ -30,8 +30,25 @@ namespace Household.Salary.Distribution.Module
             => _distribution.TirerSalaire(random);
 
         /// <inheritdoc/>
+        public void ConfigurerDistributionSalariale(
+            double salaireMedian,
+            double sigma,
+            double salairePlancher,
+            double partSecteurInformel)
+        {
+            _distribution.SalaireMedian = salaireMedian;
+            _distribution.Sigma = sigma;
+            _distribution.SalairePlancher = salairePlancher;
+            _distribution.PartSecteurInformel = partSecteurInformel;
+        }
+
+        /// <inheritdoc/>
         public ClasseSocioEconomique DeterminerClasse(double salaireMensuel)
             => _distribution.DeterminerClasse(salaireMensuel);
+
+        /// <inheritdoc/>
+        public HouseholdBehavior GetComportementParClasse(ClasseSocioEconomique classe, Random random)
+            => HouseholdSalaryDistribution.ComportementParClasse(classe, random);
 
         /// <inheritdoc/>
         public DistributionStats CalculerStats(double[] valeurs)

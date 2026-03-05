@@ -20,6 +20,14 @@ namespace Company.Module
         double GetTresorerieInitialeParSecteur(Models.ESecteurActivite secteur);
 
         /// <summary>
+        /// Retourne la trésorerie initiale en priorisant la configuration de scénario,
+        /// avec fallback sur la grille standard par secteur.
+        /// </summary>
+        double GetTresorerieInitiale(
+            Models.ESecteurActivite secteur,
+            Dictionary<Models.ESecteurActivite, double> tresorerieInitialeParSecteurConfig);
+
+        /// <summary>
         /// Calcule le coefficient de droits de douane spécifique à une catégorie d'importation.
         /// Permet une différenciation fiscale par type de bien.
         /// </summary>
@@ -44,7 +52,24 @@ namespace Company.Module
         double GetCoefficientTaxeExportParCategorie(Models.ECategorieExport categorie);
 
         /// <summary>
+        /// Retourne le FOB total cumulé par catégorie d'export.
+        /// </summary>
+        Dictionary<Models.ECategorieExport, double> GetFOBParCategorie(IEnumerable<Models.Exporter> exportateurs);
+
+        /// <summary>
+        /// Retourne le FOB total cumulé tous exportateurs confondus.
+        /// </summary>
+        double GetFOBTotal(IEnumerable<Models.Exporter> exportateurs);
+
+        /// <summary>
+        /// Retourne le CIF total cumulé par catégorie d'import.
+        /// </summary>
+        Dictionary<Models.ECategorieImport, double> GetCIFParCategorie(IEnumerable<Models.Importer> importateurs);
+
+        /// <summary>
         /// Simule une journée d'activité pour une entreprise.
+        /// Intègre la transmission du choc de prix carburant sur les coûts d'approvisionnement
+        /// et les prix de vente (pass-through partiel).
         /// </summary>
         Models.CompanyDailyResult SimulerJournee(
             Models.Company entreprise,
@@ -56,6 +81,9 @@ namespace Company.Module
             bool estJourOuvrable = true,
             Models.Jirama? Jirama = null,
             double consoElecParEmployeKWhJour = 0,
-            double tauxCNaPSPatronale = 0);
+            double tauxCNaPSPatronale = 0,
+            double prixCarburantCourant = 0,
+            double prixCarburantReference = 0,
+            double elasticitePrixParCarburant = 0);
     }
 }

@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @using MachineLearning.Web.Models.Agents.Companies
 @using MachineLearning.Web.Models.Simulation
+@using MachineLearning.Web.Models.Simulation.Config
 @using Company.Module.Models
 @inject EconomicSimulatorViewModel Simulator
 @implements IDisposable
@@ -162,6 +163,23 @@
                     <label class="form-label">Inflation : <strong>@(_config.TauxInflation * 100)%</strong></label>
                     <input type="range" class="form-range" min="0.01" max="0.30" step="0.005"
                            @bind="_config.TauxInflation" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                </div>
+                
+                <hr />
+                <h6>🏦 Secteur Bancaire & M3</h6>
+                <div class="alert alert-info py-1 px-2 mb-2">
+                    <small>Ajustez ces curseurs pour calibrer M3 et le crédit bancaire.</small>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Taux réserve oblig. : <strong>@(_config.TauxReserveObligatoire * 100)%</strong></label>
+                    <input type="range" class="form-range" min="0.05" max="0.25" step="0.01"
+                           @bind="_config.TauxReserveObligatoire" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Création Crédit/jour : <strong>@((_config.CroissanceCreditJour * 100).ToString("F4"))%</strong></label>
+                    <input type="range" class="form-range" min="0.0000" max="0.0020" step="0.0001"
+                           @bind="_config.CroissanceCreditJour" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                    <small class="text-muted">Impacte l'évolution de M3</small>
                 </div>
 
                 <hr />
@@ -355,6 +373,111 @@
                     <input type="range" class="form-range" min="0.30" max="1.00" step="0.05"
                            @bind="_config.ElasticiteComportementMenage" @bind:event="oninput" />
                 </div>
+
+                <hr />
+                <h6>🔄 Recalibration mensuelle</h6>
+                <p class="small text-muted">
+                    Ancrage sur données macro observées (BCM, INSTAT, DGI).
+                    À chaque fin de mois, la simulation ajuste ses paramètres pour converger vers la réalité.
+                </p>
+
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="recalibSwitch"
+                           @bind="_config.RecalibrationMensuelleActivee" disabled="@Simulator.EnCours" />
+                    <label class="form-check-label" for="recalibSwitch">
+                        Activer la recalibration mensuelle
+                    </label>
+                </div>
+
+                @if (_config.RecalibrationMensuelleActivee)
+                {
+                    <div class="mb-2">
+                        <label class="form-label">Vitesse de convergence : <strong>@((_config.VitesseConvergenceRecalibration * 100).ToString("F0"))%</strong></label>
+                        <input type="range" class="form-range" min="0.1" max="1.0" step="0.1"
+                               @bind="_config.VitesseConvergenceRecalibration" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                        <div class="d-flex justify-content-between">
+                            <small class="text-success">Douce (10%)</small>
+                            <small class="text-danger">Totale (100%)</small>
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <strong class="small">Cibles mensuelles</strong>
+                            <button class="btn btn-sm btn-outline-primary" @onclick="AjouterCibleMensuelle"
+                                    disabled="@Simulator.EnCours">+ Ajouter mois</button>
+                        </div>
+
+                        @if (_config.CiblesMensuelles.Count == 0)
+                        {
+                            <div class="alert alert-secondary py-1 small">
+                                Aucune cible définie. Cliquez "Ajouter mois" pour entrer les données macro observées.
+                            </div>
+                        }
+                        else
+                        {
+                            <div style="max-height: 300px; overflow-y: auto;">
+                                @foreach (var cible in _config.CiblesMensuelles.OrderBy(c => c.Mois))
+                                {
+                                    <div class="card mb-1">
+                                        <div class="card-body p-2">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <strong class="small">📅 Mois @cible.Mois @(!string.IsNullOrEmpty(cible.Label) ? $"({cible.Label})" : "")</strong>
+                                                <button class="btn btn-sm btn-outline-danger py-0 px-1"
+                                                        @onclick="() => SupprimerCibleMensuelle(cible.Mois)"
+                                                        disabled="@Simulator.EnCours">✕</button>
+                                            </div>
+                                            <div class="row g-1">
+                                                <div class="col-6">
+                                                    <label class="form-label mb-0 small">🏦 M3 (Mds MGA)</label>
+                                                    <input type="number" class="form-control form-control-sm"
+                                                           value="@(cible.M3Cible.HasValue ? (cible.M3Cible.Value / 1_000_000_000).ToString("F0") : "")"
+                                                           @onchange="(e) => SetCibleM3(cible, e)"
+                                                           disabled="@Simulator.EnCours" placeholder="ex: 30000" />
+                                                </div>
+                                                <div class="col-6">
+                                                    <label class="form-label mb-0 small">💰 Recettes fisc. (Mds)</label>
+                                                    <input type="number" class="form-control form-control-sm"
+                                                           value="@(cible.RecettesFiscalesCumuleesCible.HasValue ? (cible.RecettesFiscalesCumuleesCible.Value / 1_000_000_000).ToString("F0") : "")"
+                                                           @onchange="(e) => SetCibleFiscale(cible, e)"
+                                                           disabled="@Simulator.EnCours" placeholder="ex: 1500" />
+                                                </div>
+                                                <div class="col-6">
+                                                    <label class="form-label mb-0 small">📦 Exports FOB (Mds)</label>
+                                                    <input type="number" class="form-control form-control-sm"
+                                                           value="@(cible.ExportationsFOBCumuleesCible.HasValue ? (cible.ExportationsFOBCumuleesCible.Value / 1_000_000_000).ToString("F0") : "")"
+                                                           @onchange="(e) => SetCibleExports(cible, e)"
+                                                           disabled="@Simulator.EnCours" placeholder="ex: 1100" />
+                                                </div>
+                                                <div class="col-6">
+                                                    <label class="form-label mb-0 small">🚢 Imports CIF (Mds)</label>
+                                                    <input type="number" class="form-control form-control-sm"
+                                                           value="@(cible.ImportationsCIFCumuleesCible.HasValue ? (cible.ImportationsCIFCumuleesCible.Value / 1_000_000_000).ToString("F0") : "")"
+                                                           @onchange="(e) => SetCibleImports(cible, e)"
+                                                           disabled="@Simulator.EnCours" placeholder="ex: 1500" />
+                                                </div>
+                                                <div class="col-6">
+                                                    <label class="form-label mb-0 small">🏨 Devises tourisme (Mds)</label>
+                                                    <input type="number" class="form-control form-control-sm"
+                                                           value="@(cible.DevisesTourismeCible.HasValue ? (cible.DevisesTourismeCible.Value / 1_000_000_000).ToString("F1") : "")"
+                                                           @onchange="(e) => SetCibleTourisme(cible, e)"
+                                                           disabled="@Simulator.EnCours" placeholder="ex: 50" />
+                                                </div>
+                                                <div class="col-6">
+                                                    <label class="form-label mb-0 small">👷 Nv. affiliés CNaPS</label>
+                                                    <input type="number" class="form-control form-control-sm"
+                                                           value="@(cible.NouveauxAffiliesCNaPSCible?.ToString() ?? "")"
+                                                           @onchange="(e) => SetCibleCNaPS(cible, e)"
+                                                           disabled="@Simulator.EnCours" placeholder="ex: 5000" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
             </div>
         </div>
     </div>
@@ -428,6 +551,37 @@
                             <h6 class="card-title text-muted">📉 Dette publique</h6>
                             <h4 class="text-danger">@FormatMGA(last.DettePublique)</h4>
                             <small>Solde: @FormatMGA(last.SoldeBudgetaire)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Secteur Bancaire et M3 -->
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <div class="card text-center border-primary kpi-card">
+                        <div class="card-body">
+                            <h6 class="card-title text-muted">🏦 Masse Monétaire M3</h6>
+                            <h4 class="text-primary">@FormatMGA(last.MasseMonetaireM3)</h4>
+                            <small>Base crédit monétaire de la simulation</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-center border-info kpi-card">
+                        <div class="card-body">
+                            <h6 class="card-title text-muted">💼 Dépôts Bancaires</h6>
+                            <h4 class="text-info">@FormatMGA(last.TotalDepotsBancaires)</h4>
+                            <small>Ménages + Entreprises</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-center border-success kpi-card">
+                        <div class="card-body">
+                            <h6 class="card-title text-muted">💳 Crédits Accordés (cumul)</h6>
+                            <h4 class="text-success">@FormatMGA(last.TotalCreditsAccordes)</h4>
+                            <small>Nouvelle monnaie créée</small>
                         </div>
                     </div>
                 </div>
@@ -881,6 +1035,72 @@
                                 </ul>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                @* ── Journal de recalibration mensuelle ── *@
+                @if (Simulator.Result.CalibrationEvents.Count > 0)
+                {
+                    <div class="card border-warning mt-3">
+                        <div class="card-header bg-warning text-dark">
+                            🔄 Recalibrations mensuelles (@Simulator.Result.CalibrationEvents.Count événements)
+                        </div>
+                        <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                            @foreach (var evt in Simulator.Result.CalibrationEvents)
+                            {
+                                <div class="card mb-2">
+                                    <div class="card-header py-1 bg-light">
+                                        <strong>📅 Jour @evt.Jour (Mois @evt.Mois)</strong>
+                                        <span class="badge bg-info ms-2">@evt.Ajustements.Count corrections</span>
+                                    </div>
+                                    <div class="card-body p-2">
+                                        <table class="table table-sm table-bordered mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th>Paramètre</th>
+                                                    <th>Simulé</th>
+                                                    <th>Cible</th>
+                                                    <th>Écart</th>
+                                                    <th>Correction</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var adj in evt.Ajustements)
+                                                {
+                                                    <tr>
+                                                        <td><code>@adj.Parametre</code></td>
+                                                        <td>@FormatMds(adj.ValeurSimulee)</td>
+                                                        <td>@FormatMds(adj.ValeurCible)</td>
+                                                        <td class="@(Math.Abs(adj.EcartPourcent) < 5 ? "text-success" : Math.Abs(adj.EcartPourcent) < 20 ? "text-warning" : "text-danger")">
+                                                            @(adj.EcartPourcent >= 0 ? "+" : "")@adj.EcartPourcent.ToString("F1")%
+                                                        </td>
+                                                        <td>
+                                                            <small>@FormatSmallNumber(adj.AncienneValeur) → <strong>@FormatSmallNumber(adj.NouvelleValeur)</strong></small>
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @* ── Bouton intégration AIDS ── *@
+                <div class="card border-info mt-3">
+                    <div class="card-body d-flex align-items-center justify-content-between">
+                        <div>
+                            <strong>🧮 Analyser avec le modèle AIDS</strong>
+                            <p class="mb-0 small text-muted">
+                                Exportez les parts budgétaires observées vers le modèle AIDS pour estimer les paramètres
+                                d'élasticité et définir un objectif de croissance M3.
+                            </p>
+                        </div>
+                        <a href="/aids-croissance" class="btn btn-info btn-lg">
+                            📊 Ouvrir AIDS →
+                        </a>
                     </div>
                 </div>
         }

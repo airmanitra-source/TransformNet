@@ -1,0 +1,1301 @@
+@page "/doc-modele"
+@rendermode InteractiveServer
+
+<PageTitle>Documentation — Modèle Mathématique Tensoriel</PageTitle>
+
+<div class="container py-4 doc-container">
+
+    <h1>🧮 Modèle Mathématique Tensoriel</h1>
+    <p class="lead text-muted">
+        Formalisation matricielle du lien entre produits, entreprises, ménages, ventes et masse monétaire.
+    </p>
+
+    <hr />
+
+    @* ══════════ TABLE DES MATIÈRES ══════════ *@
+    <nav class="card section-card border-secondary mb-4">
+        <div class="card-header bg-secondary text-white">📑 Table des matières</div>
+        <div class="card-body">
+            <ol class="mb-0">
+                <li><a href="#notations">Notations et dimensions</a></li>
+                <li>
+                    <a href="#tenseur-achat">Tenseurs d'achat et de vente</a>
+                    <ul>
+                        <li><a href="#tenseur-achat">Q — Achats ménages → entreprises (B2C)</a></li>
+                        <li><a href="#tenseur-h2h">S — Ventes entre ménages (H2H informel)</a></li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="#ventes">Ventes et achats totaux — décomposition en 4 flux</a>
+                    <ul>
+                        <li><a href="#ventes-b2c">V_B2C — Entreprise → Ménage</a></li>
+                        <li><a href="#ventes-h2h">V_H2H — Ménage → Ménage (informel)</a></li>
+                        <li><a href="#ventes-export">V_X — Entreprise → Étranger (exports, +MS)</a></li>
+                        <li><a href="#achats-import">I_IMP — Étranger → Entreprise (imports, −MS)</a></li>
+                    </ul>
+                </li>
+                <li><a href="#masse-monetaire">Masse monétaire — de V à MS(t)</a></li>
+                <li><a href="#flux">Diagramme des flux monétaires</a></li>
+                <li><a href="#correspondance">Correspondance avec le code existant</a></li>
+                <li><a href="#categories">Catégories de dépenses (N=8) dans la simulation</a></li>
+                <li><a href="#couverture">Couverture du modèle et extensions possibles</a></li>
+                <li><a href="#estimation-comportementale">Estimation comportementale des paramètres</a></li>
+                <li>
+                    <a href="#integration-aids">Intégration Simulation ↔ AIDS (boucle complète)</a>
+                    <ul>
+                        <li><a href="#flux-sim-aids">Flux 1 : Simulation → AIDS (import)</a></li>
+                        <li><a href="#flux-aids-sim">Flux 2 : AIDS → Simulation (export)</a></li>
+                        <li><a href="#mapping-categories">Mapping des 8 catégories</a></li>
+                        <li><a href="#workflow-complet">Workflow utilisateur complet</a></li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+    </nav>
+
+    @* ══════════ 1. NOTATIONS ══════════ *@
+    <div id="notations" class="card section-card border-primary mb-4">
+        <div class="card-header bg-primary text-white">
+            <strong>📐 1. Notations et dimensions</strong>
+        </div>
+        <div class="card-body">
+            <p>
+                Le modèle relie une <strong>matrice de produits</strong> (1 à N) vendus par des <strong>entreprises</strong>
+                (1 à K) et achetés par des <strong>ménages</strong> (1 à M) à chaque <strong>pas de temps</strong> (1 à T).
+            </p>
+
+            <table class="table table-sm table-bordered param-table">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Symbole</th>
+                        <th>Dimension</th>
+                        <th>Description</th>
+                        <th>Code correspondant</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var n in Notations)
+                    {
+                        <tr>
+                            <td><strong>@n.Symbole</strong></td>
+                            <td>@n.Dimension</td>
+                            <td>@n.Description</td>
+                            <td><code>@n.Code</code></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <div class="alert alert-info mb-0">
+                <strong>💡 Lecture du tableau image :</strong>
+                Les colonnes sont les entreprises (1..K) × leurs produits (1..N).
+                Les lignes sont les ménages (1..M) × les temps (1..T).
+                Chaque cellule est une quantité achetée. À droite, les ventes agrégées par produit, puis la masse monétaire.
+            </div>
+        </div>
+    </div>
+
+    @* ══════════ 2. TENSEURS D'ACHAT ET DE VENTE ══════════ *@
+    <div id="tenseur-achat" class="card section-card border-success mb-4">
+        <div class="card-header bg-success text-white">
+            <strong>📦 2. Tenseurs d'achat et de vente</strong>
+        </div>
+        <div class="card-body">
+            <p>
+                Le modèle comporte <strong>trois types d'acteurs vendeurs</strong> :
+                les entreprises (B2C, B2B), les ménages informels (H2H) et les entreprises exportatrices (vers l'étranger).
+                Chaque type est formalisé par un tenseur distinct.
+            </p>
+
+            <h6 class="mt-3">2a. Tenseur B2C — Achats ménages → entreprises</h6>
+
+            <div class="formula-block">
+                <div class="formula-name">Tenseur de consommation B2C</div>
+                <code>Q(m, n, t) = quantité du produit n achetée par le ménage m auprès d'une entreprise au temps t</code>
+            </div>
+
+            <p class="mt-3">
+                On définit la <strong>matrice de prix</strong> P indexée par l'entreprise propriétaire du produit :
+            </p>
+
+            <div class="formula-block">
+                <div class="formula-name">Matrice de prix (entreprises)</div>
+                <code>P(k, n, t) = prix unitaire du produit n vendu par l'entreprise k au temps t</code>
+                <div class="formula-desc">
+                    Ajusté dynamiquement par <code>IPriceModule.AjusterPrixParCarburant()</code>
+                </div>
+            </div>
+
+            <p class="mt-3">
+                Et une <strong>matrice d'affectation produit-entreprise</strong> A ∈ {0,1} de dimension K × N :
+            </p>
+
+            <div class="formula-block">
+                <div class="formula-name">Matrice d'affectation</div>
+                <code>A(k, n) = 1 si l'entreprise k vend le produit n, 0 sinon</code>
+                <div class="formula-desc">
+                    Dans la simulation actuelle, A est définie par le <code>ESecteurActivite</code> de l'entreprise
+                    et le flag <code>EstInformel</code>.
+                </div>
+            </div>
+
+            <hr />
+
+            <h6 id="tenseur-h2h" class="mt-3">2b. Tenseur H2H — Ventes entre ménages (composante informelle)</h6>
+
+            <p>
+                À Madagascar, <strong>~85% de l'économie est informelle</strong>. Les ménages ne sont pas que des
+                consommateurs — ils sont aussi <strong>vendeurs de biens et services</strong> entre eux :
+                marchands ambulants, artisans, vendeurs de rue, services domestiques, agriculture vivrière, etc.
+            </p>
+
+            <div class="formula-block">
+                <div class="formula-name">Tenseur de vente inter-ménages (H2H)</div>
+                <code>S(m₁, m₂, n, t) = quantité du produit n vendue par le ménage m₁ au ménage m₂ au temps t</code>
+                <div class="formula-desc">
+                    m₁ = ménage vendeur, m₂ = ménage acheteur, m₁ ≠ m₂<br />
+                    Les prix H2H sont informels : <code>P_H(m₁, n, t)</code> (pas de TVA, pas de marge formelle)
+                </div>
+            </div>
+
+            <div class="formula-block">
+                <div class="formula-name">Revenu informel du ménage vendeur</div>
+                <code>R_H2H(m₁, t) = Σ(m₂≠m₁) Σ(n=1..N) S(m₁, m₂, n, t) × P_H(m₁, n, t)</code>
+                <div class="formula-desc">
+                    Ce revenu s'ajoute au revenu salarial pour former le revenu total du ménage informel
+                </div>
+            </div>
+
+            <div class="alert alert-warning mt-3 mb-0">
+                <strong>⚠️ Propriété clé — Neutralité monétaire H2H :</strong>
+                Les transactions entre ménages sont des <strong>transferts internes</strong> au système.
+                La monnaie passe du ménage m₂ au ménage m₁ mais ne quitte pas le circuit domestique :
+                <code>Σ(m₁) R_H2H(m₁, t) = Σ(m₂) C_H2H(m₂, t)</code>.<br />
+                <strong>Conséquence : les ventes H2H ne modifient pas la masse monétaire MS(t)</strong>,
+                mais elles redistribuent la monnaie entre ménages et augmentent le PIB par la valeur ajoutée.
+            </div>
+
+            <div class="card mt-3 border-light">
+                <div class="card-header bg-light">
+                    <strong>📊 Représentation visuelle du tenseur Q</strong>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered text-center tensor-table">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th rowspan="2">Ménage / Temps</th>
+                                    <th colspan="2">Entreprise 1</th>
+                                    <th>...</th>
+                                    <th colspan="2">Entreprise K</th>
+                                    <th rowspan="2">→ Ventes</th>
+                                    <th rowspan="2">→ MS(t)</th>
+                                </tr>
+                                <tr>
+                                    <th>Produit 1</th>
+                                    <th>Produit 2</th>
+                                    <th>...</th>
+                                    <th>Produit N-1</th>
+                                    <th>Produit N</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="table-warning"><strong>Ménage 1, t=1</strong></td>
+                                    <td>Q(1,1,1)</td>
+                                    <td>Q(1,2,1)</td>
+                                    <td>...</td>
+                                    <td>Q(1,N-1,1)</td>
+                                    <td>Q(1,N,1)</td>
+                                    <td class="table-info">V(n,1)</td>
+                                    <td class="table-success"><strong>MS(1)</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="table-warning"><strong>Ménage 1, t=2</strong></td>
+                                    <td>Q(1,1,2)</td>
+                                    <td>Q(1,2,2)</td>
+                                    <td>...</td>
+                                    <td>Q(1,N-1,2)</td>
+                                    <td>Q(1,N,2)</td>
+                                    <td class="table-info">V(n,2)</td>
+                                    <td class="table-success"><strong>MS(2)</strong></td>
+                                </tr>
+                                <tr>
+                                    <td>...</td>
+                                    <td colspan="5">...</td>
+                                    <td>...</td>
+                                    <td>...</td>
+                                </tr>
+                                <tr>
+                                    <td class="table-warning"><strong>Ménage M, t=T</strong></td>
+                                    <td>Q(M,1,T)</td>
+                                    <td>Q(M,2,T)</td>
+                                    <td>...</td>
+                                    <td>Q(M,N-1,T)</td>
+                                    <td>Q(M,N,T)</td>
+                                    <td class="table-info">V(n,T)</td>
+                                    <td class="table-success"><strong>MS(T)</strong></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ══════════ 3. VENTES — 4 COMPOSANTES ══════════ *@
+    <div id="ventes" class="card section-card border-warning mb-4">
+        <div class="card-header bg-warning text-dark">
+            <strong>💰 3. Ventes et achats totaux — décomposition en 4 flux</strong>
+        </div>
+        <div class="card-body">
+            <p>
+                Les flux monétaires de l'économie combinent <strong>quatre types de transactions</strong> distincts,
+                chacun avec un impact différent sur la masse monétaire :
+            </p>
+
+            <div class="formula-block">
+                <div class="formula-name">Décomposition des flux totaux</div>
+                <code>F_total(t) = V_B2C(t) + V_H2H(t) + V_X(t) − I_IMP(t)</code>
+                <div class="formula-desc">
+                    B2C = entreprise → ménage (neutre) | H2H = ménage → ménage (neutre)<br />
+                    V_X = entreprise → étranger (+MS injection) | I_IMP = étranger → entreprise (−MS fuite)
+                </div>
+            </div>
+
+            @* --- 3a. V_B2C --- *@
+            <h6 id="ventes-b2c" class="mt-4">3a. V_B2C — Entreprises → Ménages</h6>
+
+            <div class="formula-block">
+                <div class="formula-name">Ventes B2C par produit</div>
+                <code>V_B2C(n, t) = Σ(m=1..M) Q(m, n, t) × Σ(k=1..K) A(k, n) × P(k, n, t)</code>
+                <div class="formula-desc">
+                    Flux classique : les ménages achètent des produits aux entreprises. L'argent passe de E(m) vers T(k).
+                </div>
+            </div>
+
+            <div class="formula-block">
+                <div class="formula-name">Écriture matricielle</div>
+                <code>V_B2C(t) = [Q(t)]ᵀ × 𝟏_M ⊙ [Aᵀ × P(t)]ᵀ × 𝟏_K</code>
+                <div class="formula-desc">
+                    Où ⊙ est le produit de Hadamard (élément par élément) et 𝟏_M est le vecteur colonne de uns
+                </div>
+            </div>
+
+            @* --- 3b. V_H2H --- *@
+            <h6 id="ventes-h2h" class="mt-4">3b. V_H2H — Ménages → Ménages (composante informelle)</h6>
+
+            <div class="formula-block">
+                <div class="formula-name">Ventes H2H par produit</div>
+                <code>V_H2H(n, t) = Σ(m₁≠m₂) S(m₁, m₂, n, t) × P_H(m₁, n, t)</code>
+                <div class="formula-desc">
+                    Ventes de biens et services entre ménages : marchands ambulants, artisans, services domestiques,
+                    agriculture vivrière, petit commerce de quartier.
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <div class="alert alert-light border-warning border-2">
+                        <strong>🏠→🏠 Caractéristiques H2H</strong><br />
+                        • Pas de TVA, pas d'IS<br />
+                        • Prix négociés (volatiles)<br />
+                        • ~85% des transactions alimentaires<br />
+                        • Crée de la VA comptée dans le PIB
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="alert alert-light border-danger border-2">
+                        <strong>⚠️ Impact monétaire : NEUTRE</strong><br />
+                        <code>Σ R_H2H(vendeurs) = Σ C_H2H(acheteurs)</code><br />
+                        L'argent circule entre ménages<br />
+                        <strong>MS(t) inchangée</strong> par les transactions H2H
+                    </div>
+                </div>
+            </div>
+
+            @* --- 3c. V_X --- *@
+            <h6 id="ventes-export" class="mt-4">3c. V_X — Entreprises → Étranger (exports)</h6>
+
+            <div class="formula-block">
+                <div class="formula-name">Ventes export par produit</div>
+                <code>V_X(n, t) = Σ(k=1..K) X(k, n, t) × P_FOB(k, n, t)</code>
+                <div class="formula-desc">
+                    Valeur FOB des exportations par catégorie (vanille, nickel, textile, crevettes, etc.).<br />
+                    L'argent vient de l'extérieur et entre dans T(k) de l'entreprise exportatrice.
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <div class="alert alert-light border-success border-2">
+                        <strong>🏭→🌍 Caractéristiques Export</strong><br />
+                        • ~3 milliards USD/an (Madagascar)<br />
+                        • Taxe export + redevance<br />
+                        • Vanille (30%), Nickel (20%), Textile (15%)<br />
+                        • Génère des devises → trésorerie entreprise
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="alert alert-light border-success border-2">
+                        <strong>💹 Impact monétaire : INJECTION</strong><br />
+                        <code>V_X(t) &gt; 0 → MS(t) augmente</code><br />
+                        Monnaie étrangère convertie en MGA<br />
+                        <strong>Crée de la monnaie dans le système</strong>
+                    </div>
+                </div>
+            </div>
+
+            @* --- 3d. I_IMP --- *@
+            <h6 id="achats-import" class="mt-4">3d. I_IMP — Étranger → Entreprise (imports)</h6>
+
+            <div class="formula-block">
+                <div class="formula-name">Achats d'importation par catégorie</div>
+                <code>I_IMP(n, t) = Σ(k=1..K) CIF(k, n, t) + DD(k, t) + Accise(k, t) + TVA_imp(k, t) + Redev(k, t)</code>
+                <div class="formula-desc">
+                    Valeur CIF des marchandises importées + droits de douane + accise + TVA à l'import + redevance statistique.<br />
+                    Le paiement CIF sort du système monétaire domestique vers l'étranger.
+                </div>
+            </div>
+
+            <div class="formula-block">
+                <div class="formula-name">Revente domestique (neutre)</div>
+                <code>Revente(k, t) = CIF(k, t) × (1 + MargeReventeImport)</code>
+                <div class="formula-desc">
+                    L'importateur revend sur le marché local avec marge (~25%).
+                    Cette revente est un transfert interne (neutre sur MS), mais le paiement CIF initial est une fuite.
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <div class="alert alert-light border-danger border-2">
+                        <strong>🌍→🏭 Caractéristiques Import</strong><br />
+                        • ~4 milliards USD/an (Madagascar, déficit commercial)<br />
+                        • DD 0-20% + Accise 0-60% + TVA import 20%<br />
+                        • Carburant (25%), Alimentaire/riz (20%), Électronique (15%)<br />
+                        • 6 catégories INSTAT (<code>ECategorieImport</code>)
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="alert alert-light border-danger border-2">
+                        <strong>📉 Impact monétaire : FUITE</strong><br />
+                        <code>CIF(t) &gt; 0 → MS(t) diminue</code><br />
+                        MGA sort du système pour payer l'étranger<br />
+                        <strong>Détruit de la monnaie domestique</strong><br />
+                        (les droits/taxes restent dans le système → État)
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-warning mt-3">
+                <strong>⚠️ Décomposition du coût d'importation :</strong><br />
+                <code>CIF</code> = fuite vers l'étranger (−MS) ||
+                <code>DD + Accise + TVA_imp + Redevance</code> = transfert vers l'État (neutre sur MS)<br />
+                Seule la composante CIF affecte la masse monétaire. Les taxes restent dans le circuit domestique.
+            </div>
+
+            @* --- Récapitulatif CA --- *@
+            <h6 class="mt-4">Chiffre d'affaires total</h6>
+
+            <div class="formula-block">
+                <div class="formula-name">CA total de l'économie</div>
+                <code>CA(t) = Σ(n) [V_B2C(n,t) + V_H2H(n,t)] + Σ(n) V_X(n,t) − Σ(n) CIF(n,t)</code>
+                <div class="formula-desc">
+                    Ventes domestiques (B2C + H2H) + Exports (FOB) − Imports (CIF)
+                </div>
+            </div>
+
+            <p class="mt-3">Les flux se décomposent en 4 catégories :</p>
+
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="alert alert-light border-success border-2">
+                        <strong>🏪 Informel (~85%)</strong><br />
+                        <code>V_H2H + V_B2C_inf</code><br />
+                        <small class="text-muted">Neutre MS</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="alert alert-light border-info border-2">
+                        <strong>🏢 Formel (~15%)</strong><br />
+                        <code>V_B2C_formel</code><br />
+                        <small class="text-muted">Neutre MS</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="alert alert-light border-primary border-2">
+                        <strong>🌍↗ Export</strong><br />
+                        <code>V_X (FOB)</code><br />
+                        <small class="text-muted text-success"><strong>+MS</strong></small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="alert alert-light border-danger border-2">
+                        <strong>🌍↙ Import</strong><br />
+                        <code>I_IMP (CIF)</code><br />
+                        <small class="text-muted text-danger"><strong>−MS</strong></small>
+                    </div>
+                </div>
+            </div>
+
+            <table class="table table-sm table-bordered mt-3">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Flux</th>
+                        <th>Vendeur</th>
+                        <th>Acheteur</th>
+                        <th>Impact MS(t)</th>
+                        <th>TVA</th>
+                        <th>Code correspondant</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>V_B2C</strong></td>
+                        <td>Entreprise k</td>
+                        <td>Ménage m</td>
+                        <td>Transfert interne (E→T)</td>
+                        <td>Formel : ✅ / Informel : ❌</td>
+                        <td><code>CompanyDailyResult.VentesB2C</code></td>
+                    </tr>
+                    <tr class="table-warning">
+                        <td><strong>V_H2H</strong></td>
+                        <td>Ménage m₁</td>
+                        <td>Ménage m₂</td>
+                        <td><strong>Neutre</strong> (E↔E)</td>
+                        <td>❌</td>
+                        <td><code>DepensesAlimentairesInformel (proxy)</code></td>
+                    </tr>
+                    <tr class="table-success">
+                        <td><strong>V_X</strong></td>
+                        <td>Entreprise k</td>
+                        <td>Étranger</td>
+                        <td><strong>+Injection</strong> devises</td>
+                        <td>Taxe export</td>
+                        <td><code>Exporter.TotalExportationsFOB</code></td>
+                    </tr>
+                    <tr class="table-danger">
+                        <td><strong>I_IMP</strong></td>
+                        <td>Étranger</td>
+                        <td>Entreprise k (importateur)</td>
+                        <td><strong>−Fuite</strong> CIF</td>
+                        <td>DD + Accise + TVA import</td>
+                        <td><code>Importer.TotalImportationsCIF</code></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @* ══════════ 4. MASSE MONÉTAIRE ══════════ *@
+    <div id="masse-monetaire" class="card section-card border-danger mb-4">
+        <div class="card-header bg-danger text-white">
+            <strong>🏦 4. Masse monétaire — de V à MS(t)</strong>
+        </div>
+        <div class="card-body">
+            <p>
+                La <strong>masse monétaire M3</strong> au temps t est la somme de tous les encours monétaires des agents :
+            </p>
+
+            <div class="formula-block">
+                <div class="formula-name">Masse monétaire M3</div>
+                <code>MS(t) = Σ(m=1..M) E(m, t) + Σ(k=1..K) T(k, t) + μ × ΔCR(t)</code>
+                <div class="formula-desc">
+                    Dépôts ménages + Dépôts entreprises + Création monétaire par crédit
+                </div>
+            </div>
+
+            <h6 class="mt-3">Dynamique de chaque composante :</h6>
+
+            <table class="table table-sm table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Composante</th>
+                        <th>Équation récursive</th>
+                        <th>Signification</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Épargne ménage</strong></td>
+                        <td><code>E(m, t) = E(m, t-1) + Y(m, t) + R_H2H(m, t) − C_B2C(m, t) − C_H2H(m, t)</code></td>
+                        <td>Épargne précédente + salaire + ventes H2H − achats aux entreprises − achats aux ménages</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Revenu total ménage</strong></td>
+                        <td><code>Y_total(m, t) = Y_salaire(m, t) + R_H2H(m, t) + Remittance(m, t)</code></td>
+                        <td>Salaire + revenus informels H2H + transferts diaspora</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Consommation totale</strong></td>
+                        <td><code>C(m, t) = C_B2C(m, t) + C_H2H(m, t)</code></td>
+                        <td>Achats auprès d'entreprises + achats auprès d'autres ménages</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Trésorerie entreprise</strong></td>
+                        <td><code>T(k, t) = T(k, t-1) + CA_B2C(k, t) + V_X(k, t) − CIF(k, t) − W(k, t) − τ(k, t)</code></td>
+                        <td>CA domestique + exports − imports CIF − salaires − impôts/charges</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Multiplicateur crédit</strong></td>
+                        <td><code>μ = 1 / r_réserve</code></td>
+                        <td>Multiplicateur bancaire (taux de réserve obligatoire)</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h6 class="mt-4">Impact de chaque type de vente sur MS(t) :</h6>
+
+            <table class="table table-sm table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Type de vente</th>
+                        <th>Effet sur MS(t)</th>
+                        <th>Explication</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>V_B2C</strong> (entreprise → ménage)</td>
+                        <td><span class="badge bg-secondary">Neutre</span></td>
+                        <td>Transfert E(m) → T(k). La somme E+T reste constante.</td>
+                    </tr>
+                    <tr class="table-warning">
+                        <td><strong>V_H2H</strong> (ménage → ménage)</td>
+                        <td><span class="badge bg-secondary">Neutre</span></td>
+                        <td>Transfert E(m₂) → E(m₁). La somme ΣE reste constante. Redistribution interne uniquement.</td>
+                    </tr>
+                    <tr class="table-success">
+                        <td><strong>V_X</strong> (entreprise → étranger)</td>
+                        <td><span class="badge bg-success">+Injection</span></td>
+                        <td>Devises étrangères converties en MGA → T(k) augmente. La monnaie entre dans le système.</td>
+                    </tr>
+                    <tr class="table-danger">
+                        <td><strong>Imports M(t)</strong> (étranger → entreprise)</td>
+                        <td><span class="badge bg-danger">−Fuite</span></td>
+                        <td>MGA sort du système pour payer les importations CIF. T(k) diminue.</td>
+                    </tr>
+                    <tr class="table-info">
+                        <td><strong>ΔCR(t)</strong> (crédit bancaire)</td>
+                        <td><span class="badge bg-primary">+Création</span></td>
+                        <td>La banque crée de la monnaie ex nihilo via le crédit (multiplicateur μ).</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="formula-block mt-3">
+                <div class="formula-name">Forme compacte — Équation maîtresse (corrigée)</div>
+                <code>MS(t) = MS(t-1) + ΔCR(t) + [X(t) − M(t)]</code>
+                <div class="formula-desc">
+                    Seuls 2 facteurs modifient MS(t) :<br />
+                    • <strong>Crédit bancaire ΔCR(t)</strong> — création monétaire<br />
+                    • <strong>Balance commerciale [X(t) − M(t)]</strong> — injection/fuite de devises<br />
+                    Les transactions B2C et H2H sont des transferts internes → somme nulle sur MS(t).
+                </div>
+            </div>
+
+            <div class="alert alert-info mt-3 mb-0">
+                <strong>💡 Insight clé :</strong>
+                Même si les ventes H2H informelles représentent ~85% du volume de transactions,
+                elles ne changent <strong>pas</strong> la masse monétaire. Elles redistribuent la richesse entre ménages
+                et contribuent au PIB (valeur ajoutée), mais le stock total de monnaie n'est modifié que par
+                le crédit bancaire et le commerce extérieur.<br /><br />
+                <strong>En revanche, les exports V_X sont cruciales</strong> : elles injectent des devises
+                (~3 Mds USD/an pour Madagascar) qui, converties en MGA, augmentent MS(t) et financent
+                les importations.
+            </div>
+        </div>
+    </div>
+
+    @* ══════════ 5. FLUX ══════════ *@
+    <div id="flux" class="card section-card border-info mb-4">
+        <div class="card-header bg-info text-white">
+            <strong>🔄 5. Diagramme des flux monétaires</strong>
+        </div>
+        <div class="card-body">
+            <p>
+                Le circuit économique complet, montrant les <strong>4 types de flux</strong> (B2C, H2H, Export, Import)
+                et leur impact sur la masse monétaire :
+            </p>
+
+            <div class="row g-3 mt-2">
+                <div class="col-md-3">
+                    <div class="flow-step border-warning border-2">
+                        <h6>🏠 Ménages (1..M)</h6>
+                        <small>
+                            Revenu Y(m,t)<br />
+                            + Ventes H2H R_H2H(m,t)<br />
+                            − Achats C(m,t)<br />
+                            = Épargne E(m,t)
+                        </small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="flow-step border-success border-2">
+                        <h6>🏠↔🏠 H2H Informel</h6>
+                        <small>
+                            S(m₁,m₂,n,t)<br />
+                            Neutre sur MS(t)<br />
+                            Redistribue E(m)<br />
+                            ~85% des transactions
+                        </small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="flow-step border-primary border-2">
+                        <h6>🏭 Entreprises (1..K)</h6>
+                        <small>
+                            + V_B2C (ventes locales)<br />
+                            + V_X (exports FOB)<br />
+                            − CIF (imports)<br />
+                            − W(k,t) (salaires)<br />
+                            = T(k,t)
+                        </small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="flow-step border-danger border-2">
+                        <h6>🌍 Étranger</h6>
+                        <small>
+                            V_X → <strong class="text-success">+MS</strong> (devises)<br />
+                            CIF → <strong class="text-danger">−MS</strong> (fuite)<br />
+                            Remittances → +E(m,t)<br />
+                            Solde = FOB − CIF
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center my-3">
+                <span class="fs-4">⬇️ Cycle économique complet ⬇️</span>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="flow-step border-danger border-2">
+                        <h6>🏛️ État</h6>
+                        <small>
+                            IR + IS + TVA + Douanes<br />
+                            → Dépenses publiques G(t)<br />
+                            → Transferts sociaux<br />
+                            (H2H : invisible fiscalement)
+                        </small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="flow-step border-secondary border-2">
+                        <h6>🏦 Banque</h6>
+                        <small>
+                            Dépôts = Σ E(m,t) + Σ T(k,t)<br />
+                            Crédits ΔCR(t) → +MS(t)<br />
+                            MS(t) = M3
+                        </small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="flow-step border-warning border-2">
+                        <h6>📊 Bilan MS(t)</h6>
+                        <small>
+                            B2C : transfert (neutre)<br />
+                            H2H : redistribution (neutre)<br />
+                            Export FOB : <strong class="text-success">+injection</strong><br />
+                            Import CIF : <strong class="text-danger">−fuite</strong><br />
+                            Crédit : +création<br />
+                            <strong>MS(t) = MS(t-1) + ΔCR + (FOB−CIF)</strong>
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-light border rounded p-3 mt-3">
+                <strong>Circuit complet (4 flux monétaires) :</strong><br />
+                <code>Y(m,t) + R_H2H(m,t)</code> → <code>C_B2C(m,t) + C_H2H(m,t)</code> <em>(ménage consomme)</em><br />
+                <code>C_B2C(m,t)</code> → <code>V_B2C(n,t)</code> → <code>T(k,t)</code> <em>(transfert ménage → entreprise, neutre MS)</em><br />
+                <code>C_H2H(m₂,t)</code> → <code>R_H2H(m₁,t)</code> <em>(transfert ménage → ménage, neutre MS)</em><br />
+                <code>V_X(k,t)</code> → <code>T(k,t)</code> <em>(injection devises étrangères, <strong class="text-success">+MS</strong>)</em><br />
+                <code>CIF(k,t)</code> → <code>Étranger</code> <em>(fuite de monnaie domestique, <strong class="text-danger">−MS</strong>)</em><br />
+                <code>T(k,t)</code> → <code>W(k,t)</code> → <code>Y(m,t+1)</code> <em>(boucle salaires → revenus)</em><br />
+                <code>MS(t) = MS(t-1) + ΔCR(t) + [FOB(t) − CIF(t)]</code>
+            </div>
+        </div>
+    </div>
+
+    @* ══════════ 6. CORRESPONDANCE CODE ══════════ *@
+    <div id="correspondance" class="card section-card border-primary mb-4">
+        <div class="card-header bg-primary text-white">
+            <strong>💻 6. Correspondance avec le code existant</strong>
+        </div>
+        <div class="card-body">
+            <p>
+                Chaque composant mathématique est implémenté dans les modules métier de la simulation :
+            </p>
+
+            <table class="table table-sm table-bordered param-table">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Composant mathématique</th>
+                        <th>Code / Fichier</th>
+                        <th>Détail</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in CorrespondancesCode)
+                    {
+                        <tr>
+                            <td><strong>@c.Composant</strong></td>
+                            <td><code>@c.Code</code></td>
+                            <td>@c.Detail</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @* ══════════ 7. CATÉGORIES ══════════ *@
+    <div id="categories" class="card section-card border-success mb-4">
+        <div class="card-header bg-success text-white">
+            <strong>🏷️ 7. Catégories de dépenses (N=8) dans la simulation</strong>
+        </div>
+        <div class="card-body">
+            <p>
+                Dans la version actuelle, les « produits » (dimension N) sont des <strong>catégories de dépenses</strong>
+                plutôt que des produits individuels. Le <code>DailyHouseholdResult</code> décompose chaque achat
+                en 8 flux monétaires identifiés :
+            </p>
+
+            <table class="table table-sm table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>n</th>
+                        <th>Catégorie (produit)</th>
+                        <th>Champ <code>DailyHouseholdResult</code></th>
+                        <th>Entreprise destinataire</th>
+                        <th>TVA</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var cat in CategoriesProduits)
+                    {
+                        <tr>
+                            <td><span class="impact-badge @cat.BadgeClass text-white">@cat.Index</span></td>
+                            <td><strong>@cat.Nom</strong></td>
+                            <td><code>@cat.Champ</code></td>
+                            <td>@cat.Destinataire</td>
+                            <td>@cat.TVA</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <div class="formula-block mt-3">
+                <div class="formula-name">Tenseur simplifié (version actuelle)</div>
+                <code>Q(m, n, t) avec N = 8 catégories de dépenses</code>
+                <div class="formula-desc">
+                    Chaque ligne (m, t) = un <code>DailyHouseholdResult</code>.<br />
+                    Chaque colonne n = un champ de dépense du résultat journalier.
+                </div>
+            </div>
+
+            <div class="alert alert-success mt-3 mb-0">
+                <strong>✅ Couverture actuelle :</strong>
+                Les 8 catégories couvrent l'intégralité des flux ménage → entreprise modélisés.
+                Le tenseur Q est implicitement construit à chaque appel de
+                <code>IHouseholdModule.SimulerJournee()</code> et
+                <code>IHouseholdModule.AcheteProduitsAlimentaires()</code>.
+            </div>
+        </div>
+    </div>
+
+    @* ══════════ 8. COUVERTURE ══════════ *@
+    <div id="couverture" class="card section-card border-warning mb-4">
+        <div class="card-header bg-warning text-dark">
+            <strong>📊 8. Couverture du modèle et extensions possibles</strong>
+        </div>
+        <div class="card-body">
+            <p>
+                La simulation actuelle alimente le modèle mathématique à <strong>~70%</strong>.
+                Voici l'état de chaque composante :
+            </p>
+
+            <h6>✅ Composantes implémentées</h6>
+            <table class="table table-sm table-bordered mb-3">
+                <thead class="table-dark">
+                    <tr><th>Composant</th><th>Implémentation</th><th>Fichier</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in ComposantesImplementees)
+                    {
+                        <tr>
+                            <td>✅ <strong>@item.Composant</strong></td>
+                            <td>@item.Implementation</td>
+                            <td><code>@item.Fichier</code></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <h6>❌ Composantes manquantes pour le modèle tensoriel complet</h6>
+            <table class="table table-sm table-bordered mb-3">
+                <thead class="table-dark">
+                    <tr><th>Composant</th><th>Problème actuel</th><th>Extension requise</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in ComposantesManquantes)
+                    {
+                        <tr>
+                            <td>❌ <strong>@item.Composant</strong></td>
+                            <td>@item.Probleme</td>
+                            <td>@item.Extension</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <div class="alert alert-info mb-0">
+                <strong>💡 Pour passer au modèle complet (N = produits individuels) :</strong>
+                <ol class="mb-0 mt-2">
+                    <li>Ajouter un catalogue de produits (<code>Product</code> avec Id, Nom, Secteur, PrixBase)</li>
+                    <li>Créer la matrice d'affectation A(k,n) — lien produit → entreprise</li>
+                    <li>Enregistrer les achats unitaires (<code>HouseholdPurchase</code> : ménage, produit, quantité, prix, jour)</li>
+                    <li>Agréger les ventes par produit V(n,t) au lieu de par entreprise</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    @* ══════════ 9. ESTIMATION COMPORTEMENTALE ══════════ *@
+    <div id="estimation-comportementale" class="card section-card border-primary mb-4">
+        <div class="card-header bg-primary text-white">
+            <strong>🧠 9. Estimation comportementale des paramètres depuis MS(t)</strong>
+        </div>
+        <div class="card-body">
+            <p>
+                <strong>Question clé :</strong> Si on observe la décomposition de la masse monétaire MS(t) à un instant donné,
+                peut-on utiliser un <strong>modèle comportemental</strong> pour estimer les paramètres de la matrice d'achat Q ?
+            </p>
+
+            <div class="alert alert-success">
+                <strong>✅ Oui — c'est un problème inverse bien posé.</strong>
+                Connaissant MS(t), on peut remonter aux paramètres comportementaux via des contraintes
+                de conservation monétaire et des hypothèses sur la distribution des dépenses.
+            </div>
+
+            <h6 class="mt-3">Principe : Problème inverse par conservation monétaire</h6>
+
+            <div class="formula-block">
+                <div class="formula-name">Contrainte de conservation (à chaque pas t)</div>
+                <code>Σ(m) E(m,t) + Σ(k) T(k,t) = MS(t) − μ × ΔCR(t)</code>
+                <div class="formula-desc">
+                    Les dépôts totaux (ménages + entreprises) sont observables dans MS(t).
+                    En les décomposant, on obtient des contraintes sur Q.
+                </div>
+            </div>
+
+            <h6 class="mt-3">Étape 1 — De MS(t) aux flux sectoriels</h6>
+            <p>
+                La décomposition de MS(t) par secteur (observable via les données bancaires) donne :
+            </p>
+
+            <div class="formula-block">
+                <div class="formula-name">Décomposition sectorielle de MS(t)</div>
+                <code>
+                    MS(t) = MS_ménages(t) + MS_entreprises(t) + MS_État(t)<br />
+                    MS_ménages(t) = Σ E(m,t) → contrainte sur C(m,t) = Y(m,t) − ΔE(m,t)<br />
+                    MS_entreprises(t) = Σ T(k,t) → contrainte sur V(n,t) = ΔT(k,t) + W(k,t) + τ(k,t)
+                </code>
+            </div>
+
+            <h6 class="mt-3">Étape 2 — Modèle comportemental (AIDS / LES)</h6>
+            <p>
+                On utilise un <strong>système de demande quasi-idéal</strong> (Almost Ideal Demand System — AIDS)
+                pour relier les parts budgétaires observées aux paramètres comportementaux :
+            </p>
+
+            <div class="formula-block">
+                <div class="formula-name">AIDS — Part budgétaire du secteur n</div>
+                <code>w(n,t) = α(n) + Σ(j) γ(n,j) × ln P(j,t) + β(n) × ln[C(t) / P*(t)]</code>
+                <div class="formula-desc">
+                    • w(n,t) = part du budget consacrée au secteur n (dépenses sectorielles / dépense totale)<br />
+                    • α(n) = part de base (subsistance) du secteur n<br />
+                    • γ(n,j) = élasticité-prix croisée entre secteurs n et j<br />
+                    • β(n) = élasticité-revenu du secteur n<br />
+                    • P*(t) = indice de prix agrégé (Stone ou translog)
+                </div>
+            </div>
+
+            <h6 class="mt-3">Étape 3 — Paramètres estimables depuis MS(t)</h6>
+
+            <table class="table table-sm table-bordered param-table">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Paramètre</th>
+                        <th>Observable dans MS(t) ?</th>
+                        <th>Méthode d'estimation</th>
+                        <th>Donnée requise</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in ParametresEstimables)
+                    {
+                        <tr>
+                            <td><strong>@p.Parametre</strong></td>
+                            <td>@p.Observable</td>
+                            <td>@p.Methode</td>
+                            <td><code>@p.Donnee</code></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <h6 class="mt-3">Étape 4 — Application aux 8 catégories de dépenses</h6>
+            <p>
+                Avec les N=8 catégories actuelles (alimentaire informel/formel, riz, eau, électricité,
+                transport, loisirs, divers), le système AIDS a <strong>8 équations de parts budgétaires</strong> :
+            </p>
+
+            <div class="formula-block">
+                <div class="formula-name">Système de 8 parts budgétaires (version simulateur)</div>
+                <code>
+                    w_alim_inf(t) = α₁ + β₁ × ln(C/P*) + γ₁ × ln(P_carburant)<br />
+                    w_alim_for(t) = α₂ + β₂ × ln(C/P*) + γ₂ × ln(P_carburant)<br />
+                    w_riz(t) = α₃ + β₃ × ln(C/P*) &nbsp;&nbsp;&nbsp;← quasi-incompressible<br />
+                    w_eau(t) = α₄ &nbsp;&nbsp;&nbsp;← fixe (tarif Jirama)<br />
+                    w_elec(t) = α₅ &nbsp;&nbsp;&nbsp;← fixe (tarif Jirama)<br />
+                    w_transport(t) = α₆ + β₆ × ln(C/P*) + γ₆ × ln(P_carburant)<br />
+                    w_loisirs(t) = α₇ + β₇ × ln(C/P*) &nbsp;&nbsp;&nbsp;← élastique (luxe)<br />
+                    w_divers(t) = 1 − Σ(w₁..w₇) &nbsp;&nbsp;&nbsp;← résiduel
+                </code>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <div class="card border-info">
+                        <div class="card-header bg-info bg-opacity-25">
+                            <strong>📊 Données requises (minimum)</strong>
+                        </div>
+                        <div class="card-body small">
+                            • MS(t) à plusieurs dates (série temporelle)<br />
+                            • Décomposition E(m) / T(k) (données BCM)<br />
+                            • Indices de prix par catégorie (INSTAT IPC)<br />
+                            • Distribution des revenus (enquête EPM)<br />
+                            • Prix du carburant (série quotidienne)
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border-success">
+                        <div class="card-header bg-success bg-opacity-25">
+                            <strong>🧮 Algorithme d'estimation</strong>
+                        </div>
+                        <div class="card-body small">
+                            1. Observer MS(t₁), MS(t₂), ..., MS(tₙ)<br />
+                            2. En déduire ΔE(m), ΔT(k) par période<br />
+                            3. Calculer C(t) = Y(t) − ΔE(t)<br />
+                            4. Estimer w(n,t) = dépense_n / C(t)<br />
+                            5. Régresser AIDS : w = f(ln P, ln C/P*)<br />
+                            6. Extraire α, β, γ → paramètres du tenseur Q
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-warning mt-3 mb-0">
+                <strong>⚠️ Limites et identifiabilité :</strong><br />
+                • Le secteur informel (~85%) n'est <strong>pas observable</strong> directement dans MS(t)
+                  (transactions en espèces hors circuit bancaire)<br />
+                • Les transactions H2H ne passent pas par les banques → invisible dans les dépôts<br />
+                • <strong>Solution :</strong> utiliser le ratio observé informel/formel comme prior bayésien
+                  et calibrer par les enquêtes EPM (Enquête Périodique auprès des Ménages)<br />
+                • Le modèle est <strong>sur-identifié</strong> si on dispose de données de prix ET de revenus
+                  → possibilité de tester la cohérence (test de Slutsky)
+            </div>
+        </div>
+    </div>
+
+    @* ══════════ 10. INTÉGRATION SIMULATION ↔ AIDS ══════════ *@
+    <div id="integration-aids" class="card section-card border-success mb-4">
+        <div class="card-header bg-success text-white">
+            <strong>🔄 10. Intégration Simulation ↔ AIDS — Boucle complète</strong>
+        </div>
+        <div class="card-body">
+            <p>
+                Le simulateur économique (<code>/economie</code>) et le modèle AIDS (<code>/aids-croissance</code>)
+                sont <strong>bidirectionnellement intégrés</strong>. Les résultats de l'un alimentent l'autre
+                pour former une boucle d'analyse complète : observation → estimation → projection → simulation.
+            </p>
+
+            <div class="alert alert-info py-2">
+                <strong>🧮 Rappel AIDS :</strong>
+                <code>w_i = α_i + Σ_j γ_ij × ln(p_j) + β_i × ln(X / P*)</code>
+                — Deaton & Muellbauer (1980). Le modèle prédit comment les parts budgétaires
+                évoluent en fonction du revenu (M3) et des prix.
+            </div>
+
+            <h6>Architecture d'intégration</h6>
+            <div class="row g-3 mt-2">
+                <div class="col-md-5">
+                    <div class="flow-step border-primary border-2">
+                        <h6>📊 Simulateur Économique</h6>
+                        <small>
+                            <code>/economie</code><br />
+                            Produit des <code>DailySnapshot</code> :<br />
+                            • M3 (masse monétaire)<br />
+                            • Dépenses par catégorie (8)<br />
+                            • Indices de prix observés<br />
+                            • PIB, balance commerciale<br />
+                            <span class="badge bg-primary mt-1">Données observées</span>
+                        </small>
+                    </div>
+                </div>
+                <div class="col-md-2 d-flex align-items-center justify-content-center">
+                    <div class="text-center">
+                        <div class="fs-3">→</div>
+                        <small class="text-success fw-bold">Import w_i</small>
+                        <div class="fs-3 mt-2">←</div>
+                        <small class="text-primary fw-bold">Export Config</small>
+                    </div>
+                </div>
+                <div class="col-md-5">
+                    <div class="flow-step border-success border-2">
+                        <h6>🧮 Modèle AIDS</h6>
+                        <small>
+                            <code>/aids-croissance</code><br />
+                            Estime les paramètres AIDS :<br />
+                            • α_i (intercepts)<br />
+                            • β_i (élasticités-revenu)<br />
+                            • γ_ij (élasticités-prix)<br />
+                            • Projections w_i(T)<br />
+                            <span class="badge bg-success mt-1">Paramètres estimés</span>
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            @* ── Flux 1 : Simulation → AIDS ── *@
+            <div id="flux-sim-aids" class="mt-4">
+                <h6>📥 Flux 1 : Simulation → AIDS (import des parts budgétaires)</h6>
+                <p>
+                    Après une simulation terminée, la méthode <code>ChargerDepuisSimulation(SimulationResultViewModel)</code>
+                    extrait automatiquement les données observées des <code>DailySnapshot</code> pour alimenter le modèle AIDS.
+                </p>
+
+                <table class="table table-sm table-bordered">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Donnée simulée (<code>DailySnapshotViewModel</code>)</th>
+                            <th>→</th>
+                            <th>Paramètre AIDS</th>
+                            <th>Calcul</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var m in MappingsSimToAIDS)
+                        {
+                            <tr>
+                                <td><code>@m.ChampSnapshot</code></td>
+                                <td>→</td>
+                                <td><strong>@m.ParametreAIDS</strong></td>
+                                <td><small>@m.Calcul</small></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <div class="formula-block">
+                    <div class="formula-name">Calcul des parts budgétaires observées</div>
+                    <code>w_i = dépense_catégorie_i / Σ(dépenses_toutes_catégories)</code>
+                    <div class="formula-desc">
+                        Les moyennes sont calculées sur toute la durée de la simulation
+                        pour lisser les variations journalières (weekend, saisonnalité).
+                    </div>
+                </div>
+
+                <div class="formula-block">
+                    <div class="formula-name">Indices de prix projetés (approximation)</div>
+                    <code>p_i(T) = dépense_i(dernier jour) / dépense_i(premier jour)</code>
+                    <div class="formula-desc">
+                        Ratio fin/début de simulation par catégorie, borné à [0.5, 3.0]
+                        pour éviter les outliers. Reflète l'inflation observée par catégorie.
+                    </div>
+                </div>
+            </div>
+
+            @* ── Flux 2 : AIDS → Simulation ── *@
+            <div id="flux-aids-sim" class="mt-4">
+                <h6>📤 Flux 2 : AIDS → Simulation (export de scénario)</h6>
+                <p>
+                    Après estimation des paramètres AIDS, la méthode <code>GenererScenarioConfig()</code>
+                    produit un <code>ScenarioConfigViewModel</code> calibré sur les projections AIDS.
+                </p>
+
+                <table class="table table-sm table-bordered">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Paramètre AIDS</th>
+                            <th>→</th>
+                            <th>Config simulateur (<code>ScenarioConfigViewModel</code>)</th>
+                            <th>Formule</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var m in MappingsAIDSToSim)
+                        {
+                            <tr>
+                                <td><strong>@m.ParametreAIDS</strong></td>
+                                <td>→</td>
+                                <td><code>@m.ChampConfig</code></td>
+                                <td><small>@m.Formule</small></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @* ── Mapping catégories ── *@
+            <div id="mapping-categories" class="mt-4">
+                <h6>🏷️ Mapping des 8 catégories AIDS ← DailySnapshot</h6>
+                <p>
+                    Chaque catégorie AIDS (n = 0..7) est calculée à partir des champs du <code>DailySnapshotViewModel</code>.
+                    Les indices correspondent exactement aux <a href="#categories">8 catégories de dépenses</a> définies en section 7.
+                </p>
+
+                <table class="table table-sm table-bordered">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>n</th>
+                            <th>Catégorie AIDS</th>
+                            <th>Champ <code>DailySnapshot</code></th>
+                            <th>β_i calibré</th>
+                            <th>Type Engel</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in CategoriesAIDSMapping)
+                        {
+                            <tr>
+                                <td><span class="impact-badge @c.BadgeClass text-white">@c.Index</span></td>
+                                <td><strong>@c.Icone @c.Nom</strong></td>
+                                <td><code>@c.ChampSnapshot</code></td>
+                                <td class="@(c.Beta < 0 ? "text-danger" : "text-success")"><strong>@c.Beta.ToString("F2")</strong></td>
+                                <td><span class="badge @(c.Beta < 0 ? "bg-danger" : c.Beta < 0.03 ? "bg-warning text-dark" : "bg-success")">@c.TypeEngel</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <div class="alert alert-info py-2 mb-0">
+                    <small>
+                        <strong>Lecture :</strong>
+                        β &lt; 0 = bien de première nécessité (Engel : part ↓ quand revenu ↑) |
+                        β ≈ 0 = quasi-unitaire |
+                        β > 0 = bien supérieur/luxe (part ↑ quand revenu ↑).
+                        Les biens alimentaires sont toujours inférieurs à Madagascar (EPM INSTAT).
+                    </small>
+                </div>
+            </div>
+
+            @* ── Workflow complet ── *@
+            <div id="workflow-complet" class="mt-4">
+                <h6>🔄 Workflow utilisateur complet</h6>
+
+                <div class="row g-2 text-center">
+                    @{
+                        string[] etapesWorkflow = [
+                            "1️⃣ Simuler|Lancer une simulation sur /economie|Produit N snapshots avec M3, dépenses, prix",
+                            "2️⃣ Importer|Cliquer '📊 Ouvrir AIDS' dans le bilan|ChargerDepuisSimulation() extrait w_i, M3, indices",
+                            "3️⃣ Objectif|Définir l'objectif de croissance M3|Ex: +15% en 1 an à partir de M3 observée",
+                            "4️⃣ Estimer|Cliquer '🚀 Estimer' sur /aids-croissance|AIDS calcule α, β, γ et projette w_i(T)",
+                            "5️⃣ Interpréter|Lire les recommandations AIDS|Quels secteurs cibler, alertes inflation",
+                            "6️⃣ Re-simuler|Cliquer '🚀 Lancer la simulation'|GenererScenarioConfig() → nouveau scénario calibré"
+                        ];
+                    }
+                    @foreach (var etape in etapesWorkflow)
+                    {
+                        var parts = etape.Split('|');
+                        <div class="col-md-2">
+                            <div class="flow-step">
+                                <h6>@parts[0]</h6>
+                                <small class="d-block fw-bold">@parts[1]</small>
+                                <small class="d-block text-muted">@parts[2]</small>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <div class="formula-block mt-3">
+                    <div class="formula-name">Boucle d'analyse itérative</div>
+                    <code>
+                        Simulation(t) → DailySnapshots → ChargerDepuisSimulation() → w_i observés<br />
+                        → Objectif ΔM3 → Estimer() → α_i, β_i, γ_ij → w_i(T) projetés<br />
+                        → GenererScenarioConfig() → ScenarioConfigViewModel calibré<br />
+                        → Simulation(t+1) → vérifier convergence vers l'objectif
+                    </code>
+                    <div class="formula-desc">
+                        Chaque itération affine les paramètres. En 2-3 cycles,
+                        les parts budgétaires simulées convergent vers les projections AIDS.
+                    </div>
+                </div>
+            </div>
+
+            @* ── Fichiers impliqués ── *@
+            <h6 class="mt-4">📁 Fichiers impliqués</h6>
+            <table class="table table-sm param-table">
+                <thead class="table-dark">
+                    <tr><th>Fichier</th><th>Rôle dans l'intégration</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>AIDSGrowthSimulatorViewModel.cs</code></td>
+                        <td>Modèle AIDS : estimation α/β/γ, <code>ChargerDepuisSimulation()</code>, <code>GenererScenarioConfig()</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>AIDSGrowthSimulator.razor / .razor.cs</code></td>
+                        <td>Page UI AIDS : injecte <code>EconomicSimulatorViewModel</code>, boutons import/export</td>
+                    </tr>
+                    <tr>
+                        <td><code>EconomySimulator.razor</code></td>
+                        <td>Page simulateur : bouton « 🧮 Analyser avec AIDS » après le bilan final</td>
+                    </tr>
+                    <tr>
+                        <td><code>DailySnapshotViewModel.cs</code></td>
+                        <td>Source des données observées (M3, dépenses par catégorie, prix)</td>
+                    </tr>
+                    <tr>
+                        <td><code>ScenarioConfigViewModel.cs</code></td>
+                        <td>Cible de l'export AIDS → paramètres simulables</td>
+                    </tr>
+                    <tr>
+                        <td><code>SimulationResultViewModel.cs</code></td>
+                        <td>Conteneur des snapshots, vérifié via <code>EstTerminee</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="alert alert-warning mt-3 mb-0">
+                <strong>⚠️ Limites de l'intégration actuelle :</strong>
+                <ul class="mb-0 mt-1">
+                    <li><strong>β_i statiques :</strong> les élasticités-revenu sont calibrées sur la littérature EPM,
+                        pas estimées dynamiquement depuis les snapshots. Une estimation OLS sur les séries w_i(t)
+                        vs ln(M3(t)) améliorerait la précision.</li>
+                    <li><strong>γ_ij simplifiées :</strong> la matrice de substitution est symétrique et proportionnelle
+                        aux parts budgétaires. Un panel de prix IPC par catégorie permettrait l'estimation complète.</li>
+                    <li><strong>Indices de prix approximés :</strong> le ratio dépense_fin/dépense_début mélange
+                        effet prix et effet volume. Séparer les deux nécessite des indices IPC exogènes.</li>
+                    <li><strong>Convergence non garantie :</strong> la boucle itérative converge en pratique,
+                        mais il n'y a pas de preuve formelle de stabilité (pas de point fixe analytique).</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="alert alert-info mt-4">
+        <strong>📖 Voir aussi :</strong><br />
+        • <a href="/doc-calibration" target="_blank">Documentation générale</a> — Hypothèses, PIB, secteurs, TOFE<br />
+        • <a href="/doc-prix" target="_blank">Prix & Élasticité</a> — Chocs de prix, panier alimentaire, courbe logistique<br />
+        • <a href="/aids-croissance" target="_blank">AIDS — Objectif de Croissance</a> — Page interactive d'estimation AIDS et intégration simulation
+    </div>
+
+</div>

@@ -58,7 +58,7 @@ namespace Government.Module
 
         public DailyGovernmentResult SimulerJournee(
             Models.Government government,
-            List<Company.Module.Models.DailyHouseholdResult> resultsMenages,
+            List<Household.Module.Models.DailyHouseholdResult> resultsMenages,
             List<Company.Module.Models.CompanyDailyResult> resultsEntreprises,
             List<Company.Module.Models.DailyImporterResult> resultsImportateurs,
             List<Company.Module.Models.DailyExporterResult> resultsExportateurs,
@@ -215,6 +215,92 @@ namespace Government.Module
             result.DettePublique = government.DettePublique;
 
             return result;
+        }
+
+        public PibComputationResult CalculerPIB(
+            List<Household.Module.Models.DailyHouseholdResult> resultsMenages,
+            List<Company.Module.Models.CompanyDailyResult> tousResultsEntreprises,
+            List<Company.Module.Models.DailyImporterResult> resultsImportateurs,
+            List<Company.Module.Models.DailyExporterResult> resultsExportateurs,
+            Company.Module.Models.Jirama jirama,
+            DailyGovernmentResult resultEtat,
+            int jourCourant)
+        {
+            // PIB par la demande
+            double pibDemande = resultsMenages.Sum(r => r.Consommation)
+                              + resultEtat.FBCF
+                              + resultEtat.ConsommationFinaleEtat
+                              + resultEtat.BalanceCommerciale
+                              + resultsMenages.Sum(r => r.LoyerImpute);
+
+            // PIB VA brut avant réconciliation
+            double pibVARaw = tousResultsEntreprises.Sum(r => r.ValeurAjoutee)
+                            + jirama.ValeurAjouteeJour
+                            + resultEtat.SalairesFonctionnaires
+                            + resultsMenages.Sum(r => r.LoyerImpute)
+                            + jirama.TVACollecteeJour
+                            + resultEtat.RecettesDouanieres;
+
+            double ecartPIB = pibDemande - pibVARaw;
+
+            int nbAgentsCommerciaux = resultsImportateurs.Count + resultsExportateurs.Count;
+            if (nbAgentsCommerciaux > 0 && Math.Abs(ecartPIB) > 0.01)
+            {
+                var rngReconciliation = new Random(jourCourant * 31 + 7);
+                var poids = new double[nbAgentsCommerciaux];
+                double totalPoids = 0;
+                for (int k = 0; k < nbAgentsCommerciaux; k++)
+                {
+                    poids[k] = 0.5 + rngReconciliation.NextDouble();
+                    totalPoids += poids[k];
+                }
+
+                var agentsCommerciaux = new List<Company.Module.Models.CompanyDailyResult>();
+                agentsCommerciaux.AddRange(resultsImportateurs);
+                agentsCommerciaux.AddRange(resultsExportateurs);
+
+                for (int k = 0; k < nbAgentsCommerciaux; k++)
+                {
+                    double part = ecartPIB * poids[k] / totalPoids;
+                    agentsCommerciaux[k].ValeurAjoutee += part;
+                    agentsCommerciaux[k].BeneficeAvantImpot += part;
+                }
+            }
+
+            double pibParValeurAjoutee = tousResultsEntreprises.Sum(r => r.ValeurAjoutee)
+                                       + jirama.ValeurAjouteeJour
+                                       + resultEtat.SalairesFonctionnaires
+                                       + resultsMenages.Sum(r => r.LoyerImpute)
+                                       + jirama.TVACollecteeJour
+                                       + resultEtat.RecettesDouanieres;
+
+            double chargesSalarialesTotalesEntreprises = tousResultsEntreprises.Sum(r => r.ChargesSalariales);
+            double cotisationsCNaPSPatronalesTotales = tousResultsEntreprises.Sum(r => r.CotisationsCNaPS);
+            double excedentBrutExploitation = tousResultsEntreprises.Sum(r => r.BeneficeAvantImpot)
+                                            + (jirama.ValeurAjouteeJour - jirama.ChargesSalarialesJour);
+            double valeurAjouteeAdminPublique = resultEtat.SalairesFonctionnaires;
+
+            double pibParRevenus = chargesSalarialesTotalesEntreprises
+                                 + cotisationsCNaPSPatronalesTotales
+                                 + resultEtat.SalairesFonctionnaires
+                                 + jirama.ChargesSalarialesJour
+                                 + tousResultsEntreprises.Sum(r => r.BeneficeAvantImpot)
+                                 + (jirama.ValeurAjouteeJour - jirama.ChargesSalarialesJour)
+                                 + tousResultsEntreprises.Sum(r => r.TVACollectee)
+                                 + jirama.TVACollecteeJour
+                                 + resultEtat.RecettesDouanieres
+                                 + resultsMenages.Sum(r => r.LoyerImpute);
+
+            return new PibComputationResult
+            {
+                PIBDemande = pibDemande,
+                PIBParValeurAjoutee = pibParValeurAjoutee,
+                PIBParRevenus = pibParRevenus,
+                ChargesSalarialesTotalesEntreprises = chargesSalarialesTotalesEntreprises,
+                CotisationsCNaPSPatronalesTotales = cotisationsCNaPSPatronalesTotales,
+                ExcedentBrutExploitation = excedentBrutExploitation,
+                ValeurAjouteeAdminPublique = valeurAjouteeAdminPublique
+            };
         }
     }
 }

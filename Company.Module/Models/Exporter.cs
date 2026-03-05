@@ -54,7 +54,10 @@ public class Exporter : Company
         bool estJourOuvrable = true,
         Jirama? Jirama = null,
         double consoElecParEmployeKWhJour = 0,
-        double tauxCNaPSPatronale = 0)
+        double tauxCNaPSPatronale = 0,
+        double prixCarburantCourant = 0,
+        double prixCarburantReference = 0,
+        double elasticitePrixParCarburant = 0)
     {
         var result = new DailyExporterResult();
 
@@ -87,7 +90,8 @@ public class Exporter : Company
             this,
             ventesLocalesDemande,
             tauxIS, tauxTVA, tauxInflation, tauxDirecteur,
-            estJourOuvrable, Jirama, consoElecParEmployeKWhJour, tauxCNaPSPatronale);
+            estJourOuvrable, Jirama, consoElecParEmployeKWhJour, tauxCNaPSPatronale,
+            prixCarburantCourant, prixCarburantReference, elasticitePrixParCarburant);
 
         // Ajuster les résultats : le CA total inclut les exportations FOB
         baseResult.VentesB2C = ventesLocalesDemande; // baseResult a déjà calculé CA effectif basé sur demande

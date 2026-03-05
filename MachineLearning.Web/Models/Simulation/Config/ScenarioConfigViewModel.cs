@@ -124,6 +124,37 @@ public class ScenarioConfigViewModel
     public double PrixCarburantReference { get; set; } = 5_500;
 
     // ════════════════════════════════════════════════════════════════
+    // ░░░ SECTEUR BANCAIRE ET MONÉTAIRE ░░░
+    // ════════════════════════════════════════════════════════════════
+    public double TauxReserveObligatoire { get; set; } = 0.13;
+    public double CroissanceCreditJour { get; set; } = 0.00041; // Permet de viser +15% sur un an (1.15^(1/365) - 1)
+    // ════════════════════════════════════════════════════════════════
+
+    // ════════════════════════════════════════════════════════════════
+    // ░░░ RECALIBRATION MENSUELLE SUR DONNÉES MACRO OBSERVÉES ░░░
+    // ════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Activer la recalibration mensuelle automatique.
+    /// Si activé, à chaque fin de mois (jour 30, 60, 90...), le simulateur
+    /// compare ses résultats aux cibles et ajuste ses paramètres internes.
+    /// </summary>
+    public bool RecalibrationMensuelleActivee { get; set; } = false;
+
+    /// <summary>
+    /// Cibles mensuelles de recalibration (données macro observées).
+    /// Chaque entrée correspond à un mois de simulation.
+    /// </summary>
+    public List<MonthlyCalibrationTarget> CiblesMensuelles { get; set; } = [];
+
+    /// <summary>
+    /// Vitesse de convergence (0.0–1.0). Contrôle l'agressivité de la correction.
+    /// 0.3 = correction douce (30% de l'écart corrigé), 1.0 = correction totale.
+    /// Valeur recommandée : 0.5 (évite les oscillations).
+    /// </summary>
+    public double VitesseConvergenceRecalibration { get; set; } = 0.5;
+
+    // ════════════════════════════════════════════════════════════════
 
     public Dictionary<ESecteurActivite, double> TresorerieInitialeParSecteur { get; set; } = new()
     {
@@ -132,7 +163,8 @@ public class ScenarioConfigViewModel
         { ESecteurActivite.Commerces, 5_000_000 },
         { ESecteurActivite.Services, 8_000_000 },
         { ESecteurActivite.SecteurMinier, 50_000_000 },
-        { ESecteurActivite.Construction, 15_000_000 }
+        { ESecteurActivite.Construction, 15_000_000 },
+        { ESecteurActivite.HotellerieTourisme, 12_000_000 }
     };
 
     public Dictionary<ECategorieExport, double> FOBJourParCategorie { get; set; } = new();

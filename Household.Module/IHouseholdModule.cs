@@ -31,7 +31,7 @@ namespace Household.Module
         /// <summary>
         /// Simule une journée de comportement économique pour un ménage.
         /// </summary>
-        DailyHouseholdResult SimulerJournee(
+        Models.DailyHouseholdResult SimulerJournee(
             Models.Household menage,
             double impotIRSAJournalier,
             double tauxEffectifIRSA,

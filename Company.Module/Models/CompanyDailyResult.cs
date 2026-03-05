@@ -25,6 +25,12 @@ public class CompanyDailyResult
     /// Représente la richesse créée par l'entreprise.
     /// </summary>
     public double ValeurAjoutee { get; set; }
+
+    /// <summary>
+    /// Facteur de choc de prix appliqué ce jour (1.0 = aucun choc).
+    /// Reflète la transmission du prix du carburant aux coûts et prix de l'entreprise.
+    /// </summary>
+    public double FacteurChocPrix { get; set; } = 1.0;
 }
 
 

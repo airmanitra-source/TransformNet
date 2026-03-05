@@ -13,6 +13,9 @@ public class SimulationResultViewModel
     public double RecettesFiscalesFinales => Snapshots.Count > 0 ? Snapshots[^1].RecettesFiscalesTotales : 0;
     public double DettePubliqueFinale => Snapshots.Count > 0 ? Snapshots[^1].DettePublique : 0;
     public double PIBFinal => Snapshots.Count > 0 ? Snapshots[^1].PIBProxy : 0;
+
+    /// <summary>Journal des recalibrations mensuelles appliquées pendant la simulation.</summary>
+    public List<CalibrationEvent> CalibrationEvents { get; set; } = [];
 }
 
 

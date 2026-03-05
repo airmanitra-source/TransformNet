@@ -61,7 +61,10 @@ public class Importer : Company
         bool estJourOuvrable = true,
         Jirama? Jirama = null,
         double consoElecParEmployeKWhJour = 0,
-        double tauxCNaPSPatronale = 0)
+        double tauxCNaPSPatronale = 0,
+        double prixCarburantCourant = 0,
+        double prixCarburantReference = 0,
+        double elasticitePrixParCarburant = 0)
     {
         var result = new DailyImporterResult();
 
@@ -112,7 +115,8 @@ public class Importer : Company
             this,
             demandeConsommationMenages,
             tauxIS, tauxTVA, tauxInflation, tauxDirecteur, estJourOuvrable,
-            Jirama, consoElecParEmployeKWhJour, tauxCNaPSPatronale);
+            Jirama, consoElecParEmployeKWhJour, tauxCNaPSPatronale,
+            prixCarburantCourant, prixCarburantReference, elasticitePrixParCarburant);
 
         // Copier les résultats de l'entreprise de base
         result.VentesB2C = baseResult.VentesB2C;

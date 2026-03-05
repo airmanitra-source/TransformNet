@@ -1,7 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Data;
-
-namespace Government.Module
+﻿namespace Government.Module
 {
     public interface IGovernmentModule
     {
@@ -18,7 +15,7 @@ namespace Government.Module
         /// </summary>
         Models.DailyGovernmentResult SimulerJournee(
             Models.Government government,
-            List<Company.Module.Models.DailyHouseholdResult> resultsMenages,
+            List<Household.Module.Models.DailyHouseholdResult> resultsMenages,
             List<Company.Module.Models.CompanyDailyResult> resultsEntreprises,
             List<Company.Module.Models.DailyImporterResult> resultsImportateurs,
             List<Company.Module.Models.DailyExporterResult> resultsExportateurs,
@@ -30,5 +27,18 @@ namespace Government.Module
             double tauxReinvestissementPrive = 0,
             double depensesCapitalJour = 0,
             double interetsDetteJour = 0);
+
+        /// <summary>
+        /// Réconcilie les approches du PIB (demande / valeur ajoutée / revenus)
+        /// et retourne les agrégats macroéconomiques du jour.
+        /// </summary>
+        Models.PibComputationResult CalculerPIB(
+            List<Household.Module.Models.DailyHouseholdResult> resultsMenages,
+            List<Company.Module.Models.CompanyDailyResult> tousResultsEntreprises,
+            List<Company.Module.Models.DailyImporterResult> resultsImportateurs,
+            List<Company.Module.Models.DailyExporterResult> resultsExportateurs,
+            Company.Module.Models.Jirama jirama,
+            Models.DailyGovernmentResult resultEtat,
+            int jourCourant);
     }
 }

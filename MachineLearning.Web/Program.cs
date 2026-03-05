@@ -2,10 +2,13 @@ using Government.Module;
 using Company.Module;
 using Household.Module;
 using Household.Leisure.Spending.Module;
+using Household.Remittance.Module;
 using Household.Salary.Distribution.Module;
 using MachineLearning.Web.Components;
 using MachineLearning.Web.Models.Simulation;
 using Price.Module;
+using Bank.Module;
+using Transportation.Module;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add service defaults & Aspire client integrations.
@@ -20,13 +23,12 @@ builder.Services.AddScoped<IGovernmentModule, GovernmentModule>();
 builder.Services.AddScoped<ICompanyModule, CompanyModule>();
 builder.Services.AddScoped<IPriceModule, PriceModule>();
 builder.Services.AddScoped<IHouseholdModule, HouseholdModule>();
-builder.Services.AddScoped<IHouseholdLeisureSpendingModule, HouseholdLeisureSpendingModule>();
 builder.Services.AddScoped<IHouseholdSalaryDistributionModule>(sp =>
-    new HouseholdSalaryDistributionModule(
-        salaireMedian: 170_000,
-        sigma: 0.85,
-        salairePlancher: 50_000
-    ));
+    (IHouseholdSalaryDistributionModule)sp.GetRequiredService<IHouseholdModule>());
+builder.Services.AddScoped<IHouseholdLeisureSpendingModule, HouseholdLeisureSpendingModule>();
+builder.Services.AddScoped<IHouseholdRemittanceModule, HouseholdRemittanceModule>();
+builder.Services.AddScoped<IBankModule, BankModule>();
+builder.Services.AddScoped<ITransportationModule, TransportationModule>();
 
 builder.Services.AddScoped<EconomicSimulatorViewModel>();
 builder.Services.AddOutputCache();

@@ -1,5 +1,4 @@
-using Company.Module.Models;
-using MachineLearning.Web.Models;
+using Household.Module.Models;
 
 namespace MachineLearning.Web.Models.Agents.Household;
 

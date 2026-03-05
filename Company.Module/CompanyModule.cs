@@ -91,6 +91,15 @@ namespace Company.Module
             return TresorerieInitialeParSecteur.GetValueOrDefault(secteur, 5_000_000d);
         }
 
+        public double GetTresorerieInitiale(
+            ESecteurActivite secteur,
+            Dictionary<ESecteurActivite, double> tresorerieInitialeParSecteurConfig)
+        {
+            return tresorerieInitialeParSecteurConfig.TryGetValue(secteur, out var v)
+                ? v
+                : GetTresorerieInitialeParSecteur(secteur);
+        }
+
         public double GetCoefficientDroitsDouaneParCategorie(ECategorieImport categorie)
         {
             return CoefficientsDroitsDouane.GetValueOrDefault(categorie, 0.15d);
@@ -116,6 +125,35 @@ namespace Company.Module
             return CoefficientsTaxeExport.GetValueOrDefault(categorie, 1.0d);
         }
 
+        public Dictionary<ECategorieExport, double> GetFOBParCategorie(IEnumerable<Exporter> exportateurs)
+        {
+            var result = new Dictionary<ECategorieExport, double>();
+            foreach (ECategorieExport cat in Enum.GetValues<ECategorieExport>())
+                result[cat] = 0;
+
+            foreach (var exp in exportateurs)
+                result[exp.Categorie] += exp.TotalExportationsFOB;
+
+            return result;
+        }
+
+        public double GetFOBTotal(IEnumerable<Exporter> exportateurs)
+        {
+            return exportateurs.Sum(e => e.TotalExportationsFOB);
+        }
+
+        public Dictionary<ECategorieImport, double> GetCIFParCategorie(IEnumerable<Importer> importateurs)
+        {
+            var result = new Dictionary<ECategorieImport, double>();
+            foreach (ECategorieImport cat in Enum.GetValues<ECategorieImport>())
+                result[cat] = 0;
+
+            foreach (var imp in importateurs)
+                result[imp.Categorie] += imp.TotalImportationsCIF;
+
+            return result;
+        }
+
         public CompanyDailyResult SimulerJournee(
             Models.Company entreprise,
             double demandeConsommationMenages,
@@ -126,9 +164,41 @@ namespace Company.Module
             bool estJourOuvrable = true,
             Jirama? Jirama = null,
             double consoElecParEmployeKWhJour = 0,
-            double tauxCNaPSPatronale = 0)
+            double tauxCNaPSPatronale = 0,
+            double prixCarburantCourant = 0,
+            double prixCarburantReference = 0,
+            double elasticitePrixParCarburant = 0)
         {
             var result = new CompanyDailyResult();
+
+            // ── Choc de prix carburant → coûts et prix entreprise ───────────────
+            // Le carburant affecte le transport des matières premières et la logistique.
+            // L'entreprise ne peut répercuter qu'une partie du surcoût sur ses prix de vente
+            // (pass-through partiel, contraint par la demande et la concurrence).
+            double facteurChocPrix = 1.0;
+            if (prixCarburantReference > 0 && prixCarburantCourant > 0)
+            {
+                double deltaCarburant = (prixCarburantCourant - prixCarburantReference) / prixCarburantReference;
+
+                // Élasticité sectorielle : certains secteurs sont plus exposés au carburant
+                double elasticiteSectorielle = entreprise.SecteurActivite switch
+                {
+                    ESecteurActivite.Agriculture => elasticitePrixParCarburant * 1.2,       // transport de périssables
+                    ESecteurActivite.Construction => elasticitePrixParCarburant * 1.1,       // matériaux lourds
+                    ESecteurActivite.SecteurMinier => elasticitePrixParCarburant * 0.5,      // énergie gérée séparément
+                    ESecteurActivite.HotellerieTourisme => elasticitePrixParCarburant * 0.8, // services, moins de transport
+                    _ => elasticitePrixParCarburant
+                };
+
+                facteurChocPrix = Math.Max(0.50, 1.0 + elasticiteSectorielle * deltaCarburant);
+            }
+            result.FacteurChocPrix = facteurChocPrix;
+
+            // Pass-through : part du surcoût répercutée sur les prix de vente
+            // Informel = faible pouvoir de marché (50%), formel = meilleur (70%)
+            double tauxRepercussion = entreprise.EstInformel ? 0.50 : 0.70;
+            double facteurPrixVente = 1.0 + tauxRepercussion * (facteurChocPrix - 1.0);
+            // ─────────────────────────────────────────────────────────────────────
 
             // Si l'entreprise ne travaille pas ce jour, seule l'électricité est facturée
             if (!estJourOuvrable)
@@ -147,8 +217,9 @@ namespace Company.Module
                 return result;
             }
 
-            // 1. Capacité de production du jour
-            double productionJour = entreprise.NombreEmployes * entreprise.ProductiviteParEmployeJour;
+            // 1. Capacité de production du jour (ajustée par le facteur de prix de vente)
+            // Même production physique, mais valeur nominale plus élevée quand les prix montent
+            double productionJour = entreprise.NombreEmployes * entreprise.ProductiviteParEmployeJour * facteurPrixVente;
 
             // 2. Ventes
             // B2C : limitée par la demande des ménages et la capacité de production
@@ -178,8 +249,13 @@ namespace Company.Module
             entreprise.TotalCotisationsCNaPS += cotisationsCNaPS;
 
             // 5. Coût des achats B2B (matières premières, services)
-            double coutProduction = productionJour * (1.0 - entreprise.MargeBeneficiaire) - chargesSalariales;
-            coutProduction = Math.Max(0, coutProduction);
+            // Les intrants subissent le choc carburant complet (transport, logistique)
+            // alors que les prix de vente ne sont que partiellement répercutés → compression de marge
+            double coutProductionBase = productionJour * (1.0 - entreprise.MargeBeneficiaire) - chargesSalariales;
+            coutProductionBase = Math.Max(0, coutProductionBase);
+            // Surcoût carburant sur les approvisionnements (écart entre choc complet et pass-through)
+            double surchargeCarburant = coutProductionBase * Math.Max(0, facteurChocPrix / facteurPrixVente - 1.0);
+            double coutProduction = coutProductionBase + surchargeCarburant;
             result.AchatsB2B = coutProduction * entreprise.PartB2B;
             entreprise.TotalAchatsB2B += result.AchatsB2B;
 

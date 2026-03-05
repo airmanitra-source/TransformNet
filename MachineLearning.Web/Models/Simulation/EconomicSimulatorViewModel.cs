@@ -6,13 +6,16 @@ using AgentExporter = Company.Module.Models.Exporter;
 using AgentJirama = Company.Module.Models.Jirama;
 using Company.Module.Models;
 using Household.Module.Models;
-using Household.Salary.Distribution.Module.Models;
 using MachineLearning.Web.Models.Simulation.Config;
 using Government.Module;
 using Household.Module;
+using Household.Salary.Distribution.Module;
 using Company.Module;
 using Household.Leisure.Spending.Module;
+using Household.Remittance.Module;
 using Price.Module;
+using Bank.Module;
+using Transportation.Module;
 
 namespace MachineLearning.Web.Models.Simulation;
 
@@ -22,20 +25,24 @@ public class EconomicSimulatorViewModel
     private readonly IHouseholdModule _householdModule;
     private readonly ICompanyModule _companyModule;
     private readonly IPriceModule _priceModule;
+    private readonly IHouseholdSalaryDistributionModule _householdSalaryDistributionModule;
     private readonly IHouseholdLeisureSpendingModule _householdLeisureSpendingModule;
+    private readonly IHouseholdRemittanceModule _householdRemittanceModule;
+    private readonly IBankModule _bankModule;
+    private readonly ITransportationModule _transportationModule;
     private readonly List<AgentHousehold> _menages = [];
     private readonly List<AgentCompany> _entreprises = [];
     private readonly List<AgentImporter> _importateurs = [];
     private readonly List<AgentExporter> _exportateurs = [];
     private AgentJirama _jirama = new();
     private AgentGovernment _etat = new();
+    private Bank.Module.Models.Bank _banque = new();
     private ScenarioConfigViewModel _config = new();
     private SimulationResultViewModel _result = new();
     private readonly List<AgentCompany> _entreprisesTourisme = [];
     private CancellationTokenSource? _cts;
     private int _jourCourant;
     private double _facteurEchelle = 1.0;
-    private HouseholdSalaryDistribution _distribution = new();
     private DistributionStats _statsInitiales = new();
     private Random _random = new Random();
 
@@ -49,26 +56,24 @@ public class EconomicSimulatorViewModel
     public EconomicSimulatorViewModel(
         IGovernmentModule governmentModule,
         IHouseholdModule householdModule,
+        IHouseholdSalaryDistributionModule householdSalaryDistributionModule,
         ICompanyModule companyModule,
         IPriceModule priceModule,
-        IHouseholdLeisureSpendingModule householdLeisureSpendingModule)
+        IHouseholdLeisureSpendingModule householdLeisureSpendingModule,
+        IHouseholdRemittanceModule householdRemittanceModule,
+        IBankModule bankModule,
+        ITransportationModule transportationModule)
     {
         _governmentModule = governmentModule;
         _householdModule  = householdModule;
+        _householdSalaryDistributionModule = householdSalaryDistributionModule;
         _companyModule    = companyModule;
         _priceModule      = priceModule;
         _householdLeisureSpendingModule = householdLeisureSpendingModule;
+        _householdRemittanceModule = householdRemittanceModule;
+        _bankModule = bankModule;
+        _transportationModule = transportationModule;
     }
-
-    /// <summary>
-    /// Retourne la trésorerie initiale d'un secteur en donnant la priorité
-    /// au dictionnaire de scénario config, avec <c>ICompanyModule</c> comme fallback.
-    /// Remplace <c>AgentCompany.GetTresorerieInitialeParSecteur(secteur, config)</c>.
-    /// </summary>
-    private double GetTresorerieInitiale(ESecteurActivite secteur) =>
-        _config.TresorerieInitialeParSecteur.TryGetValue(secteur, out var v)
-            ? v
-            : _companyModule.GetTresorerieInitialeParSecteur(secteur);
 
     /// <summary>
     /// Initialise la simulation avec un scénario donné.
@@ -86,14 +91,11 @@ public class EconomicSimulatorViewModel
         AgentHousehold.ResetIdCounter();
         AgentCompany.ResetIdCounter();
 
-        // Créer la distribution salariale à partir du scénario
-        _distribution = new HouseholdSalaryDistribution
-        {
-            SalaireMedian = _config.SalaireMedian,
-            Sigma = _config.SalaireSigma,
-            SalairePlancher = _config.SalairePlancher,
-            PartSecteurInformel = _config.PartSecteurInformel
-        };
+        _householdSalaryDistributionModule.ConfigurerDistributionSalariale(
+            _config.SalaireMedian,
+            _config.SalaireSigma,
+            _config.SalairePlancher,
+            _config.PartSecteurInformel);
 
         // Créer les agents
         _menages.Clear();
@@ -126,6 +128,13 @@ public class EconomicSimulatorViewModel
             TauxInflation = _config.TauxInflation,
             DepensesPubliquesJour = _config.DepensesPubliquesJour * _facteurEchelle,
             DettePublique = _config.DettePubliqueInitiale * _facteurEchelle
+        };
+
+        // Créer la Banque
+        _banque = new Bank.Module.Models.Bank 
+        {
+            TauxReserveObligatoire = _config.TauxReserveObligatoire,
+            TotalCreditsAccordes = 0
         };
 
         // Créer les entreprises (normales, importateurs, exportateurs)
@@ -164,12 +173,12 @@ public class EconomicSimulatorViewModel
             {
                 Name = $"Import-{categorie}",
                 NombreEmployes = employesParEntreprise,
-                SalaireMoyenMensuel = _distribution.TirerSalaire(random) * (1.0 + random.NextDouble() * 0.3),
+                SalaireMoyenMensuel = _householdSalaryDistributionModule.TirerSalaire(random) * (1.0 + random.NextDouble() * 0.3),
                 MargeBeneficiaire = _config.MargeBeneficiaireEntreprise,
                 // was: AgentCompany.GetProductiviteParSecteur(ESecteurActivite.Commerces)
                 ProductiviteParEmployeJour = _companyModule.GetProductiviteParSecteur(ESecteurActivite.Commerces) * (0.8 + random.NextDouble() * 0.4),
                 // was: AgentCompany.GetTresorerieInitialeParSecteur(ESecteurActivite.Commerces, _config.TresorerieInitialeParSecteur)
-                Tresorerie = GetTresorerieInitiale(ESecteurActivite.Commerces)
+                Tresorerie = _companyModule.GetTresorerieInitiale(ESecteurActivite.Commerces, _config.TresorerieInitialeParSecteur)
                              * (0.5 + random.NextDouble()),  // pondération aléatoire
                 Categorie = categorie,
                 SecteurActivite = ESecteurActivite.Commerces,
@@ -190,13 +199,12 @@ public class EconomicSimulatorViewModel
             {
                 Name = $"Export-{categorie}",
                 NombreEmployes = employesParEntreprise,
-                SalaireMoyenMensuel = _distribution.TirerSalaire(random) * (1.0 + random.NextDouble() * 0.3),
+                SalaireMoyenMensuel = _householdSalaryDistributionModule.TirerSalaire(random) * (1.0 + random.NextDouble() * 0.3),
                 MargeBeneficiaire = _config.MargeBeneficiaireEntreprise,
                 // was: AgentCompany.GetProductiviteParSecteur(secteur)
                 ProductiviteParEmployeJour = _companyModule.GetProductiviteParSecteur(secteur) * (0.8 + random.NextDouble() * 0.4),
                 // was: AgentCompany.GetTresorerieInitialeParSecteur(secteur, _config.TresorerieInitialeParSecteur)
-                Tresorerie = GetTresorerieInitiale(secteur)
-                             * (0.5 + random.NextDouble()),  // pondération aléatoire
+                Tresorerie = _companyModule.GetTresorerieInitiale(secteur, _config.TresorerieInitialeParSecteur) * (0.5 + random.NextDouble()),  // pondération aléatoire
                 Categorie = categorie,
                 SecteurActivite = secteur,
                 ValeurFOBJour = fobJourMGA,
@@ -254,10 +262,10 @@ public class EconomicSimulatorViewModel
             {
                 Name = nomEntreprise,
                 NombreEmployes = employesParEntreprise,
-                SalaireMoyenMensuel = _distribution.TirerSalaire(random) * (0.9 + random.NextDouble() * 0.2),
+                SalaireMoyenMensuel = _householdSalaryDistributionModule.TirerSalaire(random) * (0.9 + random.NextDouble() * 0.2),
                 MargeBeneficiaire = secteur == ESecteurActivite.HotellerieTourisme ? 0.25 : _config.MargeBeneficiaireEntreprise,
                 ProductiviteParEmployeJour = _companyModule.GetProductiviteParSecteur(secteur) * (0.8 + random.NextDouble() * 0.4),
-                Tresorerie = GetTresorerieInitiale(secteur) * (0.5 + random.NextDouble()),
+                Tresorerie = _companyModule.GetTresorerieInitiale(secteur, _config.TresorerieInitialeParSecteur) * (0.5 + random.NextDouble()),
                 SecteurActivite = secteur,
                 EstInformel = estInformel
             };
@@ -310,13 +318,13 @@ public class EconomicSimulatorViewModel
             }
             else
             {
-                salaire = _distribution.TirerSalaire(random);
+                salaire = _householdSalaryDistributionModule.TirerSalaire(random);
             }
             salairesGeneres[i] = salaire;
 
             // Déterminer la classe socio-économique
-            var classe = _distribution.DeterminerClasse(salaire);
-            var comportement = HouseholdSalaryDistribution.ComportementParClasse(classe, random);
+            var classe = _householdSalaryDistributionModule.DeterminerClasse(salaire);
+            var comportement = _householdSalaryDistributionModule.GetComportementParClasse(classe, random);
 
             // Les fonctionnaires sont toujours employés ; les autres suivent la probabilité
             bool estEmploye = estFonctionnaire || random.NextDouble() < comportement.ProbabiliteEmploi;
@@ -406,7 +414,7 @@ public class EconomicSimulatorViewModel
         _jirama.NbAbonnesElectricite = nbAbonnesElectricite;
 
         // Calculer les statistiques initiales de la distribution
-        _statsInitiales = HouseholdSalaryDistribution.CalculerStats(salairesGeneres);
+        _statsInitiales = _householdSalaryDistributionModule.CalculerStats(salairesGeneres);
 
         // Initialiser le résultat
         _result = new SimulationResultViewModel
@@ -522,41 +530,6 @@ public class EconomicSimulatorViewModel
     }
 
     /// <summary>
-    /// Retourne le FOB total cumulé par catégorie d'export (en MGA brut).
-    /// Utilisé par le calibrateur pour comparer avec les données INSTAT.
-    /// </summary>
-    public Dictionary<ECategorieExport, double> GetFOBParCategorie()
-    {
-        var result = new Dictionary<ECategorieExport, double>();
-        foreach (ECategorieExport cat in Enum.GetValues<ECategorieExport>())
-            result[cat] = 0;
-
-        foreach (var exp in _exportateurs)
-            result[exp.Categorie] += exp.TotalExportationsFOB;
-
-        return result;
-    }
-
-    /// <summary>FOB total tous exportateurs confondus.</summary>
-    public double GetFOBTotal() => _exportateurs.Sum(e => e.TotalExportationsFOB);
-
-    /// <summary>
-    /// Retourne le CIF total cumulé par catégorie d'import (en MGA brut).
-    /// Utilisé par le calibrateur import pour comparer avec les données INSTAT.
-    /// </summary>
-    public Dictionary<ECategorieImport, double> GetCIFParCategorie()
-    {
-        var result = new Dictionary<ECategorieImport, double>();
-        foreach (ECategorieImport cat in Enum.GetValues<ECategorieImport>())
-            result[cat] = 0;
-
-        foreach (var imp in _importateurs)
-            result[imp.Categorie] += imp.TotalImportationsCIF;
-
-        return result;
-    }
-
-    /// <summary>
     /// Simule un seul jour de l'économie.
     /// </summary>
     private void SimulerUnJour()
@@ -569,6 +542,11 @@ public class EconomicSimulatorViewModel
         var resultsMenages = new List<DailyHouseholdResult>();
         double demandeConsommationTotale = 0;
 
+        // Accumulateurs pour le routage des dépenses de transport vers les entreprises
+        double totalTransportInformel = 0;
+        double totalTransportFormel = 0;
+        double totalTransportCarburant = 0;
+
         // Reset des compteurs Jirama pour ce jour
         _jirama.DebutJournee();
 
@@ -579,7 +557,10 @@ public class EconomicSimulatorViewModel
         foreach (var e in _exportateurs) toutesEntreprisesLookup[e.Id] = e;
 
         // Calculer la remittance par ménage (répartition uniforme, mise à l'échelle)
-        double remittanceParMenage = (_config.RemittancesJour * _facteurEchelle) / Math.Max(_menages.Count, 1);
+        double remittanceParMenage = _householdRemittanceModule.CalculerRemittanceParMenage(
+            _config.RemittancesJour,
+            _facteurEchelle,
+            _menages.Count);
         double loyerImputeJour = _config.LoyerImputeJourParMenage;
 
         // Accumuler la masse salariale des fonctionnaires (micro -> macro)
@@ -624,9 +605,10 @@ public class EconomicSimulatorViewModel
                 _config.PartRevenuAlimentaire,
                 _random);
 
-            // Remittances (transferts diaspora) â€” ajoutées au revenu
-            r.Remittance = remittanceParMenage;
-            menage.Epargne += remittanceParMenage;
+            // Remittances (transferts diaspora) — ajoutées au revenu
+            var remittanceResult = _householdRemittanceModule.AppliquerRemittance(menage.Epargne, remittanceParMenage);
+            r.Remittance = remittanceResult.Remittance;
+            menage.Epargne = remittanceResult.EpargneTotale;
 
             // Loyer imputé (SCN 2008) â€” propriétaires occupants uniquement
             r.LoyerImpute = menage.EstProprietaire ? loyerImputeJour : 0;
@@ -722,6 +704,18 @@ public class EconomicSimulatorViewModel
             }
             // ─────────────────────────────────────────────────────────────────────────
 
+            // ── Routage transport → entreprises ─────────────────────────────────────
+            // Décompose la dépense de transport du ménage en flux informel/formel/carburant
+            // pour injection dans la demande des entreprises (auparavant flux sortant perdu).
+            var transportRouting = _transportationModule.RouterDepenseTransport(
+                menage.Transport,
+                r.DepensesTransport,
+                r.DepensesTransportJirama);
+            totalTransportInformel += transportRouting.PartInformel;
+            totalTransportFormel += transportRouting.PartFormel;
+            totalTransportCarburant += transportRouting.PartCarburant;
+            // ─────────────────────────────────────────────────────────────────────────
+
             resultsMenages.Add(r);
             demandeConsommationTotale += r.Consommation;
         }
@@ -763,14 +757,13 @@ public class EconomicSimulatorViewModel
         // Soustraction du composant alimentaire exact issu de SimulerJournee (pas de AcheteProduitsAlimentaires)
         // pour éviter tout double-comptage lors du re-routage ci-dessus.
         double totalAlimSimulee = resultsMenages.Sum(r => r.DepensesAlimentairesSimulee);
-        double demandeHorsAlim = Math.Max(0, demandeConsommationTotale - totalAlimSimulee);
+        double totalTransport = resultsMenages.Sum(r => r.DepensesTransport + r.DepensesTransportJirama);
+        double demandeHorsAlim = Math.Max(0, demandeConsommationTotale - totalAlimSimulee - totalTransport);
 
-        // Split 85 % informel / 15 % formel pour la consommation non-alimentaire.
-        // Reflète la structure duale de l'économie malgache : les ménages achètent
-        // la majorité de leurs biens courants (transport, divers) dans le secteur informel.
-        // Auparavant : demandeHorsAlim répartie uniformément sans distinction informel/formel.
-        double demandeHorsAlimInformelParEntreprise = demandeHorsAlim * 0.85 / Math.Max(nbInformelles, 1);
-        double demandeHorsAlimFormelParEntreprise   = demandeHorsAlim * 0.15 / Math.Max(nbFormelles, 1);
+        // Split 85 % informel / 15 % formel pour la consommation non-alimentaire et hors transport.
+        // Le transport est désormais routé séparément via ITransportationModule (décomposition sectorielle).
+        double demandeHorsAlimInformelParEntreprise = (demandeHorsAlim * 0.85 + totalTransportInformel) / Math.Max(nbInformelles, 1);
+        double demandeHorsAlimFormelParEntreprise   = (demandeHorsAlim * 0.15 + totalTransportFormel) / Math.Max(nbFormelles, 1);
         // ─────────────────────────────────────────────────────────────────────────
 
         // ── Routage des dépenses de loisirs vers les compagnies tourisme ────────
@@ -811,7 +804,10 @@ public class EconomicSimulatorViewModel
                 travailleCeJour,
                 _jirama,
                 _config.ConsommationElecParEmployeKWhJour,
-                _config.TauxCotisationsPatronalesCNaPS
+                _config.TauxCotisationsPatronalesCNaPS,
+                _config.PrixCarburantLitre,
+                _config.PrixCarburantReference,
+                _config.ElasticitePrixParCarburant
             );
             resultsEntreprises.Add(r);
         }
@@ -851,7 +847,8 @@ public class EconomicSimulatorViewModel
                     importateur,
                     demandeHorsAlimFormelParEntreprise + bonusDemandeAlimParEntrepriseFormelle,
                     _etat.TauxIS, _etat.TauxTVA, _etat.TauxInflation, _etat.TauxDirecteur, importeurTravaille,
-                    _jirama, _config.ConsommationElecParEmployeKWhJour, _config.TauxCotisationsPatronalesCNaPS);
+                    _jirama, _config.ConsommationElecParEmployeKWhJour, _config.TauxCotisationsPatronalesCNaPS,
+                    _config.PrixCarburantLitre, _config.PrixCarburantReference, _config.ElasticitePrixParCarburant);
 
                 var r = new DailyImporterResult
                 {
@@ -901,7 +898,10 @@ public class EconomicSimulatorViewModel
                     travailleCeJour,
                     _jirama,
                     _config.ConsommationElecParEmployeKWhJour,
-                    _config.TauxCotisationsPatronalesCNaPS
+                    _config.TauxCotisationsPatronalesCNaPS,
+                    _config.PrixCarburantLitre,
+                    _config.PrixCarburantReference,
+                    _config.ElasticitePrixParCarburant
                 );
                 resultsImportateurs.Add(r);
             }
@@ -931,7 +931,8 @@ public class EconomicSimulatorViewModel
                     exportateur,
                     (demandeHorsAlimFormelParEntreprise + bonusDemandeAlimParEntrepriseFormelle) * (1.0 - exportateur.PartExport),
                     _etat.TauxIS, _etat.TauxTVA, _etat.TauxInflation, _etat.TauxDirecteur, exporteurTravaille,
-                    _jirama, _config.ConsommationElecParEmployeKWhJour, _config.TauxCotisationsPatronalesCNaPS);
+                    _jirama, _config.ConsommationElecParEmployeKWhJour, _config.TauxCotisationsPatronalesCNaPS,
+                    _config.PrixCarburantLitre, _config.PrixCarburantReference, _config.ElasticitePrixParCarburant);
 
                 var r = new DailyExporterResult
                 {
@@ -976,7 +977,10 @@ public class EconomicSimulatorViewModel
                     travailleCeJour,
                     _jirama,
                     _config.ConsommationElecParEmployeKWhJour,
-                    _config.TauxCotisationsPatronalesCNaPS
+                    _config.TauxCotisationsPatronalesCNaPS,
+                    _config.PrixCarburantLitre,
+                    _config.PrixCarburantReference,
+                    _config.ElasticitePrixParCarburant
                 );
                 resultsExportateurs.Add(r);
             }
@@ -1005,10 +1009,14 @@ public class EconomicSimulatorViewModel
             menage.Epargne += transfertParMenage;
         }
 
+        // --- NOUVEAU: MODULE BANCAIRE ---
+        _bankModule.CalculerBilansBancaires(_banque, _menages, _entreprises);
+        _bankModule.SimulerOctroiCredit(_banque, _entreprises, _menages, _config.CroissanceCreditJour, _random);
+
         // 5. Créer le snapshot
         // Calculer les métriques de distribution des épargnes
         var epargnesSorted = _menages.OrderBy(m => m.Epargne).Select(m => m.Epargne).ToArray();
-        var distStats = HouseholdSalaryDistribution.CalculerStats(epargnesSorted);
+        var distStats = _householdSalaryDistributionModule.CalculerStats(epargnesSorted);
         int n = _menages.Count;
 
         // Agréger toutes les entreprises pour les métriques
@@ -1022,58 +1030,14 @@ public class EconomicSimulatorViewModel
         tousResultsEntreprises.AddRange(resultsImportateurs);
         tousResultsEntreprises.AddRange(resultsExportateurs);
 
-        // ═══════════════════════════════════════════════════════════════
-        // RÉCONCILIATION DES 3 PIB (Demande / VA / Revenus)
-        // ═══════════════════════════════════════════════════════════════
-        // PIB VA et PIB Revenus coïncident par construction (VA = Salaires + EBE + TVA).
-        // PIB Demande = C + FBCF + G + (X−M) + Loyers peut diverger car :
-        //   - Les flux commerciaux (FOB/CIF INSTAT) ne sont pas reflétés dans la VA locale
-        //   - La demande ménages (C) n'est pas toujours absorbée par les capacités entreprises
-        //
-        // Correction : l'écart est distribué avec pondération aléatoire sur la VA et l'EBE
-        // des agents commerciaux (importateurs + exportateurs), ce qui est économiquement
-        // justifié car cet écart représente la VA du commerce extérieur non captée localement.
-        // ═══════════════════════════════════════════════════════════════
-        double pibDemande = resultsMenages.Sum(r => r.Consommation)
-                          + resultEtat.FBCF
-                          + resultEtat.ConsommationFinaleEtat
-                          + resultEtat.BalanceCommerciale
-                          + resultsMenages.Sum(r => r.LoyerImpute);
-
-        double pibVARaw = tousResultsEntreprises.Sum(r => r.ValeurAjoutee)
-                        + _jirama.ValeurAjouteeJour
-                        + resultEtat.SalairesFonctionnaires
-                        + resultsMenages.Sum(r => r.LoyerImpute)
-                        + _jirama.TVACollecteeJour
-                        + resultEtat.RecettesDouanieres;
-
-        double ecartPIB = pibDemande - pibVARaw;
-
-        int nbAgentsCommerciaux = resultsImportateurs.Count + resultsExportateurs.Count;
-        if (nbAgentsCommerciaux > 0 && Math.Abs(ecartPIB) > 0.01)
-        {
-            // Pondération aléatoire reproductible (seed = jour courant)
-            var rngReconciliation = new Random(_jourCourant * 31 + 7);
-            var poids = new double[nbAgentsCommerciaux];
-            double totalPoids = 0;
-            for (int k = 0; k < nbAgentsCommerciaux; k++)
-            {
-                poids[k] = 0.5 + rngReconciliation.NextDouble(); // poids entre 0.5 et 1.5
-                totalPoids += poids[k];
-            }
-
-            // Distribuer la correction sur les résultats des agents commerciaux
-            var agentsCommerciaux = new List<CompanyDailyResult>();
-            agentsCommerciaux.AddRange(resultsImportateurs);
-            agentsCommerciaux.AddRange(resultsExportateurs);
-
-            for (int k = 0; k < nbAgentsCommerciaux; k++)
-            {
-                double part = ecartPIB * poids[k] / totalPoids;
-                agentsCommerciaux[k].ValeurAjoutee += part;
-                agentsCommerciaux[k].BeneficeAvantImpot += part;
-            }
-        }
+        var pibResult = _governmentModule.CalculerPIB(
+            resultsMenages,
+            tousResultsEntreprises,
+            resultsImportateurs,
+            resultsExportateurs,
+            _jirama,
+            resultEtat,
+            _jourCourant);
 
         var snapshot = new DailySnapshotViewModel
         {
@@ -1160,44 +1124,25 @@ public class EconomicSimulatorViewModel
             // PIB par la demande = C + I (FBCF) + G + (X - M) + Loyers imputés
             // G = ConsommationFinaleEtat (exclut FBCF publique pour éviter le double-comptage avec FBCF)
             // (X - M) = BalanceCommerciale = FOB - CIF (déjà mis à l'échelle)
-            PIBProxy = resultsMenages.Sum(r => r.Consommation)
-                     + resultEtat.FBCF
-                     + resultEtat.ConsommationFinaleEtat
-                     + resultEtat.BalanceCommerciale
-                     + resultsMenages.Sum(r => r.LoyerImpute),
+            PIBProxy = pibResult.PIBDemande,
 
             // PIB par la valeur ajoutée (aux prix du marché) :
             // PIB = Î£(VA aux prix de base) + Impôts sur les produits
             // VA entreprises inclut déjà la TVA collectée (ventesTotales est TTC)
             // Il faut ajouter : TVA Jirama (non incluse dans VA Jirama qui est HT) + Recettes douanières
             // VA Admin publique = rémunération des fonctionnaires (SCN 2008 : production non marchande = coûts)
-            PIBParValeurAjoutee = tousResultsEntreprises.Sum(r => r.ValeurAjoutee)
-                               + _jirama.ValeurAjouteeJour
-                               + resultEtat.SalairesFonctionnaires
-                               + resultsMenages.Sum(r => r.LoyerImpute)
-                               + _jirama.TVACollecteeJour
-                               + resultEtat.RecettesDouanieres,
+            PIBParValeurAjoutee = pibResult.PIBParValeurAjoutee,
 
             // PIB par les revenus (approche revenu du SCN) :
             // PIB = Rémunération des salariés + EBE (Excédent Brut d'Exploitation) + Impôts sur la production - Subventions
             // Note : IR et IS sont des impôts sur le revenu, PAS des impôts sur la production â†’ exclus
-            PIBParRevenus = tousResultsEntreprises.Sum(r => r.ChargesSalariales)                    // Salaires versés par les entreprises
-                          + tousResultsEntreprises.Sum(r => r.CotisationsCNaPS)                     // Cotisations patronales CNaPS
-                          + resultEtat.SalairesFonctionnaires                                       // Salaires fonctionnaires (VA Admin)
-                          + _jirama.ChargesSalarialesJour                                           // Salaires Jirama
-                          + tousResultsEntreprises.Sum(r => r.BeneficeAvantImpot)                   // EBE entreprises
-                          + (_jirama.ValeurAjouteeJour - _jirama.ChargesSalarialesJour)             // EBE Jirama
-                          + tousResultsEntreprises.Sum(r => r.TVACollectee)                         // TVA collectée (impôt sur production)
-                          + _jirama.TVACollecteeJour                                               // TVA Jirama
-                          + resultEtat.RecettesDouanieres                                           // Droits de douane + accise (impôts sur imports)
-                          + resultsMenages.Sum(r => r.LoyerImpute),                                // Loyers imputés
+            PIBParRevenus = pibResult.PIBParRevenus,
 
             // Décomposition PIB revenus
-            ChargesSalarialesTotalesEntreprises = tousResultsEntreprises.Sum(r => r.ChargesSalariales),
-            CotisationsCNaPSPatronalesTotales = tousResultsEntreprises.Sum(r => r.CotisationsCNaPS),
-            ExcedentBrutExploitation = tousResultsEntreprises.Sum(r => r.BeneficeAvantImpot)
-                                    + (_jirama.ValeurAjouteeJour - _jirama.ChargesSalarialesJour),
-            ValeurAjouteeAdminPublique = resultEtat.SalairesFonctionnaires,
+            ChargesSalarialesTotalesEntreprises = pibResult.ChargesSalarialesTotalesEntreprises,
+            CotisationsCNaPSPatronalesTotales = pibResult.CotisationsCNaPSPatronalesTotales,
+            ExcedentBrutExploitation = pibResult.ExcedentBrutExploitation,
+            ValeurAjouteeAdminPublique = pibResult.ValeurAjouteeAdminPublique,
 
             // Distribution des revenus/épargne
             Gini = distStats.Gini,
@@ -1234,6 +1179,11 @@ public class EconomicSimulatorViewModel
             CAMoyenParEmployeMinier = CalculerCAMoyenParEmploye(
                 toutesEntreprisesRef.Where(e => e.SecteurActivite == ESecteurActivite.SecteurMinier).ToList()),
 
+            // Secteur Bancaire et Masse Monétaire
+            MasseMonetaireM3 = _banque.MasseMonetaireM3,
+            TotalDepotsBancaires = _banque.TotalDepotsMenages + _banque.TotalDepotsEntreprises,
+            TotalCreditsAccordes = _banque.TotalCreditsAccordes,
+
             // Achat alimentaire journalier (IHouseholdModule.AcheteProduitsAlimentaires)
             DepensesAlimentairesTotales       = resultsMenages.Sum(r => r.DepensesAlimentaires),
             DepensesAlimentairesInformelTotal = resultsMenages.Sum(r => r.DepensesAlimentairesInformel),
@@ -1248,11 +1198,56 @@ public class EconomicSimulatorViewModel
             NbMenagesEnVacances = resultsMenages.Count(r => r.EstEnVacances),
             FacteurReductionLoisirsMoyen = resultsMenages.Count > 0
                 ? resultsMenages.Average(r => r.FacteurReductionLoisirs)
-                : 1.0
+                : 1.0,
+
+            // Transport (ITransportationModule)
+            DepensesTransportTotales = resultsMenages.Sum(r => r.DepensesTransport + r.DepensesTransportJirama),
+            DepensesTransportInformel = totalTransportInformel,
+            DepensesTransportFormel = totalTransportFormel,
+            DepensesTransportCarburant = totalTransportCarburant,
+
+            // Tourisme & Emploi formel (recalibration mensuelle)
+            RecettesTourismeCumulees = _entreprisesTourisme.Sum(e => e.ChiffreAffairesCumule),
+            NbSalariesSecteurFormel = toutesEntreprisesRef
+                .Where(e => !e.EstInformel)
+                .Sum(e => e.NombreEmployes),
+            NbEntreprisesTourisme = _entreprisesTourisme.Count
         };
 
         _result.Snapshots.Add(snapshot);
         _result.JoursSimules = _jourCourant;
+
+        // ═══════════════════════════════════════════════════════════════
+        //  RECALIBRATION MENSUELLE
+        //  À chaque fin de mois (jour 30, 60, 90…), comparer les résultats
+        //  simulés aux données macro observées et ajuster les paramètres.
+        // ═══════════════════════════════════════════════════════════════
+        if (_config.RecalibrationMensuelleActivee
+            && _jourCourant > 0
+            && _jourCourant % 30 == 0)
+        {
+            int mois = _jourCourant / 30;
+            var cible = _config.CiblesMensuelles.FirstOrDefault(c => c.Mois == mois);
+            if (cible != null)
+            {
+                var evt = RecalibrationEngine.Recalibrer(
+                    _jourCourant,
+                    mois,
+                    cible,
+                    snapshot,
+                    _etat,
+                    _config,
+                    _entreprises,
+                    _importateurs,
+                    _exportateurs,
+                    _facteurEchelle);
+
+                if (evt != null)
+                {
+                    _result.CalibrationEvents.Add(evt);
+                }
+            }
+        }
     }
 
     private static ESecteurActivite SecteurDepuisCategorieExport(ECategorieExport categorie) => categorie switch
