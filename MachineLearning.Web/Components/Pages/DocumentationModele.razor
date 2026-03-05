@@ -1128,7 +1128,7 @@
                 <h6>📤 Flux 2 : AIDS → Simulation (export de scénario)</h6>
                 <p>
                     Après estimation des paramètres AIDS, la méthode <code>GenererScenarioConfig()</code>
-                    produit un <code>ScenarioConfigViewModel</code> calibré sur les projections AIDS.
+                    produit un <code>ScenarioConfig</code> calibré sur les projections AIDS.
                 </p>
 
                 <table class="table table-sm table-bordered">
@@ -1136,7 +1136,7 @@
                         <tr>
                             <th>Paramètre AIDS</th>
                             <th>→</th>
-                            <th>Config simulateur (<code>ScenarioConfigViewModel</code>)</th>
+                            <th>Config simulateur (<code>ScenarioConfig</code>)</th>
                             <th>Formule</th>
                         </tr>
                     </thead>
@@ -1230,7 +1230,7 @@
                     <code>
                         Simulation(t) → DailySnapshots → ChargerDepuisSimulation() → w_i observés<br />
                         → Objectif ΔM3 → Estimer() → α_i, β_i, γ_ij → w_i(T) projetés<br />
-                        → GenererScenarioConfig() → ScenarioConfigViewModel calibré<br />
+                        → GenererScenarioConfig() → ScenarioConfig calibré<br />
                         → Simulation(t+1) → vérifier convergence vers l'objectif
                     </code>
                     <div class="formula-desc">
@@ -1253,7 +1253,7 @@
                     </tr>
                     <tr>
                         <td><code>AIDSGrowthSimulator.razor / .razor.cs</code></td>
-                        <td>Page UI AIDS : injecte <code>EconomicSimulatorViewModel</code>, boutons import/export</td>
+                        <td>Page UI AIDS : injecte <code>EconomicSimulator</code>, boutons import/export</td>
                     </tr>
                     <tr>
                         <td><code>EconomySimulator.razor</code></td>
@@ -1264,7 +1264,7 @@
                         <td>Source des données observées (M3, dépenses par catégorie, prix)</td>
                     </tr>
                     <tr>
-                        <td><code>ScenarioConfigViewModel.cs</code></td>
+                        <td><code>ScenarioConfig.cs</code></td>
                         <td>Cible de l'export AIDS → paramètres simulables</td>
                     </tr>
                     <tr>

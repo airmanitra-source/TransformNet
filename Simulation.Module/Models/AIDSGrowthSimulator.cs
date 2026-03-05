@@ -1,6 +1,6 @@
-using MachineLearning.Web.Models.Simulation.Config;
+using Simulation.Module.Config;
 
-namespace MachineLearning.Web.Models.Simulation;
+namespace Simulation.Module.Models;
 
 /// <summary>
 /// Almost Ideal Demand System (AIDS) — Estimation de paramètres à partir
@@ -15,7 +15,7 @@ namespace MachineLearning.Web.Models.Simulation;
 ///   X   = dépense totale (≈ masse monétaire disponible pour la consommation)
 ///   P*  = indice de prix agrégé de Stone : ln(P*) = Σ w_i × ln(p_i)
 /// </summary>
-public class AIDSGrowthSimulatorViewModel
+public class AIDSGrowthSimulator
 {
     // ═══════════════════════════════════════════
     //  CATÉGORIES DE DÉPENSES (N = 8)
@@ -382,7 +382,7 @@ public class AIDSGrowthSimulatorViewModel
     /// à partir des snapshots d'une simulation terminée.
     /// Mapping des 8 catégories AIDS ← DailySnapshotViewModel.
     /// </summary>
-    public void ChargerDepuisSimulation(SimulationResultViewModel result)
+    public void ChargerDepuisSimulation(SimulationResult result)
     {
         if (result.Snapshots.Count < 2) return;
 
@@ -465,13 +465,13 @@ public class AIDSGrowthSimulatorViewModel
     // ═══════════════════════════════════════════
 
     /// <summary>
-    /// Génère un ScenarioConfigViewModel calibré sur les projections AIDS.
+    /// Génère un ScenarioConfig calibré sur les projections AIDS.
     /// Les paramètres du simulateur sont ajustés pour que la simulation
     /// converge vers les parts budgétaires et la M3 cible projetées par le AIDS.
     /// </summary>
-    public ScenarioConfigViewModel GenererScenarioConfig()
+    public ScenarioConfig GenererScenarioConfig()
     {
-        var config = new ScenarioConfigViewModel
+        var config = new ScenarioConfig
         {
             Name = $"🧮 Scénario AIDS — +{ObjectifCroissancePourcent:F1}% en {HorizonJours}j",
             Description = $"Généré par le modèle AIDS. Objectif : M3 de {FormatMds(MasseMonetaireInitiale)} → {FormatMds(MasseMonetaireCible)} " +

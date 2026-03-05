@@ -1,6 +1,6 @@
-namespace MachineLearning.Web.Models.Simulation;
+namespace Simulation.Module.Models;
 
-public class DailySnapshotViewModel
+public class DailySnapshot
 {
     public int Jour { get; set; }
     public int JourSemaine { get; set; }

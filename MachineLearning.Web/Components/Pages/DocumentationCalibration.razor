@@ -495,7 +495,7 @@
             <p>
                 Données du <strong>Tableau des Opérations Financières de l'État (TOFE)</strong>, réalisations cumulées
                 janvier – septembre 2025. Chaque ligne budgétaire est convertie en <strong>valeur journalière</strong>
-                (cumul ÷ 270 jours) puis injectée dans <code>ScenarioConfigViewModel</code>.
+                (cumul ÷ 270 jours) puis injectée dans <code>ScenarioConfig</code>.
             </p>
 
             <h6 class="mt-3">📊 Extraction TOFE → Paramètres simulateur</h6>
@@ -505,7 +505,7 @@
                         <th>Ligne TOFE</th>
                         <th>Cumul sept. (Mds MGA)</th>
                         <th>Journalier (Mds)</th>
-                        <th>Paramètre <code>ScenarioConfigViewModel</code></th>
+                        <th>Paramètre <code>ScenarioConfig</code></th>
                         <th>Utilisé dans</th>
                     </tr>
                 </thead>
@@ -726,7 +726,7 @@
                         <td>+AideInternationale, +CotisationsCNaPS, +SubventionsJirama, +SalairesFonctionnaires, +FBCF, +DepensesCapital</td>
                     </tr>
                     <tr>
-                        <td><code>ScenarioConfigViewModel.cs</code></td>
+                        <td><code>ScenarioConfig.cs</code></td>
                         <td>1 agent/catégorie INSTAT, +16 paramètres (CNaPS, aide, subventions, remittances, loyers, FBCF, fonctionnaires, DepensesCapitalJour, InteretsDetteJour, DettePubliqueInitiale). Calibré sur TOFE sept. 2025.</td>
                     </tr>
                     <tr>

@@ -96,13 +96,13 @@ public partial class DocumentationModele
     [
         new("M ménages individuels", "List<Household> avec Id, Épargne, Salaire", "Household.Module/Models/Household.cs"),
         new("K entreprises individuelles", "List<Company> + importateurs + exportateurs", "Company.Module/Models/Company.cs"),
-        new("T périodes (jours)", "_jourCourant itéré dans SimulerUnJour()", "EconomicSimulatorViewModel.cs"),
+        new("T périodes (jours)", "_jourCourant itéré dans SimulerUnJour()", "EconomicSimulator.cs"),
         new("E(m,t) Épargne", "Household.Epargne mis à jour chaque jour", "HouseholdModule.SimulerJournee()"),
         new("T(k,t) Trésorerie", "Company.Tresorerie mis à jour chaque jour", "CompanyModule.SimulerJournee()"),
         new("MS(t) Masse monétaire", "Bank.MasseMonetaireM3 = ΣÉpargne + ΣTrésorerie", "BankModule.cs"),
         new("CA(k,t) Ventes agrégées", "CompanyDailyResult.VentesB2C + VentesB2B", "CompanyDailyResult.cs"),
         new("Prix ajustés", "IPriceModule.AjusterPrixParCarburant()", "PriceModule.cs"),
-        new("Split informel/formel", "85% / 15% répartition de la demande", "EconomicSimulatorViewModel.cs:745"),
+        new("Split informel/formel", "85% / 15% répartition de la demande", "EconomicSimulator.cs:745"),
         new("ΔCR(t) Crédit bancaire", "SimulerOctroiCredit() — M3 × taux croissance", "BankModule.cs"),
         new("Transport routé", "ITransportationModule.RouterDepenseTransport()", "TransportationModule.cs"),
     ];

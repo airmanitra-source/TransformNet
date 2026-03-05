@@ -1,11 +1,11 @@
-using MachineLearning.Web.Models.Simulation.Config;
+using Simulation.Module.Config;
 
-namespace MachineLearning.Web.Models.Simulation;
+namespace Simulation.Module.Models;
 
-public class SimulationResultViewModel
+public class SimulationResult
 {
-    public ScenarioConfigViewModel Scenario { get; set; } = new();
-    public List<DailySnapshotViewModel> Snapshots { get; set; } = [];
+    public ScenarioConfig Scenario { get; set; } = new();
+    public List<DailySnapshot> Snapshots { get; set; } = [];
     public int JoursSimules { get; set; }
     public bool EstTerminee { get; set; }
     public bool EnCours { get; set; }

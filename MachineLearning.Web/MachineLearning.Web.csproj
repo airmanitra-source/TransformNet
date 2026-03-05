@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Simulation.Module\Simulation.Module.csproj" />
     <ProjectReference Include="..\MachineLearning.ServiceDefaults\MachineLearning.ServiceDefaults.csproj" />
     <ProjectReference Include="..\Bank.Module\Bank.Module.csproj" />
     <ProjectReference Include="..\Company.Module\Company.Module.csproj" />
@@ -17,6 +18,10 @@
     <ProjectReference Include="..\Household.Salary.Distribution.Module\Household.Salary.Distribution.Module.csproj" />
     <ProjectReference Include="..\Price.Module\Price.Module.csproj" />
     <ProjectReference Include="..\Transportation.Module\Transportation.Module.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Models\Simulation\Config\" />
   </ItemGroup>
 
 </Project>

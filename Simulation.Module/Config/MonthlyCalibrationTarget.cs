@@ -1,4 +1,4 @@
-namespace MachineLearning.Web.Models.Simulation.Config;
+namespace Simulation.Module.Config;
 
 /// <summary>
 /// Cible de recalibration mensuelle basée sur des données macroéconomiques observées.

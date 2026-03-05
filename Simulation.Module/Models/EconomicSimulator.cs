@@ -6,7 +6,7 @@ using AgentExporter = Company.Module.Models.Exporter;
 using AgentJirama = Company.Module.Models.Jirama;
 using Company.Module.Models;
 using Household.Module.Models;
-using MachineLearning.Web.Models.Simulation.Config;
+using Simulation.Module.Config;
 using Government.Module;
 using Household.Module;
 using Household.Salary.Distribution.Module;
@@ -16,10 +16,11 @@ using Household.Remittance.Module;
 using Price.Module;
 using Bank.Module;
 using Transportation.Module;
+using Simulation.Module;
 
-namespace MachineLearning.Web.Models.Simulation;
+namespace Simulation.Module.Models;
 
-public class EconomicSimulatorViewModel
+public class EconomicSimulator : ISimulationModule
 {
     private readonly IGovernmentModule _governmentModule;
     private readonly IHouseholdModule _householdModule;
@@ -37,8 +38,8 @@ public class EconomicSimulatorViewModel
     private AgentJirama _jirama = new();
     private AgentGovernment _etat = new();
     private Bank.Module.Models.Bank _banque = new();
-    private ScenarioConfigViewModel _config = new();
-    private SimulationResultViewModel _result = new();
+    private ScenarioConfig _config = new();
+    private SimulationResult _result = new();
     private readonly List<AgentCompany> _entreprisesTourisme = [];
     private CancellationTokenSource? _cts;
     private int _jourCourant;
@@ -46,14 +47,14 @@ public class EconomicSimulatorViewModel
     private DistributionStats _statsInitiales = new();
     private Random _random = new Random();
 
-    public SimulationResultViewModel Result => _result;
+    public SimulationResult Result => _result;
     public bool EnCours => _result.EnCours;
     public int JourCourant => _jourCourant;
     public DistributionStats StatsInitiales => _statsInitiales;
 
     public event Action? OnTickCompleted;
 
-    public EconomicSimulatorViewModel(
+    public EconomicSimulator(
         IGovernmentModule governmentModule,
         IHouseholdModule householdModule,
         IHouseholdSalaryDistributionModule householdSalaryDistributionModule,
@@ -78,7 +79,7 @@ public class EconomicSimulatorViewModel
     /// <summary>
     /// Initialise la simulation avec un scénario donné.
     /// </summary>
-    public void Initialiser(ScenarioConfigViewModel config)
+    public void Initialiser(ScenarioConfig config)
     {
         _config = config;
         _jourCourant = 0;
@@ -86,7 +87,7 @@ public class EconomicSimulatorViewModel
         // Facteur d'échelle : ratio entre la simulation et la réalité malgache
         // Tous les paramètres macro absolus (aide, subventions, fonctionnaires, dépenses publiques)
         // sont calibrés pour ~6M ménages et seront mis à l'échelle proportionnellement
-        _facteurEchelle = _config.NombreMenages / ScenarioConfigViewModel.NombreMenagesReference;
+        _facteurEchelle = _config.NombreMenages / ScenarioConfig.NombreMenagesReference;
 
         AgentHousehold.ResetIdCounter();
         AgentCompany.ResetIdCounter();
@@ -417,7 +418,7 @@ public class EconomicSimulatorViewModel
         _statsInitiales = _householdSalaryDistributionModule.CalculerStats(salairesGeneres);
 
         // Initialiser le résultat
-        _result = new SimulationResultViewModel
+        _result = new SimulationResult
         {
             Scenario = _config,
             JoursSimules = 0,
@@ -1039,7 +1040,7 @@ public class EconomicSimulatorViewModel
             resultEtat,
             _jourCourant);
 
-        var snapshot = new DailySnapshotViewModel
+        var snapshot = new DailySnapshot
         {
             Jour = _jourCourant,
             JourSemaine = JourDeLaSemaine(_jourCourant),
@@ -1230,17 +1231,19 @@ public class EconomicSimulatorViewModel
             var cible = _config.CiblesMensuelles.FirstOrDefault(c => c.Mois == mois);
             if (cible != null)
             {
-                var evt = RecalibrationEngine.Recalibrer(
-                    _jourCourant,
-                    mois,
-                    cible,
-                    snapshot,
-                    _etat,
-                    _config,
-                    _entreprises,
-                    _importateurs,
-                    _exportateurs,
-                    _facteurEchelle);
+                var evt = RecalibrationEngine.Recalibrer(new RecalibrationContext
+                {
+                    JourCourant = _jourCourant,
+                    Mois = mois,
+                    Cible = cible,
+                    SnapshotActuel = snapshot,
+                    Etat = _etat,
+                    Config = _config,
+                    Entreprises = _entreprises,
+                    Importateurs = _importateurs,
+                    Exportateurs = _exportateurs,
+                    FacteurEchelle = _facteurEchelle
+                });
 
                 if (evt != null)
                 {

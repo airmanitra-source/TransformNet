@@ -1,18 +1,19 @@
-using MachineLearning.Web.Models.Simulation;
-using MachineLearning.Web.Models.Simulation.Config;
+using Simulation.Module.Config;
 using Microsoft.AspNetCore.Components;
+using Simulation.Module;
+using Simulation.Module.Models;
 
 namespace MachineLearning.Web.Components.Pages;
 
 public partial class AIDSGrowthSimulator
 {
-    [Inject] private EconomicSimulatorViewModel Simulator { get; set; } = default!;
+    [Inject] private ISimulationModule Simulator { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
 
-    private AIDSGrowthSimulatorViewModel _model = new();
+    private Simulation.Module.Models.AIDSGrowthSimulator _model = new();
     private bool _showAdvanced = false;
     private int _horizonPreset = 365;
-    private ScenarioConfigViewModel? _scenarioGenere;
+    private ScenarioConfig? _scenarioGenere;
 
     /// <summary>Indique si les résultats de simulation sont disponibles pour import.</summary>
     private bool SimulationDisponible =>
@@ -39,7 +40,7 @@ public partial class AIDSGrowthSimulator
 
     private void Reinitialiser()
     {
-        _model = new AIDSGrowthSimulatorViewModel();
+        _model = new Simulation.Module.Models.AIDSGrowthSimulator();
         _horizonPreset = 365;
     }
 
@@ -126,14 +127,14 @@ public partial class AIDSGrowthSimulator
     {
         if (!SimulationDisponible) return;
 
-        _model = new AIDSGrowthSimulatorViewModel();
+        _model = new Simulation.Module.Models.AIDSGrowthSimulator();
         _model.ChargerDepuisSimulation(Simulator.Result);
         _horizonPreset = _model.HorizonJours;
         _scenarioGenere = null;
     }
 
     /// <summary>
-    /// Génère un ScenarioConfigViewModel à partir des projections AIDS
+    /// Génère un ScenarioConfig à partir des projections AIDS
     /// et navigue vers le simulateur économique avec ce scénario pré-rempli.
     /// </summary>
     private void ExporterVersSimulation()

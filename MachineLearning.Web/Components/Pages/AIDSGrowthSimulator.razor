@@ -1,6 +1,8 @@
 @page "/aids-croissance"
 @rendermode InteractiveServer
-@using MachineLearning.Web.Models.Simulation
+@using Simulation.Module
+@using Simulation.Module.Models
+@using AIDSModel = Simulation.Module.Models.AIDSGrowthSimulator
 
 <PageTitle>AIDS — Objectif de Croissance</PageTitle>
 
@@ -135,8 +137,8 @@
                         int idx = i;
                         <div class="mb-2">
                             <label class="form-label mb-0">
-                                @AIDSGrowthSimulatorViewModel.CategoriesIcons[idx]
-                                @AIDSGrowthSimulatorViewModel.Categories[idx] :
+                                @AIDSModel.CategoriesIcons[idx]
+                                @AIDSModel.Categories[idx] :
                                 <strong>@((_model.PartsBudgetaires[idx] * 100).ToString("F1"))%</strong>
                             </label>
                             <input type="range" class="form-range" min="0.00" max="0.60" step="0.01"
@@ -195,8 +197,8 @@
                                 double inflation = (_model.IndicesPrixProjectes[idx] / _model.IndicesPrix[idx] - 1.0) * 100.0;
                                 <tr>
                                     <td>
-                                        @AIDSGrowthSimulatorViewModel.CategoriesIcons[idx]
-                                        <small>@AIDSGrowthSimulatorViewModel.Categories[idx]</small>
+                                        @AIDSModel.CategoriesIcons[idx]
+                                        <small>@AIDSModel.Categories[idx]</small>
                                     </td>
                                     @if (_showAdvanced)
                                     {
@@ -294,8 +296,8 @@
                                     double dw = (_model.PartsBudgetairesProjetees[i] - _model.PartsBudgetaires[i]) * 100;
                                     <tr>
                                         <td>
-                                            @AIDSGrowthSimulatorViewModel.CategoriesIcons[i]
-                                            <small>@AIDSGrowthSimulatorViewModel.Categories[i]</small>
+                                            @AIDSModel.CategoriesIcons[i]
+                                            <small>@AIDSModel.Categories[i]</small>
                                         </td>
                                         <td><code>@_model.Alpha[i].ToString("F4")</code></td>
                                         <td class="@(_model.Beta[i] > 0 ? "text-success" : "text-danger")">
@@ -337,7 +339,7 @@
                                 double variationPct = depActuelle > 0 ? variation / depActuelle * 100 : 0;
                                 <div class="col-md-6 mb-2">
                                     <div class="p-2 border rounded">
-                                        <strong>@AIDSGrowthSimulatorViewModel.CategoriesIcons[i] @AIDSGrowthSimulatorViewModel.Categories[i]</strong>
+                                        <strong>@AIDSModel.CategoriesIcons[i] @AIDSModel.Categories[i]</strong>
                                         <br />
                                         <span class="text-muted small">@FormatMGA(depActuelle)</span>
                                         →
@@ -585,8 +587,8 @@
                                 @for (int i = 0; i < _model.N; i++)
                                 {
                                     <tr>
-                                        <td>@AIDSGrowthSimulatorViewModel.CategoriesIcons[i]</td>
-                                        <td>@AIDSGrowthSimulatorViewModel.Categories[i]</td>
+                                        <td>@AIDSModel.CategoriesIcons[i]</td>
+                                        <td>@AIDSModel.Categories[i]</td>
                                         <td><strong>@((_model.PartsBudgetaires[i] * 100).ToString("F0"))%</strong></td>
                                         <td>
                                             @if (i <= 3)

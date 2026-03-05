@@ -1,10 +1,11 @@
 @page "/economie"
 @rendermode InteractiveServer
 @using MachineLearning.Web.Models.Agents.Companies
-@using MachineLearning.Web.Models.Simulation
-@using MachineLearning.Web.Models.Simulation.Config
+@using Simulation.Module
+@using Simulation.Module.Models
+@using Simulation.Module.Config
 @using Company.Module.Models
-@inject EconomicSimulatorViewModel Simulator
+@inject ISimulationModule Simulator
 @implements IDisposable
 
 <PageTitle>Simulateur Économique - Madagascar</PageTitle>

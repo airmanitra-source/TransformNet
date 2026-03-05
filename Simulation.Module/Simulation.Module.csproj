@@ -6,4 +6,16 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Bank.Module\Bank.Module.csproj" />
+    <ProjectReference Include="..\Company.Module\Company.Module.csproj" />
+    <ProjectReference Include="..\Government.Module\Government.Module.csproj" />
+    <ProjectReference Include="..\Household.Module\Household.Module.csproj" />
+    <ProjectReference Include="..\Household.Leisure.Spending.Module\Household.Leisure.Spending.Module.csproj" />
+    <ProjectReference Include="..\Household.Remittance.Module\Household.Remittance.Module.csproj" />
+    <ProjectReference Include="..\Household.Salary.Distribution.Module\Household.Salary.Distribution.Module.csproj" />
+    <ProjectReference Include="..\Price.Module\Price.Module.csproj" />
+    <ProjectReference Include="..\Transportation.Module\Transportation.Module.csproj" />
+  </ItemGroup>
+
 </Project>

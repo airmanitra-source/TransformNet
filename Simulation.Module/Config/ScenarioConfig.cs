@@ -1,12 +1,11 @@
-using MachineLearning.Web.Models.Agents.Companies;
 using Company.Module.Models;
 
-namespace MachineLearning.Web.Models.Simulation.Config;
+namespace Simulation.Module.Config;
 
 /// <summary>
 /// Configuration d'un scénario de simulation économique.
 /// </summary>
-public class ScenarioConfigViewModel
+public class ScenarioConfig
 {
     public string Name { get; set; } = "Scénario de base";
     public string Description { get; set; } = "Paramètres macroéconomiques de base de Madagascar";
@@ -178,11 +177,11 @@ public class ScenarioConfigViewModel
     public string SourceCalibrationImports { get; set; } = "Moyenne INSTAT Tableau 33 (juil 2023 – juin 2025)";
     public Dictionary<ECategorieImport, double> CIFCalibresJour { get; set; } = new();
 
-    public static ScenarioConfigViewModel BaseMadagascar() => new();
+    public static ScenarioConfig BaseMadagascar() => new();
 
-    public static List<ScenarioConfigViewModel> TousLesScenarios()
+    public static List<ScenarioConfig> TousLesScenarios()
     {
-        return new List<ScenarioConfigViewModel>
+        return new List<ScenarioConfig>
         {
             // ══════════════════════════════════════════════════════════════════════
             // 1. SCÉNARIO DE BASE — Madagascar actuel (sept. 2025)

@@ -466,7 +466,7 @@
         <div class="card-body">
             <p>
                 L'ajustement de prix est implémenté via des <strong>modules métier</strong> exposant des
-                <strong>contrats (interfaces)</strong> injectables dans <code>EconomicSimulatorViewModel</code>.
+                <strong>contrats (interfaces)</strong> injectables dans <code>EconomicSimulator</code>.
             </p>
 
             <h6 class="mt-3">Modules et interfaces</h6>
@@ -491,7 +491,7 @@
                     </tr>
                     <tr>
                         <td><code>MachineLearning.Web</code></td>
-                        <td><code>ScenarioConfigViewModel</code></td>
+                        <td><code>ScenarioConfig</code></td>
                         <td>Stockage paramètres élasticité et volatilité</td>
                     </tr>
                 </tbody>
@@ -499,9 +499,9 @@
 
             <h6 class="mt-3">Flux de données</h6>
             <div class="bg-light border rounded p-3">
-                <code>ScenarioConfigViewModel</code> (paramètres)<br />
+                <code>ScenarioConfig</code> (paramètres)<br />
                 ↓<br />
-                <code>EconomicSimulatorViewModel.SimulerUnJour()</code><br />
+                <code>EconomicSimulator.SimulerUnJour()</code><br />
                 ↓<br />
                 <code>IPriceModule.AjusterPrixParCarburant()</code> (élasticité)<br />
                 ↓<br />
@@ -612,8 +612,8 @@
                 <li>✅ <code>Household.Module/HouseholdModule.cs</code> — Implémentation achat alimentaires</li>
                 <li>✅ <code>Company.Module/Models/DailyHouseholdResult.cs</code> — +3 champs alimentaires</li>
                 <li>✅ <code>MachineLearning.Web/Models/Simulation/DailySnapshotViewModel.cs</code> — +4 métriques alimentaires</li>
-                <li>✅ <code>ScenarioConfigViewModel.cs</code> — Paramètres élasticité</li>
-                <li>✅ <code>EconomicSimulatorViewModel.cs</code> — Injection IHouseholdModule + appel boucle ménages + routage informel/formel</li>
+                <li>✅ <code>ScenarioConfig.cs</code> — Paramètres élasticité</li>
+                <li>✅ <code>EconomicSimulator.cs</code> — Injection IHouseholdModule + appel boucle ménages + routage informel/formel</li>
                 <li>✅ <code>Program.cs</code> — DI : AddScoped&lt;IHouseholdModule, HouseholdModule&gt;()</li>
             </ul>
         </div>
