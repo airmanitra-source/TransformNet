@@ -9,7 +9,6 @@ using Price.Module;
 using Bank.Module;
 using Transportation.Module;
 using Simulation.Module;
-using Simulation.Module.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add service defaults & Aspire client integrations.
@@ -31,7 +30,7 @@ builder.Services.AddScoped<IHouseholdRemittanceModule, HouseholdRemittanceModule
 builder.Services.AddScoped<IBankModule, BankModule>();
 builder.Services.AddScoped<ITransportationModule, TransportationModule>();
 
-builder.Services.AddScoped<ISimulationModule, EconomicSimulator>();
+builder.Services.AddScoped<ISimulationModule, SimulationModule>();
 builder.Services.AddOutputCache();
 /*
 builder.Services.AddHttpClient<WeatherApiClient>(client =>
