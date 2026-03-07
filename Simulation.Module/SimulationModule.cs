@@ -35,6 +35,9 @@ public class SimulationModule : ISimulationModule
     private readonly IAgricultureModule _agricultureModule;
     private readonly IInputOutputModule _inputOutputModule;
     private readonly IInvestmentModule _investmentModule;
+    private readonly IInflationModule _inflationModule;
+    private readonly IExchangeRateModule _exchangeRateModule;
+    private readonly ISeasonalityModule _seasonalityModule;
     private readonly List<AgentHousehold> _menages = [];
     private readonly List<AgentCompany> _entreprises = [];
     private readonly List<AgentImporter> _importateurs = [];
@@ -50,6 +53,8 @@ public class SimulationModule : ISimulationModule
     private double _facteurEchelle = 1.0;
     private DistributionStats _statsInitiales = new();
     private Random _random = new Random();
+    private double _salaireMoyenReference;
+    private double _variationChangeJournaliere;
 
     public SimulationResult Result => _result;
     public bool EnCours => _result.EnCours;
@@ -70,7 +75,10 @@ public class SimulationModule : ISimulationModule
         ITransportationModule transportationModule,
         IAgricultureModule agricultureModule,
         IInputOutputModule inputOutputModule,
-        IInvestmentModule investmentModule)
+        IInvestmentModule investmentModule,
+        IInflationModule inflationModule,
+        IExchangeRateModule exchangeRateModule,
+        ISeasonalityModule seasonalityModule)
     {
         _governmentModule = governmentModule;
         _householdModule  = householdModule;
@@ -84,6 +92,9 @@ public class SimulationModule : ISimulationModule
         _agricultureModule = agricultureModule;
         _inputOutputModule = inputOutputModule;
         _investmentModule = investmentModule;
+        _inflationModule = inflationModule;
+        _exchangeRateModule = exchangeRateModule;
+        _seasonalityModule = seasonalityModule;
     }
 
     /// <summary>
@@ -102,6 +113,18 @@ public class SimulationModule : ISimulationModule
         AgentHousehold.ResetIdCounter();
         AgentCompany.ResetIdCounter();
         _agricultureModule.Reinitialiser();
+
+        // Initialiser le module d'inflation endogène
+        double pibPotentielJourEstime = _config.ProductiviteParEmploye * _config.NombreMenages;
+        double m3InitialEstime = 30_000_000_000_000 * _facteurEchelle; // BCM 2024 ≈ 30 000 Mds MGA
+        _inflationModule.Initialiser(_config.TauxInflation, pibPotentielJourEstime, m3InitialEstime);
+
+        // Initialiser le module de taux de change dynamique
+        _exchangeRateModule.Initialiser(_config.TauxChangeMGAParUSD, _config.ReservesBCMUSD);
+
+        // Initialiser la référence salariale pour la spirale prix-salaires
+        _salaireMoyenReference = _config.SalaireMedian;
+        _variationChangeJournaliere = 0;
 
         _householdSalaryDistributionModule.ConfigurerDistributionSalariale(
             _config.SalaireMedian,
@@ -1266,6 +1289,12 @@ public class SimulationModule : ISimulationModule
             _config.ProbabiliteOctroiMicrofinanceJour,
             _random);
 
+        // Variables déclarées ici, calculées après pibResult
+        SeasonalityResult? saisonnaliteResult = null;
+        ExchangeRateResult? exchangeRateResult = null;
+        InflationResult? inflationResult = null;
+        TaylorRuleResult? taylorResult = null;
+
         // 5. Créer le snapshot
         // Calculer les métriques de distribution des épargnes
         var epargnesSorted = _menages.OrderBy(m => m.Epargne).Select(m => m.Epargne).ToArray();
@@ -1291,6 +1320,110 @@ public class SimulationModule : ISimulationModule
             _jirama,
             resultEtat,
             _jourCourant);
+
+        // ═══════════════════════════════════════════════════════════════
+        //  SAISONNALITÉ AGRICOLE
+        // ═══════════════════════════════════════════════════════════════
+        if (_config.SaisonnaliteActivee)
+        {
+            saisonnaliteResult = _seasonalityModule.CalculerSaisonnalite(
+                _jourCourant, _config.JourCalendaireDebutSimulation);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  TAUX DE CHANGE DYNAMIQUE MGA/USD
+        // ═══════════════════════════════════════════════════════════════
+        if (_config.TauxChangeDynamiqueActive)
+        {
+            // Élasticité des remittances au taux de change :
+            // Quand le MGA se déprécie, les remittances en MGA augmentent mécaniquement
+            double remittancesAjustees = _config.RemittancesJour * _facteurEchelle;
+            if (_variationChangeJournaliere > 0 && _config.ElasticiteRemittancesChange > 0)
+            {
+                double depreciationAnnualisee = _variationChangeJournaliere * 365.0;
+                remittancesAjustees *= (1.0 + _config.ElasticiteRemittancesChange * depreciationAnnualisee);
+            }
+
+            exchangeRateResult = _exchangeRateModule.CalculerTauxChange(new ExchangeRateContext
+            {
+                ExportationsFOBJour = resultEtat.ExportationsFOB,
+                ImportationsCIFJour = resultEtat.ImportationsCIF,
+                RemittancesJour = remittancesAjustees,
+                AideInternationaleJour = _config.AideInternationaleJour * _facteurEchelle,
+                InflationDomestique = _etat.TauxInflation,
+                InflationEtrangere = _config.InflationEtrangere,
+                ElasticiteBalanceCommerciale = _config.ElasticiteChangeBalanceCommerciale,
+                PoidsPPA = _config.PoidsChangePPA,
+                IntensiteInterventionBCM = _config.IntensiteInterventionBCM,
+                ReservesMinimalesMoisImports = _config.ReservesMinimalesMoisImports,
+                DepreciationStructurelleAnnuelle = _config.DepreciationStructurelleAnnuelle,
+            });
+
+            _variationChangeJournaliere = exchangeRateResult.VariationJournaliere;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  INFLATION ENDOGÈNE
+        // ═══════════════════════════════════════════════════════════════
+        if (_config.InflationEndogeneActivee)
+        {
+            // Calculer la variation salariale pour la spirale prix-salaires
+            double salaireMoyenCourant = _menages.Count > 0
+                ? _menages.Average(m => m.SalaireMensuel)
+                : _config.SalaireMedian;
+            double variationSalaire = _salaireMoyenReference > 0
+                ? (salaireMoyenCourant - _salaireMoyenReference) / _salaireMoyenReference
+                : 0;
+
+            inflationResult = _inflationModule.CalculerInflationJournaliere(new InflationContext
+            {
+                TauxEmploi = _menages.Count(m => m.EstEmploye) / (double)Math.Max(1, _menages.Count),
+                PIBJourEffectif = pibResult.PIBDemande,
+                MasseMonetaireM3 = _banque.MasseMonetaireM3,
+                PrixCarburantCourant = _config.PrixCarburantLitre,
+                PrixCarburantReference = _config.PrixCarburantReference,
+                ImportationsCIFJour = resultEtat.ImportationsCIF,
+                ImportationsCIFReference = _config.CIFCalibresJour.Values.Sum() * 1_000_000 * _facteurEchelle,
+                VariationChangeJournaliere = _variationChangeJournaliere,
+                ElasticiteChangeInflation = _config.ElasticiteChangeInflation,
+                VariationSalaireMoyen = variationSalaire,
+                ElasticiteSalairesInflation = _config.ElasticiteSalairesInflation,
+                NAIRU = _config.NAIRU,
+                CoefficientPhillips = _config.CoefficientPhillips,
+                PoidsAnticipations = _config.PoidsAnticipationsInflation,
+                PoidsDemandPull = _config.PoidsDemandPullInflation,
+                PoidsCostPush = _config.PoidsCostPushInflation,
+                PoidsMonetaire = _config.PoidsMonetaireInflation,
+                ElasticiteCarburantInflation = _config.ElasticiteCarburantInflation,
+                ElasticiteImportInflation = _config.ElasticiteImportInflation,
+                CoefficientMonetaire = _config.CoefficientMonetaire,
+                VitesseAdaptationAnticipations = _config.VitesseAdaptationAnticipations,
+                InflationAncrage = _config.InflationAncrage,
+                CroissancePIBPotentielAnnuel = _config.CroissancePIBPotentielAnnuel,
+            });
+
+            // Rétroaction : mettre à jour l'inflation dans l'État
+            _etat.TauxInflation = inflationResult.TauxInflationAnnuel;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  RÈGLE DE TAYLOR (TAUX DIRECTEUR ENDOGÈNE BCM)
+        // ═══════════════════════════════════════════════════════════════
+        if (_config.TauxDirecteurEndogeneActive)
+        {
+            double outputGapTaylor = inflationResult?.OutputGap ?? 0;
+            taylorResult = _inflationModule.CalculerTauxDirecteurTaylor(
+                inflationCourante: _etat.TauxInflation,
+                inflationCible: _config.InflationCibleTaylor,
+                outputGap: outputGapTaylor,
+                tauxDirecteurPrecedent: _etat.TauxDirecteur,
+                tauxReelNeutre: _config.TauxReelNeutreTaylor,
+                coefficientInflation: _config.CoefficientInflationTaylor,
+                coefficientOutputGap: _config.CoefficientOutputGapTaylor,
+                vitesseLissage: _config.VitesseLissageTaylor);
+
+            _etat.TauxDirecteur = taylorResult.TauxDirecteurEffectif;
+        }
 
         var snapshot = new DailySnapshot
         {
@@ -1552,7 +1685,46 @@ public class SimulationModule : ISimulationModule
             TresorerieMoyenneFormel = ComputeTresorerieMoyenne(toutesEntreprisesRef, informel: false),
 
             RevenuMoyenMenagesInformels = ComputeRevenuMoyenMenages(_menages, informel: true),
-            RevenuMoyenMenagesFormels = ComputeRevenuMoyenMenages(_menages, informel: false)
+            RevenuMoyenMenagesFormels = ComputeRevenuMoyenMenages(_menages, informel: false),
+
+            // ─── Saisonnalité agricole ──────────────────────────────────────────────
+            MoisCalendaire = saisonnaliteResult?.Mois ?? moisCalendaireAgri,
+            SaisonCourante = saisonnaliteResult?.SaisonCourante ?? "",
+            EstPeriodeSoudure = saisonnaliteResult?.EstPeriodeSoudure ?? false,
+            FacteurProductiviteAgricole = saisonnaliteResult?.FacteurProductiviteAgricole ?? 1.0,
+            FacteurPrixRiz = saisonnaliteResult?.FacteurPrixRiz ?? 1.0,
+            FacteurPrixAlimentaire = saisonnaliteResult?.FacteurPrixAlimentaire ?? 1.0,
+            FacteurTourisme = saisonnaliteResult?.FacteurTourisme ?? 1.0,
+            FacteurEmploiAgricole = saisonnaliteResult?.FacteurEmploiAgricole ?? 1.0,
+
+            // ─── Inflation endogène ─────────────────────────────────────────────────
+            TauxInflationEndogene = inflationResult?.TauxInflationAnnuel ?? _etat.TauxInflation,
+            InflationDemandPull = inflationResult?.ComposanteDemandPull ?? 0,
+            InflationCostPush = inflationResult?.ComposanteCostPush ?? 0,
+            InflationMonetaire = inflationResult?.ComposanteMonetaire ?? 0,
+            InflationAnticipations = inflationResult?.ComposanteAnticipations ?? 0,
+            OutputGap = inflationResult?.OutputGap ?? 0,
+            EcartChomage = inflationResult?.EcartChomage ?? 0,
+            CroissanceM3 = inflationResult?.CroissanceM3 ?? 0,
+            CroissancePIB = inflationResult?.CroissancePIB ?? 0,
+            AnticipationsInflation = inflationResult?.AnticipationsInflation ?? 0,
+
+            // ─── Taux de change dynamique MGA/USD ───────────────────────────────────
+            TauxChangeMGAParUSD = exchangeRateResult?.TauxMGAParUSD ?? _config.TauxChangeMGAParUSD,
+            VariationChangeJournaliere = exchangeRateResult?.VariationJournaliere ?? 0,
+            DepreciationAnnualisee = exchangeRateResult?.DepreciationAnnualisee ?? 0,
+            ReservesBCMUSD = exchangeRateResult?.ReservesBCMUSD ?? _config.ReservesBCMUSD,
+            ReservesMoisImports = exchangeRateResult?.ReservesMoisImports ?? 0,
+            InterventionBCMUSD = exchangeRateResult?.InterventionBCMUSD ?? 0,
+            SoldeDevisesJourUSD = exchangeRateResult?.SoldeDevisesJourUSD ?? 0,
+            IndicePressionChange = exchangeRateResult?.IndicePression ?? 0,
+
+            // ─── Règle de Taylor (taux directeur endogène BCM) ──────────────────────
+            TauxDirecteurEffectif = taylorResult?.TauxDirecteurEffectif ?? _etat.TauxDirecteur,
+            TauxDirecteurTaylor = taylorResult?.TauxDirecteurTaylor ?? _etat.TauxDirecteur,
+            TaylorComposanteOutputGap = taylorResult?.ComposanteOutputGap ?? 0,
+            TaylorComposanteEcartInflation = taylorResult?.ComposanteEcartInflation ?? 0,
+            TaylorVariationEffective = taylorResult?.VariationEffective ?? 0,
         };
 
         _result.Snapshots.Add(snapshot);

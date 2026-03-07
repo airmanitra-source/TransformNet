@@ -143,6 +143,24 @@ public class InflationContext
     public double ElasticiteChangeInflation { get; set; } = 0.30;
 
     // ═══════════════════════════════════════════
+    //  SPIRALE SALAIRES-PRIX (wage-price pass-through)
+    // ═══════════════════════════════════════════
+
+    /// <summary>
+    /// Variation annualisée du salaire moyen par rapport à la référence (ex: 0.10 = +10%).
+    /// Positif = hausse des salaires → pression inflationniste via les coûts de production.
+    /// Calculé comme : (salaireMoyenCourant - salaireMoyenReference) / salaireMoyenReference.
+    /// </summary>
+    public double VariationSalaireMoyen { get; set; }
+
+    /// <summary>
+    /// Élasticité salaires → inflation (η).
+    /// Part de la hausse salariale transmise aux prix intérieurs.
+    /// Madagascar ≈ 0.10-0.20 (faible pouvoir de négociation, secteur informel dominant).
+    /// </summary>
+    public double ElasticiteSalairesInflation { get; set; } = 0.15;
+
+    // ═══════════════════════════════════════════
     //  PARAMÈTRES DE CALIBRAGE
     // ═══════════════════════════════════════════
 

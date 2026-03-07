@@ -2,6 +2,7 @@ using Simulation.Module.Config;
 using Company.Module.Models;
 using Microsoft.AspNetCore.Components;
 using Simulation.Module.Models;
+using Simulation.Module.Services;
 
 namespace MachineLearning.Web.Components.Pages;
 
@@ -10,6 +11,11 @@ public partial class EconomySimulator : IDisposable
     private ScenarioConfig _config = new();
     private List<ScenarioConfig> _scenarios = ScenarioConfig.TousLesScenarios();
     private bool _initialized = false;
+    private MacroeconomicScrapedData? _derniereCollecte;
+    private InstatTbeData? _derniereCollecteInstat;
+
+    [Inject] private IMacroeconomicDataScraperService ScraperService { get; set; } = default!;
+    [Inject] private IInstatTbeScraperService InstatScraperService { get; set; } = default!;
 
     protected override void OnInitialized()
     {
@@ -214,5 +220,79 @@ public partial class EconomySimulator : IDisposable
     {
         Simulator.OnTickCompleted -= OnSimulationTick;
         Simulator.Arreter();
+    }
+
+    /// <summary>
+    /// Collecte les agrégats macroéconomiques depuis la Banque Mondiale pour l'année demandée.
+    /// Appelé par le composant RecalibrationParameters via EventCallback.
+    /// </summary>
+    private async Task CollecterDonneesMacro(int annee)
+    {
+        _derniereCollecte = await ScraperService.CollecterDonneesAsync("MDG", annee);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>
+    /// Applique les données scrapées au scénario en cours :
+    /// 1. Met à jour les paramètres du ScenarioConfig (inflation, change, réserves, etc.)
+    /// 2. Génère 12 cibles mensuelles avec profils saisonniers Madagascar
+    /// 3. Active la recalibration mensuelle
+    /// </summary>
+    private async Task AppliquerDonneesMacro()
+    {
+        if (_derniereCollecte == null || !_derniereCollecte.EstExploitable) return;
+
+        // 1. Mettre à jour les paramètres du scénario
+        ScraperService.AppliquerAuScenario(_derniereCollecte, _config);
+
+        // 2. Générer les cibles mensuelles saisonnalisées
+        double facteurEchelle = _config.NombreMenages / ScenarioConfig.NombreMenagesReference;
+        var cibles = ScraperService.GenererCiblesMensuelles(_derniereCollecte, facteurEchelle);
+
+        _config.CiblesMensuelles = cibles;
+        _config.RecalibrationMensuelleActivee = true;
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>
+    /// Collecte les données du TBE INSTAT (PDF).
+    /// </summary>
+    private async Task CollecterInstat()
+    {
+        _derniereCollecteInstat = await InstatScraperService.CollecterAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>
+    /// Applique les données TBE INSTAT aux cibles mensuelles :
+    /// Remplace les estimations WB par les valeurs réelles observées.
+    /// </summary>
+    private async Task AppliquerInstat()
+    {
+        if (_derniereCollecteInstat == null || !_derniereCollecteInstat.EstExploitable) return;
+
+        // Déterminer l'année cible (la plus récente dans les données)
+        int annee = _derniereCollecteInstat.Mois.Max(m => m.Annee);
+
+        // S'assurer qu'on a des cibles pour 12 mois
+        if (_config.CiblesMensuelles.Count == 0)
+        {
+            string[] nomsMois = ["", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+                "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+            for (int i = 1; i <= 12; i++)
+            {
+                _config.CiblesMensuelles.Add(new MonthlyCalibrationTarget
+                {
+                    Mois = i,
+                    Label = $"{nomsMois[i]} {annee}"
+                });
+            }
+        }
+
+        InstatScraperService.AppliquerAuxCibles(_derniereCollecteInstat, _config.CiblesMensuelles, annee);
+        _config.RecalibrationMensuelleActivee = true;
+
+        await InvokeAsync(StateHasChanged);
     }
 }

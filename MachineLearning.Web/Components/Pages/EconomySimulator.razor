@@ -53,7 +53,13 @@
 
                 <hr />
 
-                <RecalibrationParameters Config="_config" Disabled="@Simulator.EnCours" />
+                <RecalibrationParameters Config="_config" Disabled="@Simulator.EnCours"
+                    DerniereCollecte="_derniereCollecte"
+                    OnCollecterDonnees="CollecterDonneesMacro"
+                    OnAppliquerDonnees="AppliquerDonneesMacro"
+                    DerniereCollecteInstat="_derniereCollecteInstat"
+                    OnCollecterInstat="CollecterInstat"
+                    OnAppliquerInstat="AppliquerInstat" />
                 <CycloneParameters Config="_config" Disabled="@Simulator.EnCours" />
                 <HouseholdParameters Config="_config" Disabled="@Simulator.EnCours" OnApplyPropension="ApplyPropensionToMenages" />
                 <EnterpriseParameters Config="_config" Disabled="@Simulator.EnCours" />

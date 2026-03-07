@@ -112,12 +112,13 @@ public class InflationModule : IInflationModule
         //  2. COST-PUSH (chocs d'offre)
         // ═══════════════════════════════════════════
         //
-        // π_cp = δ × Δcarburant/carburant_ref + ε × Δimport/import_ref + ζ × Δe/e
+        // π_cp = δ × Δcarburant/carburant_ref + ε × Δimport/import_ref + ζ × Δe/e + η × Δsalaires/salaires_ref
         //
-        // Trois canaux de transmission des chocs de coûts :
+        // Quatre canaux de transmission des chocs de coûts :
         //   a) Carburant → transport, Jirama thermique, intrants agricoles
         //   b) Importations CIF → prix des biens importés (40% du PIB)
         //   c) Taux de change → renchérissement de TOUS les imports (pass-through)
+        //   d) Salaires → coûts de production des entreprises (spirale prix-salaires)
         //
         // Le canal du taux de change est le plus important à Madagascar :
         //   - 40% du PIB est importé (carburant, riz, biens manufacturés)
@@ -142,9 +143,16 @@ public class InflationModule : IInflationModule
         // Seule la dépréciation (positif) génère de l'inflation (asymétrique)
         double chocChange = Math.Max(0, ctx.VariationChangeJournaliere * 365.0);
 
+        // Canal salarial (wage-price pass-through / spirale prix-salaires)
+        // Si les salaires augmentent, les coûts de production montent → entreprises
+        // répercutent sur les prix de vente → inflation cost-push.
+        // Essentiel pour simuler l'impact d'une hausse du SMIG.
+        double chocSalaires = Math.Max(0, ctx.VariationSalaireMoyen);
+
         double composanteCostPush = ctx.ElasticiteCarburantInflation * chocCarburant
                                   + ctx.ElasticiteImportInflation * Math.Max(0, chocImport)
-                                  + ctx.ElasticiteChangeInflation * chocChange;
+                                  + ctx.ElasticiteChangeInflation * chocChange
+                                  + ctx.ElasticiteSalairesInflation * chocSalaires;
 
         result.ComposanteCostPush = composanteCostPush;
 

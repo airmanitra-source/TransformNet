@@ -15,6 +15,8 @@ using Simulation.Module;
 using Simulation.Module.Models;
 using Economic.Risk.Module;
 using Agriculture.Module;
+using Simulation.Infrastructure;
+using Simulation.Module.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add service defaults & Aspire client integrations.
@@ -46,6 +48,12 @@ builder.Services.AddScoped<IInputOutputModule, InputOutputModule>(); // Company.
 builder.Services.AddScoped<IInvestmentModule, InvestmentModule>(); // Company.Module — FBCF
 
 builder.Services.AddScoped<ISimulationModule, SimulationModule>();
+builder.Services.AddScoped<IHistoricalDataLoader, HistoricalDataLoader>();
+builder.Services.AddHttpClient<IMacroeconomicDataScraperService, MacroeconomicDataScraperService>(client =>
+{
+    client.BaseAddress = new Uri("https://api.worldbank.org");
+});
+builder.Services.AddHttpClient<IInstatTbeScraperService, InstatTbeScraperService>();
 builder.Services.AddOutputCache();
 /*
 builder.Services.AddHttpClient<WeatherApiClient>(client =>

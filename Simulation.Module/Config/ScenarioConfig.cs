@@ -87,6 +87,15 @@ public class ScenarioConfig
     public double SubventionJiramaJour { get; set; } = 1_370_000_000;
     public double RemittancesJour { get; set; } = 7_400_000_000;
 
+    /// <summary>
+    /// Élasticité des transferts diaspora au taux de change MGA/USD.
+    /// Quand le MGA se déprécie, les remittances en MGA augmentent
+    /// (effet mécanique + comportemental : la diaspora envoie plus).
+    /// Littérature Afrique subsaharienne : élasticité ≈ 0.3-0.8.
+    /// 0.50 = +5% de remittances MGA pour +10% de dépréciation MGA/USD.
+    /// </summary>
+    public double ElasticiteRemittancesChange { get; set; } = 0.50;
+
     public double LoyerImputeJourParMenage { get; set; } = 1_000;
     public double TauxMenagesProprietaires { get; set; } = 0.65;
     public double LoyerJourLocataire { get; set; } = 3_500;
@@ -676,6 +685,16 @@ public class ScenarioConfig
     /// Part de la hausse du coût CIF transmise aux prix intérieurs.
     /// </summary>
     public double ElasticiteImportInflation { get; set; } = 0.12;
+
+    /// <summary>
+    /// Élasticité salaires → inflation (pass-through salarial, η).
+    /// Part de la hausse des salaires transmise aux prix via les coûts de production.
+    /// Essentiel pour le scénario "Hausse SMIG" : sans ce canal, une hausse du SMIG
+    /// n'a aucun impact inflationniste, ce qui est irréaliste.
+    /// Madagascar ≈ 0.10-0.20 (faible pouvoir de négociation salariale,
+    /// secteur informel absorbe les chocs).
+    /// </summary>
+    public double ElasticiteSalairesInflation { get; set; } = 0.15;
 
     /// <summary>
     /// Coefficient monétaire (λ).

@@ -1,4 +1,5 @@
 @using Simulation.Module.Config
+@using Simulation.Module.Models
 
 <div>
     <hr />
@@ -27,6 +28,201 @@
                 <small class="text-danger">Totale (100%)</small>
             </div>
         </div>
+
+        <!-- ══════════ Scraping automatique Banque Mondiale ══════════ -->
+        <div class="card mb-2 border-info">
+            <div class="card-body p-2">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <strong class="small">🌐 Collecte automatique (Banque Mondiale)</strong>
+                </div>
+                <p class="small text-muted mb-1">
+                    Récupère PIB, inflation, commerce, réserves, remittances depuis l'API ouverte WDI
+                    et peuple automatiquement les paramètres du scénario + cibles mensuelles.
+                </p>
+                <div class="d-flex gap-2 align-items-center">
+                    <input type="number" class="form-control form-control-sm" style="width: 80px;"
+                           @bind="_anneeCollecte" disabled="@(Disabled || _enCoursCollecte)" placeholder="Année" />
+                    <button class="btn btn-sm btn-info text-white" disabled="@(Disabled || _enCoursCollecte)"
+                            @onclick="LancerCollecteAsync">
+                        @if (_enCoursCollecte)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                            <span>Collecte…</span>
+                        }
+                        else
+                        {
+                            <span>🔍 Scraper les données</span>
+                        }
+                    </button>
+                </div>
+
+                @if (_derniereCollecte != null)
+                {
+                    <div class="mt-2">
+                        @if (_derniereCollecte.EstExploitable)
+                        {
+                            <div class="alert alert-success py-1 px-2 small mb-1">
+                                ✅ Données @(_derniereCollecte.Annee) collectées (@_derniereCollecte.DateCollecte.ToString("dd/MM/yyyy HH:mm"))
+                                — @_derniereCollecte.Sources.FirstOrDefault()
+                            </div>
+                            <div class="row g-1 small">
+                                @if (_derniereCollecte.PIBNominalAnnuelLCU.HasValue)
+                                {
+                                    <div class="col-6"><span class="badge bg-secondary">PIB</span> @FormatMds(_derniereCollecte.PIBNominalAnnuelLCU.Value) Mds MGA</div>
+                                }
+                                @if (_derniereCollecte.TauxInflationAnnuel.HasValue)
+                                {
+                                    <div class="col-6"><span class="badge bg-warning text-dark">Inflation</span> @((_derniereCollecte.TauxInflationAnnuel.Value * 100).ToString("F1"))%</div>
+                                }
+                                @if (_derniereCollecte.TauxChangeOfficielLCUParUSD.HasValue)
+                                {
+                                    <div class="col-6"><span class="badge bg-primary">Change</span> @_derniereCollecte.TauxChangeOfficielLCUParUSD.Value.ToString("N0") MGA/USD</div>
+                                }
+                                @if (_derniereCollecte.ReservesTotalesUSD.HasValue)
+                                {
+                                    <div class="col-6"><span class="badge bg-info text-white">Réserves</span> @FormatMdsUSD(_derniereCollecte.ReservesTotalesUSD.Value)</div>
+                                }
+                                @if (_derniereCollecte.RemittancesRecuesUSD.HasValue)
+                                {
+                                    <div class="col-6"><span class="badge bg-success">Remittances</span> @FormatMdsUSD(_derniereCollecte.RemittancesRecuesUSD.Value)</div>
+                                }
+                                @if (_derniereCollecte.CroissanceDemographique.HasValue)
+                                {
+                                    <div class="col-6"><span class="badge bg-dark">Démographie</span> +@((_derniereCollecte.CroissanceDemographique.Value * 100).ToString("F1"))%/an</div>
+                                }
+                                @if (_derniereCollecte.ExportationsUSD.HasValue)
+                                {
+                                    <div class="col-6"><span class="badge bg-success">Exports</span> @FormatMdsUSD(_derniereCollecte.ExportationsUSD.Value)</div>
+                                }
+                                @if (_derniereCollecte.ImportationsUSD.HasValue)
+                                {
+                                    <div class="col-6"><span class="badge bg-danger">Imports</span> @FormatMdsUSD(_derniereCollecte.ImportationsUSD.Value)</div>
+                                }
+                                @if (_derniereCollecte.RecettesTouristiquesUSD.HasValue)
+                                {
+                                    <div class="col-6"><span class="badge bg-info text-white">Tourisme</span> @FormatMdsUSD(_derniereCollecte.RecettesTouristiquesUSD.Value)</div>
+                                }
+                            </div>
+                            <button class="btn btn-sm btn-success w-100 mt-1" @onclick="AppliquerCollecte" disabled="@Disabled">
+                                ✅ Appliquer au scénario + générer 12 cibles mensuelles
+                            </button>
+                        }
+                        else
+                        {
+                            <div class="alert alert-warning py-1 px-2 small mb-0">
+                                ⚠️ Données insuffisantes pour calibrer le modèle.
+                            </div>
+                        }
+
+                        @if (_derniereCollecte.Erreurs.Count > 0)
+                        {
+                            <details class="mt-1">
+                                <summary class="small text-muted">@_derniereCollecte.Erreurs.Count indicateur(s) manquant(s)</summary>
+                                <ul class="small text-muted mb-0">
+                                    @foreach (var err in _derniereCollecte.Erreurs.Take(5))
+                                    {
+                                        <li>@err</li>
+                                    }
+                                </ul>
+                            </details>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+        <!-- ══════════════════════════════════════════════════════════════ -->
+
+        <!-- ══════════ Scraping INSTAT TBE ══════════ -->
+        <div class="card mb-2 border-success">
+            <div class="card-body p-2">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <strong class="small">📊 INSTAT — Tableau de Bord Économique (TBE)</strong>
+                </div>
+                <p class="small text-muted mb-1">
+                    Télécharge le dernier TBE (PDF) depuis instat.mg et extrait les séries mensuelles réelles :
+                    M3, recettes fiscales, exports/imports, tourisme, affiliés CNaPS.
+                </p>
+                <div class="d-flex gap-2 align-items-center">
+                    <button class="btn btn-sm btn-success text-white" disabled="@(Disabled || _enCoursInstat)"
+                            @onclick="LancerCollecteInstatAsync">
+                        @if (_enCoursInstat)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                            <span>Téléchargement TBE…</span>
+                        }
+                        else
+                        {
+                            <span>📥 Scraper le TBE INSTAT</span>
+                        }
+                    </button>
+                </div>
+
+                @if (_derniereCollecteInstat != null)
+                {
+                    <div class="mt-2">
+                        @if (_derniereCollecteInstat.EstExploitable)
+                        {
+                            <div class="alert alert-success py-1 px-2 small mb-1">
+                                ✅ TBE N°@_derniereCollecteInstat.NumeroTbe — @_derniereCollecteInstat.PeriodeReference
+                                (@_derniereCollecteInstat.Mois.Count mois extraits)
+                            </div>
+                            <div class="row g-1 small">
+                                @{
+                                    var dernierMois = _derniereCollecteInstat.Mois.FirstOrDefault();
+                                }
+                                @if (dernierMois?.M3Mds != null)
+                                {
+                                    <div class="col-6"><span class="badge bg-primary">M3</span> @dernierMois.M3Mds.Value.ToString("N0") Mds MGA</div>
+                                }
+                                @if (dernierMois?.RecettesFiscalesCumulMds != null)
+                                {
+                                    <div class="col-6"><span class="badge bg-warning text-dark">Fisc.</span> @dernierMois.RecettesFiscalesCumulMds.Value.ToString("N0") Mds cumul</div>
+                                }
+                                @if (dernierMois?.ExportsFobMillions != null)
+                                {
+                                    <div class="col-6"><span class="badge bg-success">Exp. FOB</span> @(dernierMois.ExportsFobMillions.Value / 1000).ToString("N0") Mds</div>
+                                }
+                                @if (dernierMois?.ImportsCifMillions != null)
+                                {
+                                    <div class="col-6"><span class="badge bg-danger">Imp. CIF</span> @(dernierMois.ImportsCifMillions.Value / 1000).ToString("N0") Mds</div>
+                                }
+                                @if (dernierMois?.ArriveesTouristes != null)
+                                {
+                                    <div class="col-6"><span class="badge bg-info text-white">Touristes</span> @dernierMois.ArriveesTouristes.Value.ToString("N0")</div>
+                                }
+                                @if (dernierMois?.NouveauxAffiliesCNaPS != null)
+                                {
+                                    <div class="col-6"><span class="badge bg-dark">CNaPS</span> @dernierMois.NouveauxAffiliesCNaPS.Value.ToString("N0") nouveaux</div>
+                                }
+                            </div>
+                            <button class="btn btn-sm btn-success w-100 mt-1" @onclick="AppliquerInstat" disabled="@Disabled">
+                                ✅ Appliquer les données TBE aux cibles mensuelles
+                            </button>
+                        }
+                        else
+                        {
+                            <div class="alert alert-warning py-1 px-2 small mb-0">
+                                ⚠️ Aucune donnée exploitable extraite du TBE.
+                            </div>
+                        }
+
+                        @if (_derniereCollecteInstat.Erreurs.Count > 0)
+                        {
+                            <details class="mt-1">
+                                <summary class="small text-muted">@_derniereCollecteInstat.Erreurs.Count erreur(s) de parsing</summary>
+                                <ul class="small text-muted mb-0">
+                                    @foreach (var err in _derniereCollecteInstat.Erreurs)
+                                    {
+                                        <li>@err</li>
+                                    }
+                                </ul>
+                            </details>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+        <!-- ══════════════════════════════════════════════════════════════ -->
 
         <div class="mb-2">
             <div class="d-flex justify-content-between align-items-center mb-1">
@@ -113,6 +309,109 @@
 
     [Parameter]
     public bool Disabled { get; set; } = false;
+
+    /// <summary>
+    /// Callback pour déclencher la collecte via le service injecté dans la page parente.
+    /// Retourne les données collectées pour affichage.
+    /// </summary>
+    [Parameter]
+    public EventCallback<int> OnCollecterDonnees { get; set; }
+
+    /// <summary>
+    /// Callback pour appliquer les données collectées au scénario.
+    /// </summary>
+    [Parameter]
+    public EventCallback OnAppliquerDonnees { get; set; }
+
+    /// <summary>
+    /// Dernières données collectées (alimenté par la page parente).
+    /// </summary>
+    [Parameter]
+    public MacroeconomicScrapedData? DerniereCollecte { get; set; }
+
+    /// <summary>
+    /// Callback pour déclencher la collecte INSTAT TBE.
+    /// </summary>
+    [Parameter]
+    public EventCallback OnCollecterInstat { get; set; }
+
+    /// <summary>
+    /// Callback pour appliquer les données TBE aux cibles.
+    /// </summary>
+    [Parameter]
+    public EventCallback OnAppliquerInstat { get; set; }
+
+    /// <summary>
+    /// Dernières données TBE INSTAT collectées (alimenté par la page parente).
+    /// </summary>
+    [Parameter]
+    public InstatTbeData? DerniereCollecteInstat { get; set; }
+
+    private bool _enCoursCollecte = false;
+    private bool _enCoursInstat = false;
+    private int _anneeCollecte = DateTime.UtcNow.Year - 1;
+    private MacroeconomicScrapedData? _derniereCollecte;
+    private InstatTbeData? _derniereCollecteInstat;
+
+    protected override void OnParametersSet()
+    {
+        if (DerniereCollecte != null)
+            _derniereCollecte = DerniereCollecte;
+        if (DerniereCollecteInstat != null)
+            _derniereCollecteInstat = DerniereCollecteInstat;
+    }
+
+    private async Task LancerCollecteAsync()
+    {
+        _enCoursCollecte = true;
+        try
+        {
+            await OnCollecterDonnees.InvokeAsync(_anneeCollecte);
+            _derniereCollecte = DerniereCollecte;
+        }
+        finally
+        {
+            _enCoursCollecte = false;
+        }
+    }
+
+    private async Task AppliquerCollecte()
+    {
+        await OnAppliquerDonnees.InvokeAsync();
+    }
+
+    private async Task LancerCollecteInstatAsync()
+    {
+        _enCoursInstat = true;
+        try
+        {
+            await OnCollecterInstat.InvokeAsync();
+            _derniereCollecteInstat = DerniereCollecteInstat;
+        }
+        finally
+        {
+            _enCoursInstat = false;
+        }
+    }
+
+    private async Task AppliquerInstat()
+    {
+        await OnAppliquerInstat.InvokeAsync();
+    }
+
+    private static string FormatMds(double valeur)
+    {
+        return (valeur / 1_000_000_000).ToString("N0");
+    }
+
+    private static string FormatMdsUSD(double valeur)
+    {
+        if (Math.Abs(valeur) >= 1_000_000_000)
+            return $"{valeur / 1_000_000_000:F2} Mds USD";
+        if (Math.Abs(valeur) >= 1_000_000)
+            return $"{valeur / 1_000_000:F1} M USD";
+        return $"{valeur:N0} USD";
+    }
 
     private void AjouterCibleMensuelle()
     {
