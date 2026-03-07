@@ -1,7 +1,11 @@
 @page "/doc-prix"
-@rendermode InteractiveServer
+@inject NavigationManager Nav
 
-<PageTitle>Documentation — Mécanismes de prix et élasticité</PageTitle>
+<PageTitle>Documentation</PageTitle>
+
+@code {
+    protected override void OnInitialized() => Nav.NavigateTo("/documentation", replace: true);
+}
 
 <div class="container py-4 doc-container">
 

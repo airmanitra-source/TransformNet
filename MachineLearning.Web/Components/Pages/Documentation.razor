@@ -1,0 +1,562 @@
+@page "/documentation"
+@rendermode InteractiveServer
+
+<PageTitle>Documentation — Simulateur Économique Madagascar</PageTitle>
+
+<div class="doc-wrapper container-fluid py-3">
+
+    <div class="doc-header mb-4">
+        <h1 class="doc-title">📖 Documentation du Simulateur</h1>
+        <p class="doc-subtitle">
+            Architecture, hypothèses, mécanismes de transmission et calibrage du simulateur macroéconomique malgache.
+        </p>
+        <div class="doc-meta">
+            <span class="badge bg-secondary me-1">Madagascar 🇲🇬</span>
+            <span class="badge bg-primary me-1">100k ménages simulés</span>
+            <span class="badge bg-success me-1">50k entreprises</span>
+            <span class="badge bg-info me-1">1 jour = 1 pas de temps</span>
+            <span class="badge bg-warning text-dark">Calibrage INSTAT/BCM sept. 2025</span>
+        </div>
+    </div>
+
+    <div class="accordion" id="docAccordion">
+
+        @* ══════════ 1. ARCHITECTURE GÉNÉRALE ══════════ *@
+        <div class="accordion-item border-primary mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button bg-primary text-white fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#sec-archi">
+                    🏗️ 1. Architecture générale — 3 agents, 1 boucle journalière
+                </button>
+            </h2>
+            <div id="sec-archi" class="accordion-collapse collapse show">
+                <div class="accordion-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="agent-card border-warning">
+                                <div class="agent-icon">👨‍👩‍👧</div>
+                                <div class="agent-title text-warning">Ménages (M)</div>
+                                <ul class="small mb-0">
+                                    <li>100 000 agents (extrapolés à 6M)</li>
+                                    <li>5 classes : Subsistance → Cadre</li>
+                                    <li>Propension à consommer 92% → 50%</li>
+                                    <li>30% urbains / 70% ruraux</li>
+                                    <li>Autoconsommation agricole (80% ruraux)</li>
+                                    <li>Micro-crédit, tontines, remittances</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="agent-card border-info">
+                                <div class="agent-icon">🏭</div>
+                                <div class="agent-title text-info">Entreprises (K)</div>
+                                <ul class="small mb-0">
+                                    <li>50 000 agents (7 secteurs)</li>
+                                    <li>85% informelles / 15% formelles</li>
+                                    <li>Trésorerie, IS/TVA, CNaPS</li>
+                                    <li>Embauche/licenciement dynamique</li>
+                                    <li>Investissement productif (FBCF)</li>
+                                    <li>Matrice input-output simplifiée</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="agent-card border-success">
+                                <div class="agent-icon">🏛️</div>
+                                <div class="agent-title text-success">État (G)</div>
+                                <ul class="small mb-0">
+                                    <li>350 000 fonctionnaires</li>
+                                    <li>Recettes : IR, IS, TVA, DD, accises</li>
+                                    <li>Dépenses : personnel, FBCF, intérêts</li>
+                                    <li>Subvention Jirama, aide internationale</li>
+                                    <li>Dette publique initiale 29 250 Mds MGA</li>
+                                    <li>Règle de Taylor (taux directeur endogène)</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flow-diagram mt-4">
+                        <div class="flow-title">🔄 Boucle journalière — séquence d'exécution</div>
+                        <div class="flow-steps">
+                            @foreach (var (step, i) in BouclePasDeTemps.Select((s,i) => (s,i+1)))
+                            {
+                                <div class="flow-step">
+                                    <span class="flow-num">@i</span>
+                                    <span class="flow-text">@step</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ══════════ 2. PIB ET COMPTABILITÉ NATIONALE ══════════ *@
+        <div class="accordion-item border-primary mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#sec-pib">
+                    📐 2. PIB — 3 approches SCN 2008 (convergence forcée)
+                </button>
+            </h2>
+            <div id="sec-pib" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    @foreach (var f in FormulesPIB)
+                    {
+                        <div class="formula-block">
+                            <div class="formula-name">@f.Nom</div>
+                            <code>@f.Formule</code>
+                            <div class="formula-desc">@f.Description</div>
+                        </div>
+                    }
+                    <div class="alert alert-info small mb-0">
+                        <strong>💡 Convergence :</strong> Les 3 approches sont forcées à converger (écart = 0,0%).
+                        L'écart PIB_D − PIB_VA est distribué sur la VA/EBE des agents commerciaux avec poids aléatoires.
+                        Loyers imputés (~1 200 Mds MGA/an) ajoutés aux 3 pour respecter le SCN 2008.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ══════════ 3. HYPOTHÈSES ET CALIBRAGE ══════════ *@
+        <div class="accordion-item border-success mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#sec-calib">
+                    ✅ 3. Hypothèses de calibrage — 14 points INSTAT/BCM/TOFE
+                </button>
+            </h2>
+            <div id="sec-calib" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <p class="small text-muted">Tous les points ci-dessous sont <strong>implémentés et actifs</strong> dans le simulateur :</p>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered table-hover param-table small">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Hypothèse</th>
+                                    <th>Impact PIB</th>
+                                    <th>Valeur calibrée</th>
+                                    <th>Source</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var a in Améliorations)
+                                {
+                                    <tr>
+                                        <td><span class="badge @a.BadgeClass">@a.Numero</span></td>
+                                        <td><strong>@a.Titre</strong></td>
+                                        <td>@a.ImpactPIB</td>
+                                        <td><code>@a.Valeur</code></td>
+                                        <td><small class="text-muted">@a.Source</small></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ══════════ 4. MÉCANISMES DE TRANSMISSION ══════════ *@
+        <div class="accordion-item border-warning mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#sec-trans">
+                    ⛽ 4. Mécanismes de transmission — prix, inflation, change
+                </button>
+            </h2>
+            <div id="sec-trans" class="accordion-collapse collapse">
+                <div class="accordion-body">
+
+                    <div class="alert alert-light border mb-3">
+                        <strong>Chaîne causale carburant → inflation :</strong><br />
+                        1️⃣ Choc carburant (prix OMH) → 2️⃣ Coûts transport entreprises (élasticité 0.70) →
+                        3️⃣ Hausse prix locaux (délai ajustement) → 4️⃣ Inflation alimentaire (panier ménages) →
+                        5️⃣ Réduction quantités (courbe logistique) → 6️⃣ Baisse PIB demande
+                    </div>
+
+                    <div class="row g-3">
+                        @foreach (var m in MécanismesTransmission)
+                        {
+                            <div class="col-md-6">
+                                <div class="mech-card">
+                                    <div class="mech-title">@m.Titre</div>
+                                    <div class="mech-formula"><code>@m.Formule</code></div>
+                                    <div class="mech-desc small text-muted">@m.Description</div>
+                                    <div class="mech-params small">
+                                        <strong>Paramètres :</strong> @m.Params
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ══════════ 5. INFLATION ENDOGÈNE ══════════ *@
+        <div class="accordion-item border-warning mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#sec-inflation">
+                    📈 5. Inflation endogène — courbe de Phillips + cost-push + monétaire
+                </button>
+            </h2>
+            <div id="sec-inflation" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <div class="formula-block">
+                        <div class="formula-name">Formule d'inflation endogène (4 composantes)</div>
+                        <code>π(t) = w_ant×π_ant + w_dem×π_Phillips + w_push×π_costPush + w_mon×π_monétaire</code>
+                        <div class="formula-desc">Chaque composante a un poids calibré sur l'économie malgache :</div>
+                    </div>
+
+                    <div class="row g-2">
+                        @foreach (var comp in ComposantesInflation)
+                        {
+                            <div class="col-md-6">
+                                <div class="comp-card p-2 border rounded small">
+                                    <strong>@comp.Nom</strong> <span class="badge bg-secondary">w = @comp.Poids</span><br />
+                                    <code class="small">@comp.Formule</code><br />
+                                    <span class="text-muted">@comp.Calibrage</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="formula-block mt-3">
+                        <div class="formula-name">Règle de Taylor — taux directeur BCM endogène</div>
+                        <code>r(t) = r(t-1) + ρ × [(r* + π_cible + α(π−π*) + β×OutputGap) − r(t-1)]</code>
+                        <div class="formula-desc">ρ = 0.03 (lissage), α = 0.50 (réaction inflation), β = 0.25 (réaction output gap), r* = 2%, π* = 6%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ══════════ 6. TAUX DE CHANGE DYNAMIQUE ══════════ *@
+        <div class="accordion-item border-info mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#sec-change">
+                    💱 6. Taux de change dynamique MGA/USD — BCM + PPA + balance
+                </button>
+            </h2>
+            <div id="sec-change" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <div class="formula-block">
+                        <div class="formula-name">Dynamique du taux de change (flottement géré)</div>
+                        <code>Δe = λ_BC×(FOB−CIF)/Imports + λ_PPA×(π−π*)/e − λ_BCM×Intervention + ε_structurel</code>
+                        <div class="formula-desc">3 forces + tendance structurelle de dépréciation 5%/an (historique MGA 2015-2024)</div>
+                    </div>
+                    <div class="row g-2 small">
+                        @foreach (var p in ParamsChange)
+                        {
+                            <div class="col-md-6 col-lg-4">
+                                <div class="p-2 border rounded">
+                                    <strong>@p.Nom</strong> = <code>@p.Valeur</code><br />
+                                    <span class="text-muted">@p.Source</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    <div class="alert alert-info small mt-3 mb-0">
+                        <strong>Pass-through inflation :</strong> ζ = 0.30 — 30% de la dépréciation MGA transmise aux prix intérieurs.
+                        Remittances : élasticité 0.50 au change (la diaspora envoie plus quand le MGA se déprécie).
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ══════════ 7. SECTEUR BANCAIRE ET M3 ══════════ *@
+        <div class="accordion-item border-info mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#sec-banque">
+                    🏦 7. Secteur bancaire — M3, crédit, multiplicateur
+                </button>
+            </h2>
+            <div id="sec-banque" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <div class="formula-block">
+                        <div class="formula-name">Masse monétaire M3 — équation de mouvement</div>
+                        <code>M3(t) = M3(t-1) + ΔCrédit(t) + [FOB(t) − CIF(t)] + Remittances(t) + Aide(t)</code>
+                        <div class="formula-desc">Les flux B2C et H2H sont neutres (redistribution). Seuls les exports, imports, crédit et flux extérieurs modifient M3.</div>
+                    </div>
+                    <div class="row g-2 small mt-2">
+                        @foreach (var p in ParamsBancaires)
+                        {
+                            <div class="col-md-6 col-lg-4">
+                                <div class="p-2 border rounded">
+                                    <strong>@p.Nom</strong> = <code>@p.Valeur</code><br />
+                                    <span class="text-muted">@p.Source</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ══════════ 8. CHOCS STOCHASTIQUES ══════════ *@
+        <div class="accordion-item border-danger mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#sec-chocs">
+                    🌪️ 8. Chocs stochastiques — cyclones, sécheresse, saisonnalité
+                </button>
+            </h2>
+            <div id="sec-chocs" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <div class="row g-3">
+                        @foreach (var c in ChocsStochastiques)
+                        {
+                            <div class="col-md-4">
+                                <div class="choc-card border-@c.Couleur">
+                                    <div class="choc-icon">@c.Icone</div>
+                                    <div class="choc-title">@c.Titre</div>
+                                    <ul class="small mb-0">
+                                        @foreach (var item in c.Items)
+                                        {
+                                            <li>@item</li>
+                                        }
+                                    </ul>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    <div class="alert alert-warning small mt-3 mb-0">
+                        <strong>Saisonnalité agricole :</strong> Amplitude 50% sur productivité agricole, 35% sur prix riz, 45% sur tourisme.
+                        Début simulation au 1er janvier = milieu saison des pluies / récolte principale (vary vary).
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ══════════ 9. MODÈLE TENSORIEL ══════════ *@
+        <div class="accordion-item border-secondary mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#sec-tenseur">
+                    🧮 9. Modèle tensoriel — flux B2C, H2H, exports, imports
+                </button>
+            </h2>
+            <div id="sec-tenseur" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <div class="row g-2 mb-3">
+                        @foreach (var n in Notations)
+                        {
+                            <div class="col-md-6 col-lg-4">
+                                <div class="p-2 border rounded small">
+                                    <strong>@n.Symbole</strong> <span class="text-muted">@n.Dimension</span><br />
+                                    @n.Description<br />
+                                    <code class="small text-secondary">@n.Code</code>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    <div class="formula-block">
+                        <div class="formula-name">4 flux monétaires</div>
+                        <code>
+                            V_B2C : Ménage → Entreprise (neutre M3) |
+                            V_H2H : Ménage → Ménage informel (neutre M3) |
+                            V_X : Export → +M3 (injection devises) |
+                            I_IMP : Import → −M3 (fuite devises)
+                        </code>
+                    </div>
+                    <div class="table-responsive mt-3">
+                        <table class="table table-sm table-bordered small param-table">
+                            <thead class="table-dark"><tr><th>Catégorie (N=8)</th><th>Champ snapshot</th><th>Destinataire</th><th>TVA</th></tr></thead>
+                            <tbody>
+                                @foreach (var c in CategoriesProduits)
+                                {
+                                    <tr>
+                                        <td><span class="badge @c.BadgeClass">@c.Index</span> @c.Nom</td>
+                                        <td><code>@c.Champ</code></td>
+                                        <td>@c.Destinataire</td>
+                                        <td>@c.TVA</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ══════════ 10. SECTEURS ET INFORMALITÉ ══════════ *@
+        <div class="accordion-item border-secondary mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#sec-secteurs">
+                    🏪 10. Secteurs d'activité, informalité et dualité urbain/rural
+                </button>
+            </h2>
+            <div id="sec-secteurs" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <h6 class="fw-bold">7 secteurs simulés</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm small">
+                                    <thead><tr><th>Secteur</th><th>Part entreprises</th><th>Tréso initiale</th></tr></thead>
+                                    <tbody>
+                                        @foreach (var s in SecteursActivite)
+                                        {
+                                            <tr><td>@s.Icone @s.Nom</td><td>@s.Part</td><td><code>@s.Tresorerie</code></td></tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="fw-bold">Dualité urbain / rural</h6>
+                            <table class="table table-sm small">
+                                <thead><tr><th>Paramètre</th><th>Urbain</th><th>Rural</th></tr></thead>
+                                <tbody>
+                                    <tr><td>Part ménages</td><td>30%</td><td>70%</td></tr>
+                                    <tr><td>Multiplicateur prix</td><td>×1.20</td><td>×0.85</td></tr>
+                                    <tr><td>Multiplicateur salaire</td><td>×1.40</td><td>×0.75</td></tr>
+                                    <tr><td>Accès eau</td><td>50%</td><td>10%</td></tr>
+                                    <tr><td>Accès électricité</td><td>65%</td><td>8%</td></tr>
+                                    <tr><td>Autoconsommation</td><td>—</td><td>80% ménages, 40% prod.</td></tr>
+                                </tbody>
+                            </table>
+                            <div class="alert alert-warning small mt-2 mb-0">
+                                <strong>85% informel</strong> : les entreprises informelles sont exonérées IS/TVA.
+                                85% des achats alimentaires sont routés vers le secteur informel.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ══════════ 11. RECALIBRATION INSTAT ══════════ *@
+        <div class="accordion-item border-success mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#sec-recalib">
+                    📊 11. Recalibration mensuelle — INSTAT TBE + Banque Mondiale
+                </button>
+            </h2>
+            <div id="sec-recalib" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <p class="small">Le simulateur peut se recalibrer automatiquement chaque mois sur des données observées :</p>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <h6 class="fw-bold">📥 Sources de données automatiques</h6>
+                            <ul class="small">
+                                <li><strong>INSTAT TBE (PDF)</strong> — Tableau de Bord Économique trimestriel :
+                                    M3, recettes fiscales, exports FOB, imports CIF, tourisme, affiliés CNaPS</li>
+                                <li><strong>Banque Mondiale WDI</strong> — PIB, inflation, population, taux de change, réserves, remittances</li>
+                            </ul>
+                            <h6 class="fw-bold mt-3">🔧 Variables recalibrées</h6>
+                            <ul class="small">
+                                <li>M3 (masse monétaire BCM)</li>
+                                <li>Recettes fiscales cumulées (DGT/MEF)</li>
+                                <li>Exports FOB / Imports CIF (DSE/INSTAT)</li>
+                                <li>Devises tourisme (MTA)</li>
+                                <li>Nouveaux affiliés CNaPS (emploi formel)</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="formula-block">
+                                <div class="formula-name">Algorithme de recalibration (vitesse 0.5)</div>
+                                <code>param(t+1) = param(t) × [1 + ρ × (cible − simulé) / simulé]</code>
+                                <div class="formula-desc">ρ = 0.5 (correction douce, évite les oscillations). Appliqué mensuellement si RecalibrationMensuelleActivee = true.</div>
+                            </div>
+                            <div class="alert alert-info small mt-2 mb-0">
+                                <strong>TBE INSTAT N°60 (Oct. 2025)</strong> : Extraction automatique des 6 tableaux clés
+                                (Tableau 26, 29, 31, 32, 33, 34) via PdfPig avec détection de colonnes par coordonnées X.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ══════════ 12. AIDS — ÉLASTICITÉS BUDGET ══════════ *@
+        <div class="accordion-item border-secondary mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#sec-aids">
+                    📉 12. Modèle AIDS — élasticités budget et parts de dépenses
+                </button>
+            </h2>
+            <div id="sec-aids" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <p class="small text-muted">Le module AIDS (Almost Ideal Demand System) calibre les parts budgétaires des ménages et exporte vers la simulation.</p>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered small param-table">
+                            <thead class="table-dark">
+                                <tr><th>#</th><th>Catégorie</th><th>Champ snapshot</th><th>β (élasticité-revenu)</th><th>Type Engel</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var c in CategoriesAIDSMapping)
+                                {
+                                    <tr>
+                                        <td><span class="badge @c.BadgeClass">@c.Index</span></td>
+                                        <td>@c.Icone @c.Nom</td>
+                                        <td><code>@c.ChampSnapshot</code></td>
+                                        <td class="@(c.Beta < 0 ? "text-danger" : "text-success")">
+                                            @(c.Beta > 0 ? "+" : "")@c.Beta.ToString("F2")
+                                        </td>
+                                        <td>@c.TypeEngel</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="alert alert-info small mb-0">
+                        <strong>Loi d'Engel :</strong> β &lt; 0 = bien inférieur (alimentaire de base : part ↓ quand revenu ↑).
+                        β &gt; 0 = bien supérieur (loisirs, biens divers : part ↑ quand revenu ↑).
+                        Cohérence structurelle avec les données EPM Madagascar.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ══════════ 13. LIMITES ET VALIDITÉ ══════════ *@
+        <div class="accordion-item border-danger mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#sec-limites">
+                    ⚠️ 13. Limites du modèle et hypothèses simplificatrices
+                </button>
+            </h2>
+            <div id="sec-limites" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <h6 class="text-danger">❌ Hors périmètre</h6>
+                            <ul class="small">
+                                <li>Pas de marché financier (actions, obligations)</li>
+                                <li>Pas de commerce interrégional explicite</li>
+                                <li>Pas d'anticipations rationnelles (adaptive uniquement)</li>
+                                <li>Équilibre général partiel (pas de marchés boursiers)</li>
+                                <li>Hétérogénéité intra-classe simplifiée</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-warning">⚠️ Hypothèses fortes</h6>
+                            <ul class="small">
+                                <li>85% informel = constante (pas de transition endogène complète)</li>
+                                <li>Prix agricoles suivent un profil saisonnier calibré, non stochastique</li>
+                                <li>Multiplicateur fiscal constant (pas d'effet d'éviction explicite)</li>
+                                <li>Population active formelle = 1.2% population totale (calibrage structurel)</li>
+                                <li>TVA sur imports appliquée uniformément (pas de niches)</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="alert alert-success small mt-3 mb-0">
+                        <strong>✅ Validation macro automatique :</strong> À la fin de chaque simulation, le modèle compare
+                        ses résultats aux données INSTAT/BCM/FMI de référence (PIB, inflation, M3, balance commerciale)
+                        et génère un score de fidélité (0-100%).
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>

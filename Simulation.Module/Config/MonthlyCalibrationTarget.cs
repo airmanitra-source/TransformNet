@@ -1,11 +1,13 @@
 namespace Simulation.Module.Config;
 
 /// <summary>
-/// Cible de recalibration mensuelle basée sur des données macroéconomiques observées.
-/// À chaque fin de mois simulé, le moteur compare les valeurs simulées aux cibles
-/// et ajuste les paramètres internes pour converger vers la réalité.
+/// Données de référence mensuelles (macro observées) pour la recalibration garde-fous.
+/// À chaque fin de mois simulé, le moteur vérifie que les grandeurs simulées
+/// restent dans une bande de tolérance (±seuil) autour de ces valeurs.
+/// Ce ne sont PAS des cibles : la simulation peut diverger si le scénario le justifie.
+/// La correction n'intervient QUE si la dérive dépasse le seuil.
 ///
-/// Sources fiables pour Madagascar :
+/// Sources pour Madagascar :
 ///   - M3 : Banque Centrale de Madagascar (BCM), bulletin mensuel
 ///   - Recettes fiscales : Direction Générale des Impôts (DGI), TOFE mensuel
 ///   - Imports/Exports : INSTAT, statistiques du commerce extérieur (Tableaux 32-33)
@@ -88,7 +90,8 @@ public class CalibrationEvent
 }
 
 /// <summary>
-/// Un ajustement individuel appliqué lors d'une recalibration.
+/// Un ajustement individuel appliqué lors d'une recalibration garde-fous.
+/// La correction n'est appliquée que si l'écart dépasse la bande de tolérance.
 /// </summary>
 public class CalibrationAdjustment
 {
@@ -101,14 +104,26 @@ public class CalibrationAdjustment
     /// <summary>Valeur après ajustement.</summary>
     public double NouvelleValeur { get; set; }
 
-    /// <summary>Valeur simulée comparée à la cible.</summary>
+    /// <summary>Valeur simulée au moment de la vérification.</summary>
     public double ValeurSimulee { get; set; }
 
-    /// <summary>Valeur cible observée.</summary>
-    public double ValeurCible { get; set; }
+    /// <summary>
+    /// Valeur de référence observée (INSTAT/BCM/DGI).
+    /// C'est le centre de la bande de tolérance, PAS une cible à atteindre.
+    /// </summary>
+    public double ValeurReference { get; set; }
 
-    /// <summary>Écart en % : (simulé - cible) / cible × 100.</summary>
-    public double EcartPourcent => ValeurCible != 0
-        ? (ValeurSimulee - ValeurCible) / ValeurCible * 100.0
+    /// <summary>Écart relatif au moment de la correction : (simulé − référence) / référence.</summary>
+    public double EcartRelatif { get; set; }
+
+    /// <summary>Seuil de tolérance appliqué (ex: 0.30 = ±30%).</summary>
+    public double SeuilApplique { get; set; }
+
+    /// <summary>Écart en % : (simulé − référence) / référence × 100.</summary>
+    public double EcartPourcent => ValeurReference != 0
+        ? (ValeurSimulee - ValeurReference) / ValeurReference * 100.0
         : 0;
+
+    /// <summary>La correction a-t-elle été déclenchée (écart > seuil) ?</summary>
+    public bool CorrectionDeclenchee => Math.Abs(EcartRelatif) > SeuilApplique;
 }

@@ -634,7 +634,7 @@
                             <div class="card-body p-2">
                                 <table class="table table-sm table-bordered mb-0">
                                     <thead>
-                                        <tr><th>Paramètre</th><th>Simulé</th><th>Cible</th><th>Écart</th><th>Correction</th></tr>
+                                        <tr><th>Paramètre</th><th>Simulé</th><th>Référence</th><th>Écart</th><th>Seuil</th><th>Correction</th></tr>
                                     </thead>
                                     <tbody>
                                         @foreach (var adj in evt.Ajustements)
@@ -642,10 +642,11 @@
                                             <tr>
                                                 <td><code>@adj.Parametre</code></td>
                                                 <td>@FormatMds(adj.ValeurSimulee)</td>
-                                                <td>@FormatMds(adj.ValeurCible)</td>
+                                                <td>@FormatMds(adj.ValeurReference)</td>
                                                 <td class="@(Math.Abs(adj.EcartPourcent) < 5 ? "text-success" : Math.Abs(adj.EcartPourcent) < 20 ? "text-warning" : "text-danger")">
                                                     @(adj.EcartPourcent >= 0 ? "+" : "")@adj.EcartPourcent.ToString("F1")%
                                                 </td>
+                                                <td>±@((adj.SeuilApplique * 100).ToString("F0"))%</td>
                                                 <td><small>@FormatSmallNumber(adj.AncienneValeur) → <strong>@FormatSmallNumber(adj.NouvelleValeur)</strong></small></td>
                                             </tr>
                                         }

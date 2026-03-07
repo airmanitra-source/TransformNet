@@ -8,34 +8,40 @@ using Company.Module.Models;
 namespace Simulation.Module.Models;
 
 /// <summary>
-/// Moteur de recalibration mensuelle.
-/// Compare les grandeurs macroéconomiques simulées aux données observées
-/// et ajuste les paramètres internes de la simulation pour converger vers la réalité.
+/// Moteur de recalibration mensuelle — logique GARDE-FOUS.
 ///
-/// Principe : à chaque fin de ctx.Mois (jour 30, 60, 90…), on calcule l'écart entre
-/// la valeur simulée et la cible observée, puis on applique une correction proportionnelle
-/// sur le paramètre qui pilote cette grandeur.
+/// Les données observées (INSTAT, BCM, DGI) ne sont PAS des cibles à atteindre.
+/// Elles définissent une bande de tolérance (±SeuilTolerance, défaut ±30%) autour
+/// de la valeur de référence. La simulation est libre de diverger dans cette bande.
 ///
-/// Grandeurs recalibrées :
+/// Correction uniquement si la dérive dépasse le seuil :
+///   - On calcule l'excès au-delà du bord de la bande
+///   - On corrige proportionnellement cet excès (pas l'écart total)
+///   - On ramène vers le BORD de la bande, pas vers le centre
+///
+/// Cela permet aux scénarios (choc carburant, hausse SMIG…) de produire des
+/// résultats qui divergent légitimement de l'historique, tout en empêchant
+/// les dérives numériques incontrôlées.
+///
+/// Grandeurs surveillées :
 ///   1. M3 (masse monétaire)     → ajuste CroissanceCreditJour
-///   2. Recettes fiscales         → ajuste ProductiviteParEmployeJour (volume des ventes)
-///   3. Exports FOB               → ajuste ValeurFOBJour des ctx.Exportateurs
-///   4. Imports CIF               → ajuste ValeurCIFJour des ctx.Importateurs
-///
-/// Note : les taux fiscaux (TVA, IS, IR) sont des paramètres de politique économique
-/// et ne sont jamais modifiés par la recalibration. L'écart de recettes s'explique
-/// par un volume de ventes simulé différent de la réalité, d'où l'ajustement
-/// de la productivité effective des ctx.Entreprises.
+///   2. Recettes fiscales         → ajuste ProductiviteParEmployeJour
+///   3. Exports FOB               → ajuste ValeurFOBJour des exportateurs
+///   4. Imports CIF               → ajuste ValeurCIFJour des importateurs
+///   5. Devises tourisme          → ajuste productivité hôtellerie
+///   6. Affiliés CNaPS            → formalisation d'entreprises (si dérive > seuil)
 /// </summary>
 public static class RecalibrationEngine
 {
     /// <summary>
-    /// Exécute la recalibration pour un ctx.Mois donné.
-    /// Compare les snapshots simulés aux cibles et retourne les ajustements.
+    /// Exécute la recalibration garde-fous pour un mois donné.
+    /// Ne corrige QUE les grandeurs qui dérivent au-delà de la bande de tolérance.
     /// </summary>
     public static CalibrationEvent? Recalibrer(RecalibrationContext ctx)
     {
         double alpha = Math.Clamp(ctx.Config.VitesseConvergenceRecalibration, 0.05, 1.0);
+        double seuil = Math.Clamp(ctx.Config.SeuilToleranceRecalibration, 0.05, 1.0);
+
         var evt = new CalibrationEvent
         {
             Jour = ctx.JourCourant,
@@ -47,97 +53,96 @@ public static class RecalibrationEngine
         // ═══════════════════════════════════════════
         if (ctx.Cible.M3Cible.HasValue && ctx.Cible.M3Cible.Value > 0)
         {
-            // La M3 simulée est à l'échelle de la simulation (× ctx.FacteurEchelle)
-            // La cible est à l'échelle réelle → mettre à l'échelle
-            double m3Cible = ctx.Cible.M3Cible.Value * ctx.FacteurEchelle;
+            double m3Reference = ctx.Cible.M3Cible.Value * ctx.FacteurEchelle;
             double m3Simulee = ctx.SnapshotActuel.MasseMonetaireM3;
 
-            if (m3Simulee > 0)
+            if (m3Simulee > 0 && m3Reference > 0)
             {
-                // Écart relatif : si simulé > cible → ralentir le crédit, sinon accélérer
-                double ratio = m3Cible / m3Simulee;
+                double ecart = (m3Simulee - m3Reference) / m3Reference;
 
-                // Jours restants dans la simulation pour estimer le taux journalier nécessaire
-                int joursRestants = Math.Max(30, ctx.Config.DureeJours - ctx.JourCourant);
-
-                // Nouveau taux = taux nécessaire pour atteindre la cible du prochain ctx.Mois
-                // On corrige partiellement : α × correction + (1−α) × taux actuel
-                double tauxCourant = ctx.Config.CroissanceCreditJour;
-
-                // Le taux nécessaire pour combler l'écart en joursRestants :
-                // m3_cible = m3_simulee × (1 + r)^joursRestants  →  r = (cible/simulé)^(1/jours) - 1
-                double tauxNecessaire = Math.Pow(ratio, 1.0 / joursRestants) - 1.0;
-                tauxNecessaire = Math.Clamp(tauxNecessaire, -0.005, 0.005);
-
-                double nouveauTaux = alpha * tauxNecessaire + (1.0 - alpha) * tauxCourant;
-                nouveauTaux = Math.Clamp(nouveauTaux, 0, 0.005);
-
-                evt.Ajustements.Add(new CalibrationAdjustment
+                // Ne corriger QUE si l'écart dépasse la bande ±seuil
+                if (Math.Abs(ecart) > seuil)
                 {
-                    Parametre = "CroissanceCreditJour",
-                    AncienneValeur = tauxCourant,
-                    NouvelleValeur = nouveauTaux,
-                    ValeurSimulee = m3Simulee / ctx.FacteurEchelle,
-                    ValeurCible = ctx.Cible.M3Cible.Value,
-                });
+                    // L'excès au-delà du bord de la bande
+                    double exces = ecart > 0
+                        ? ecart - seuil     // simulé trop haut → excès positif
+                        : ecart + seuil;    // simulé trop bas → excès négatif
 
-                ctx.Config.CroissanceCreditJour = nouveauTaux;
+                    // Bord de la bande (là où on veut ramener)
+                    double m3Bord = ecart > 0
+                        ? m3Reference * (1.0 + seuil)
+                        : m3Reference * (1.0 - seuil);
+
+                    int joursRestants = Math.Max(30, ctx.Config.DureeJours - ctx.JourCourant);
+                    double tauxCourant = ctx.Config.CroissanceCreditJour;
+
+                    // Taux nécessaire pour ramener au bord (pas au centre)
+                    double ratioBord = m3Bord / m3Simulee;
+                    double tauxNecessaire = Math.Pow(ratioBord, 1.0 / joursRestants) - 1.0;
+                    tauxNecessaire = Math.Clamp(tauxNecessaire, -0.005, 0.005);
+
+                    // Correction partielle (α) de l'excès uniquement
+                    double nouveauTaux = tauxCourant + alpha * (tauxNecessaire - tauxCourant);
+                    nouveauTaux = Math.Clamp(nouveauTaux, 0, 0.005);
+
+                    evt.Ajustements.Add(new CalibrationAdjustment
+                    {
+                        Parametre = "CroissanceCreditJour",
+                        AncienneValeur = tauxCourant,
+                        NouvelleValeur = nouveauTaux,
+                        ValeurSimulee = m3Simulee / ctx.FacteurEchelle,
+                        ValeurReference = ctx.Cible.M3Cible.Value,
+                        EcartRelatif = ecart,
+                        SeuilApplique = seuil,
+                    });
+
+                    ctx.Config.CroissanceCreditJour = nouveauTaux;
+                }
             }
         }
 
         // ═══════════════════════════════════════════
         //  2. RECETTES FISCALES → ajuste la productivité (volume des ventes)
         // ═══════════════════════════════════════════
-        //
-        // Les taux (TVA, IS, IR) sont des paramètres de politique fiscale : on n'y touche pas.
-        // Si les recettes simulées s'écartent de la cible, c'est que le volume de ventes
-        // (CA des ctx.Entreprises) est trop haut ou trop bas.
-        //
-        // Levier : ProductiviteParEmployeJour de chaque entreprise.
-        //   CA_jour = NombreEmployes × ProductiviteParEmployeJour × facteurPrixVente
-        //   TVA = CA × taux / (1+taux)   →  TVA ∝ ProductiviteParEmployeJour
-        //   IS ∝ bénéfice ∝ CA            →  IS ∝ ProductiviteParEmployeJour
-        //
         if (ctx.Cible.RecettesFiscalesCumuleesCible.HasValue && ctx.Cible.RecettesFiscalesCumuleesCible.Value > 0)
         {
-            double cibleFiscale = ctx.Cible.RecettesFiscalesCumuleesCible.Value * ctx.FacteurEchelle;
+            double reference = ctx.Cible.RecettesFiscalesCumuleesCible.Value * ctx.FacteurEchelle;
             double simulee = ctx.Etat.TotalRecettesFiscales;
 
-            if (simulee > 0 && cibleFiscale > 0 && ctx.Entreprises.Count > 0)
+            if (simulee > 0 && reference > 0 && ctx.Entreprises.Count > 0)
             {
-                double ratio = cibleFiscale / simulee;
+                double ecart = (simulee - reference) / reference;
 
-                // Correction proportionnelle avec convergence douce
-                double facteurCorrection = alpha * ratio + (1.0 - alpha);
-                // Borner pour éviter les chocs violents (±50% max par ctx.Mois)
-                facteurCorrection = Math.Clamp(facteurCorrection, 0.5, 1.5);
-
-                double productiviteMoyenneAvant = ctx.Entreprises.Average(e => e.ProductiviteParEmployeJour);
-
-                foreach (var ent in ctx.Entreprises)
+                if (Math.Abs(ecart) > seuil)
                 {
-                    ent.ProductiviteParEmployeJour *= facteurCorrection;
+                    // Ramener vers le bord de la bande, pas le centre
+                    double bordRatio = ecart > 0
+                        ? reference * (1.0 + seuil) / simulee
+                        : reference * (1.0 - seuil) / simulee;
+
+                    double facteurCorrection = 1.0 + alpha * (bordRatio - 1.0);
+                    facteurCorrection = Math.Clamp(facteurCorrection, 0.5, 1.5);
+
+                    double productiviteMoyenneAvant = ctx.Entreprises.Average(e => e.ProductiviteParEmployeJour);
+
+                    foreach (var ent in ctx.Entreprises)
+                        ent.ProductiviteParEmployeJour *= facteurCorrection;
+                    foreach (var imp in ctx.Importateurs)
+                        imp.ProductiviteParEmployeJour *= facteurCorrection;
+                    foreach (var exp in ctx.Exportateurs)
+                        exp.ProductiviteParEmployeJour *= facteurCorrection;
+
+                    evt.Ajustements.Add(new CalibrationAdjustment
+                    {
+                        Parametre = "ProductiviteParEmployeJour",
+                        AncienneValeur = productiviteMoyenneAvant,
+                        NouvelleValeur = ctx.Entreprises.Average(e => e.ProductiviteParEmployeJour),
+                        ValeurSimulee = simulee / ctx.FacteurEchelle,
+                        ValeurReference = ctx.Cible.RecettesFiscalesCumuleesCible.Value,
+                        EcartRelatif = ecart,
+                        SeuilApplique = seuil,
+                    });
                 }
-                // Appliquer aussi aux ctx.Importateurs et ctx.Exportateurs (qui héritent de Company)
-                foreach (var imp in ctx.Importateurs)
-                {
-                    imp.ProductiviteParEmployeJour *= facteurCorrection;
-                }
-                foreach (var exp in ctx.Exportateurs)
-                {
-                    exp.ProductiviteParEmployeJour *= facteurCorrection;
-                }
-
-                double productiviteMoyenneApres = ctx.Entreprises.Average(e => e.ProductiviteParEmployeJour);
-
-                evt.Ajustements.Add(new CalibrationAdjustment
-                {
-                    Parametre = "ProductiviteParEmployeJour",
-                    AncienneValeur = productiviteMoyenneAvant,
-                    NouvelleValeur = productiviteMoyenneApres,
-                    ValeurSimulee = simulee / ctx.FacteurEchelle,
-                    ValeurCible = ctx.Cible.RecettesFiscalesCumuleesCible.Value,
-                });
             }
         }
 
@@ -146,34 +151,39 @@ public static class RecalibrationEngine
         // ═══════════════════════════════════════════
         if (ctx.Cible.ExportationsFOBCumuleesCible.HasValue && ctx.Cible.ExportationsFOBCumuleesCible.Value > 0)
         {
-            double cibleFOB = ctx.Cible.ExportationsFOBCumuleesCible.Value * ctx.FacteurEchelle;
+            double reference = ctx.Cible.ExportationsFOBCumuleesCible.Value * ctx.FacteurEchelle;
             double fobSimulee = ctx.Exportateurs.Sum(e => e.TotalExportationsFOB);
 
-            if (fobSimulee > 0 && cibleFOB > 0)
+            if (fobSimulee > 0 && reference > 0)
             {
-                double ratio = cibleFOB / fobSimulee;
-                double facteurCorrection = alpha * ratio + (1.0 - alpha);
-                facteurCorrection = Math.Clamp(facteurCorrection, 0.5, 2.0);
+                double ecart = (fobSimulee - reference) / reference;
 
-                double fobMoyenneAvant = ctx.Exportateurs.Count > 0
-                    ? ctx.Exportateurs.Average(e => e.ValeurFOBJour) : 0;
-
-                foreach (var exp in ctx.Exportateurs)
+                if (Math.Abs(ecart) > seuil)
                 {
-                    exp.ValeurFOBJour *= facteurCorrection;
+                    double bordRatio = ecart > 0
+                        ? reference * (1.0 + seuil) / fobSimulee
+                        : reference * (1.0 - seuil) / fobSimulee;
+
+                    double facteurCorrection = 1.0 + alpha * (bordRatio - 1.0);
+                    facteurCorrection = Math.Clamp(facteurCorrection, 0.5, 2.0);
+
+                    double fobMoyenneAvant = ctx.Exportateurs.Count > 0
+                        ? ctx.Exportateurs.Average(e => e.ValeurFOBJour) : 0;
+
+                    foreach (var exp in ctx.Exportateurs)
+                        exp.ValeurFOBJour *= facteurCorrection;
+
+                    evt.Ajustements.Add(new CalibrationAdjustment
+                    {
+                        Parametre = "ValeurFOBJour (exportateurs)",
+                        AncienneValeur = fobMoyenneAvant,
+                        NouvelleValeur = ctx.Exportateurs.Count > 0 ? ctx.Exportateurs.Average(e => e.ValeurFOBJour) : 0,
+                        ValeurSimulee = fobSimulee / ctx.FacteurEchelle,
+                        ValeurReference = ctx.Cible.ExportationsFOBCumuleesCible.Value,
+                        EcartRelatif = ecart,
+                        SeuilApplique = seuil,
+                    });
                 }
-
-                double fobMoyenneApres = ctx.Exportateurs.Count > 0
-                    ? ctx.Exportateurs.Average(e => e.ValeurFOBJour) : 0;
-
-                evt.Ajustements.Add(new CalibrationAdjustment
-                {
-                    Parametre = "ValeurFOBJour (ctx.Exportateurs)",
-                    AncienneValeur = fobMoyenneAvant,
-                    NouvelleValeur = fobMoyenneApres,
-                    ValeurSimulee = fobSimulee / ctx.FacteurEchelle,
-                    ValeurCible = ctx.Cible.ExportationsFOBCumuleesCible.Value,
-                });
             }
         }
 
@@ -182,149 +192,145 @@ public static class RecalibrationEngine
         // ═══════════════════════════════════════════
         if (ctx.Cible.ImportationsCIFCumuleesCible.HasValue && ctx.Cible.ImportationsCIFCumuleesCible.Value > 0)
         {
-            double cibleCIF = ctx.Cible.ImportationsCIFCumuleesCible.Value * ctx.FacteurEchelle;
+            double reference = ctx.Cible.ImportationsCIFCumuleesCible.Value * ctx.FacteurEchelle;
             double cifSimulee = ctx.Importateurs.Sum(e => e.TotalImportationsCIF);
 
-            if (cifSimulee > 0 && cibleCIF > 0)
+            if (cifSimulee > 0 && reference > 0)
             {
-                double ratio = cibleCIF / cifSimulee;
-                double facteurCorrection = alpha * ratio + (1.0 - alpha);
-                facteurCorrection = Math.Clamp(facteurCorrection, 0.5, 2.0);
+                double ecart = (cifSimulee - reference) / reference;
 
-                double cifMoyenneAvant = ctx.Importateurs.Count > 0
-                    ? ctx.Importateurs.Average(e => e.ValeurCIFJour) : 0;
-
-                foreach (var imp in ctx.Importateurs)
+                if (Math.Abs(ecart) > seuil)
                 {
-                    imp.ValeurCIFJour *= facteurCorrection;
+                    double bordRatio = ecart > 0
+                        ? reference * (1.0 + seuil) / cifSimulee
+                        : reference * (1.0 - seuil) / cifSimulee;
+
+                    double facteurCorrection = 1.0 + alpha * (bordRatio - 1.0);
+                    facteurCorrection = Math.Clamp(facteurCorrection, 0.5, 2.0);
+
+                    double cifMoyenneAvant = ctx.Importateurs.Count > 0
+                        ? ctx.Importateurs.Average(e => e.ValeurCIFJour) : 0;
+
+                    foreach (var imp in ctx.Importateurs)
+                        imp.ValeurCIFJour *= facteurCorrection;
+
+                    evt.Ajustements.Add(new CalibrationAdjustment
+                    {
+                        Parametre = "ValeurCIFJour (importateurs)",
+                        AncienneValeur = cifMoyenneAvant,
+                        NouvelleValeur = ctx.Importateurs.Count > 0 ? ctx.Importateurs.Average(e => e.ValeurCIFJour) : 0,
+                        ValeurSimulee = cifSimulee / ctx.FacteurEchelle,
+                        ValeurReference = ctx.Cible.ImportationsCIFCumuleesCible.Value,
+                        EcartRelatif = ecart,
+                        SeuilApplique = seuil,
+                    });
                 }
-
-                double cifMoyenneApres = ctx.Importateurs.Count > 0
-                    ? ctx.Importateurs.Average(e => e.ValeurCIFJour) : 0;
-
-                evt.Ajustements.Add(new CalibrationAdjustment
-                {
-                    Parametre = "ValeurCIFJour (ctx.Importateurs)",
-                    AncienneValeur = cifMoyenneAvant,
-                    NouvelleValeur = cifMoyenneApres,
-                    ValeurSimulee = cifSimulee / ctx.FacteurEchelle,
-                    ValeurCible = ctx.Cible.ImportationsCIFCumuleesCible.Value,
-                });
             }
         }
 
         // ═══════════════════════════════════════════
-        //  5. DEVISES TOURISME (visiteurs non-résidents)
+        //  5. DEVISES TOURISME
         // ═══════════════════════════════════════════
-        //
-        // Les recettes touristiques sont un apport de devises étrangères
-        // (balance des paiements, poste "voyages"). Dans la simulation,
-        // elles correspondent au CA des ctx.Entreprises HôtellerieTourisme.
-        //
-        // Levier : ProductiviteParEmployeJour des ctx.Entreprises HôtellerieTourisme
-        //   → augmente leur CA → augmente les recettes simulées
-        //
-        // Note : on ajuste uniquement le secteur tourisme, pas toutes les ctx.Entreprises
-        // (contrairement à la correction fiscale qui touche tout le monde).
-        //
         if (ctx.Cible.DevisesTourismeCible.HasValue && ctx.Cible.DevisesTourismeCible.Value > 0)
         {
-            // La cible est mensuelle (apport du ctx.Mois), le simulé est cumulé
-            // → on utilise le CA cumulé des ctx.Entreprises tourisme pour ce ctx.Mois
-            double cibleTourisme = ctx.Cible.DevisesTourismeCible.Value * ctx.FacteurEchelle;
-            double tourismeCumuleeSimulee = ctx.SnapshotActuel.RecettesTourismeCumulees;
-
-            // Estimer le CA du ctx.Mois courant (cumulé actuel - cumulé du ctx.Mois précédent)
-            // Approximation : CA du ctx.Mois ≈ CA cumulé / nombre de ctx.Mois écoulés × 1
-            double tourismeMoisSimulee = ctx.Mois > 1 && tourismeCumuleeSimulee > 0
-                ? tourismeCumuleeSimulee / ctx.Mois  // approximation moyenne
-                : tourismeCumuleeSimulee;
+            double reference = ctx.Cible.DevisesTourismeCible.Value * ctx.FacteurEchelle;
+            double tourismeCumulee = ctx.SnapshotActuel.RecettesTourismeCumulees;
+            double tourismeMois = ctx.Mois > 1 && tourismeCumulee > 0
+                ? tourismeCumulee / ctx.Mois
+                : tourismeCumulee;
 
             var entreprisesTourisme = ctx.Entreprises
                 .Where(e => e.SecteurActivite == ESecteurActivite.HotellerieTourisme)
                 .ToList();
 
-            if (tourismeMoisSimulee > 0 && cibleTourisme > 0 && entreprisesTourisme.Count > 0)
+            if (tourismeMois > 0 && reference > 0 && entreprisesTourisme.Count > 0)
             {
-                double ratio = cibleTourisme / tourismeMoisSimulee;
-                double facteurCorrection = alpha * ratio + (1.0 - alpha);
-                facteurCorrection = Math.Clamp(facteurCorrection, 0.5, 2.0);
+                double ecart = (tourismeMois - reference) / reference;
 
-                double productiviteAvant = entreprisesTourisme.Average(e => e.ProductiviteParEmployeJour);
-
-                foreach (var ent in entreprisesTourisme)
+                if (Math.Abs(ecart) > seuil)
                 {
-                    ent.ProductiviteParEmployeJour *= facteurCorrection;
+                    double bordRatio = ecart > 0
+                        ? reference * (1.0 + seuil) / tourismeMois
+                        : reference * (1.0 - seuil) / tourismeMois;
+
+                    double facteurCorrection = 1.0 + alpha * (bordRatio - 1.0);
+                    facteurCorrection = Math.Clamp(facteurCorrection, 0.5, 2.0);
+
+                    double productiviteAvant = entreprisesTourisme.Average(e => e.ProductiviteParEmployeJour);
+                    foreach (var ent in entreprisesTourisme)
+                        ent.ProductiviteParEmployeJour *= facteurCorrection;
+
+                    evt.Ajustements.Add(new CalibrationAdjustment
+                    {
+                        Parametre = "ProductiviteParEmployeJour (tourisme)",
+                        AncienneValeur = productiviteAvant,
+                        NouvelleValeur = entreprisesTourisme.Average(e => e.ProductiviteParEmployeJour),
+                        ValeurSimulee = tourismeMois / ctx.FacteurEchelle,
+                        ValeurReference = ctx.Cible.DevisesTourismeCible.Value,
+                        EcartRelatif = ecart,
+                        SeuilApplique = seuil,
+                    });
                 }
-
-                double productiviteApres = entreprisesTourisme.Average(e => e.ProductiviteParEmployeJour);
-
-                evt.Ajustements.Add(new CalibrationAdjustment
-                {
-                    Parametre = "ProductiviteParEmployeJour (tourisme)",
-                    AncienneValeur = productiviteAvant,
-                    NouvelleValeur = productiviteApres,
-                    ValeurSimulee = tourismeMoisSimulee / ctx.FacteurEchelle,
-                    ValeurCible = ctx.Cible.DevisesTourismeCible.Value,
-                });
             }
         }
 
         // ═══════════════════════════════════════════
         //  6. AFFILIÉS CNaPS (emploi formel)
         // ═══════════════════════════════════════════
-        //
-        // Le nombre de nouveaux affiliés CNaPS reflète la croissance de l'emploi
-        // formel. Si la cible est supérieure au simulé, on formalise des ctx.Entreprises
-        // informelles (EstInformel → false), ce qui :
-        //   - augmente les cotisations CNaPS collectées
-        //   - augmente la TVA (les informelles en sont exonérées)
-        //   - augmente l'IS
-        //
-        // Levier : toggle EstInformel sur les ctx.Entreprises les plus proches
-        // du seuil de formalisation (triées par CA décroissant = les plus viables).
-        //
+        //  Garde-fou : ne formalise que si l'écart d'emploi formel
+        //  est excessif (bien au-delà de la bande). Les scénarios qui
+        //  réduisent volontairement l'informel ne seront pas contrecarrés.
         if (ctx.Cible.NouveauxAffiliesCNaPSCible.HasValue && ctx.Cible.NouveauxAffiliesCNaPSCible.Value > 0)
         {
-            int cibleAffiliés = (int)(ctx.Cible.NouveauxAffiliesCNaPSCible.Value * ctx.FacteurEchelle);
-            int salariesFormelsSimules = ctx.SnapshotActuel.NbSalariesSecteurFormel;
+            int referenceAffiliés = (int)(ctx.Cible.NouveauxAffiliesCNaPSCible.Value * ctx.FacteurEchelle);
+            int formelsSimules = ctx.SnapshotActuel.NbSalariesSecteurFormel;
 
-            // Nouveaux affiliés simulés ce ctx.Mois ≈ variation par rapport au stock initial
-            // On compare le stock actuel au stock attendu (stock initial + cible cumulée)
-            int stockAttendu = salariesFormelsSimules + cibleAffiliés;
-
-            if (cibleAffiliés > 0)
+            if (referenceAffiliés > 0 && formelsSimules > 0)
             {
-                // Identifier les ctx.Entreprises informelles candidates à la formalisation
-                // Trier par CA cumulé décroissant : les plus grosses informelles d'abord
-                var informellesCandidates = ctx.Entreprises
-                    .Where(e => e.EstInformel)
-                    .OrderByDescending(e => e.ChiffreAffairesCumule)
-                    .ToList();
+                // Écart : simulation a moins de formels que la référence
+                double ecart = (double)(formelsSimules - referenceAffiliés) / referenceAffiliés;
 
-                int employesFormalises = 0;
-                int entreprisesFormaliseesCount = 0;
-
-                foreach (var ent in informellesCandidates)
+                // Ne formaliser que si le simulé est significativement en dessous
+                if (ecart < -seuil)
                 {
-                    if (employesFormalises >= cibleAffiliés)
-                        break;
+                    // Nombre à formaliser : seulement l'excès au-delà du bord
+                    int bordInferieur = (int)(referenceAffiliés * (1.0 - seuil));
+                    int deficitExces = Math.Max(0, bordInferieur - formelsSimules);
 
-                    ent.EstInformel = false;
-                    employesFormalises += ent.NombreEmployes;
-                    entreprisesFormaliseesCount++;
-                }
+                    // Correction partielle
+                    int aFormaliser = (int)(deficitExces * alpha);
+                    if (aFormaliser <= 0) aFormaliser = 1;
 
-                if (entreprisesFormaliseesCount > 0)
-                {
-                    evt.Ajustements.Add(new CalibrationAdjustment
+                    var informellesCandidates = ctx.Entreprises
+                        .Where(e => e.EstInformel)
+                        .OrderByDescending(e => e.ChiffreAffairesCumule)
+                        .ToList();
+
+                    int employesFormalises = 0;
+                    int entreprisesFormaliseesCount = 0;
+
+                    foreach (var ent in informellesCandidates)
                     {
-                        Parametre = "Formalisation ctx.Entreprises (CNaPS)",
-                        AncienneValeur = informellesCandidates.Count + entreprisesFormaliseesCount,
-                        NouvelleValeur = informellesCandidates.Count,
-                        ValeurSimulee = salariesFormelsSimules,
-                        ValeurCible = stockAttendu,
-                    });
+                        if (employesFormalises >= aFormaliser)
+                            break;
+                        ent.EstInformel = false;
+                        employesFormalises += ent.NombreEmployes;
+                        entreprisesFormaliseesCount++;
+                    }
+
+                    if (entreprisesFormaliseesCount > 0)
+                    {
+                        evt.Ajustements.Add(new CalibrationAdjustment
+                        {
+                            Parametre = "Formalisation entreprises (CNaPS)",
+                            AncienneValeur = informellesCandidates.Count + entreprisesFormaliseesCount,
+                            NouvelleValeur = informellesCandidates.Count,
+                            ValeurSimulee = formelsSimules,
+                            ValeurReference = referenceAffiliés,
+                            EcartRelatif = ecart,
+                            SeuilApplique = seuil,
+                        });
+                    }
                 }
             }
         }

@@ -367,10 +367,12 @@ public class SimulationModule : ISimulationModule
             // Les fonctionnaires sont toujours employés ; les autres suivent la probabilité
             bool estEmploye = estFonctionnaire || random.NextDouble() < comportement.ProbabiliteEmploi;
             int? employeurId = null;
+            bool estDansSecteurInformel = !estFonctionnaire; // par défaut informel (sauf fonctionnaire)
             if (estEmploye && !estFonctionnaire)
             {
                 var employeur = toutesEntreprises[entrepriseIndex];
                 employeurId = employeur.Id;
+                estDansSecteurInformel = employeur.EstInformel;
 
                 if (!salairesParEmployeur.TryGetValue(employeur.Id, out var salairesEmployeur))
                 {
@@ -424,6 +426,7 @@ public class SimulationModule : ISimulationModule
                 SalaireMensuel = salaire,
                 Classe = classe,
                 Zone = zone,
+                EstDansSecteurInformel = estDansSecteurInformel,
                 PratiqueAutoconsommation = pratiqueAutoconso,
                 AutoconsommationJour = autoconsoJour,
                 AccesCredit = typeCredit,
@@ -1474,6 +1477,7 @@ public class SimulationModule : ISimulationModule
             DepensesElectriciteEntreprises = tousResultsEntreprises.Sum(r => r.DepensesElectricite),
             CotisationsCNaPSPatronales = tousResultsEntreprises.Sum(r => r.CotisationsCNaPS),
             NbEntreprisesInformelles = toutesEntreprisesRef.Count(e => e.EstInformel),
+            TotalEmployesEntreprises = toutesEntreprisesRef.Sum(e => e.NombreEmployes),
 
             // Commerce extérieur
             ImportationsCIF = resultEtat.ImportationsCIF,

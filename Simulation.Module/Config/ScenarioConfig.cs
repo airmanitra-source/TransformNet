@@ -10,6 +10,12 @@ public class ScenarioConfig
     public string Name { get; set; } = "Scénario de base";
     public string Description { get; set; } = "Paramètres macroéconomiques de base de Madagascar";
 
+    /// <summary>
+    /// Résumé structuré des implications économiques attendues pour ce scénario.
+    /// Affiché dans l'encadré bleu de l'interface utilisateur.
+    /// </summary>
+    public ScenarioImplications Implications { get; set; } = new();
+
     public static readonly double NombreMenagesReference = 6_000_000;
     public static readonly int CourtTerme = 90;
     public static readonly int MoyenTerme = 365;
@@ -884,28 +890,41 @@ public class ScenarioConfig
     // ════════════════════════════════════════════════════════════════
 
     // ════════════════════════════════════════════════════════════════
-    // ░░░ RECALIBRATION MENSUELLE SUR DONNÉES MACRO OBSERVÉES ░░░
+    // ░░░ RECALIBRATION MENSUELLE — GARDE-FOUS MACRO ░░░
     // ════════════════════════════════════════════════════════════════
 
     /// <summary>
     /// Activer la recalibration mensuelle automatique.
     /// Si activé, à chaque fin de mois (jour 30, 60, 90...), le simulateur
-    /// compare ses résultats aux cibles et ajuste ses paramètres internes.
+    /// vérifie que les grandeurs simulées restent dans une bande de tolérance
+    /// autour des données observées et ne corrige QUE si la dérive est excessive.
+    /// Les données observées sont des garde-fous, pas des cibles à atteindre.
     /// </summary>
     public bool RecalibrationMensuelleActivee { get; set; } = false;
 
     /// <summary>
-    /// Cibles mensuelles de recalibration (données macro observées).
-    /// Chaque entrée correspond à un mois de simulation.
+    /// Données de référence mensuelles (INSTAT/BCM/DGI).
+    /// Servent de point d'ancrage pour détecter les dérives excessives.
+    /// Ce ne sont PAS des cibles : la simulation peut diverger si le scénario le justifie.
     /// </summary>
     public List<MonthlyCalibrationTarget> CiblesMensuelles { get; set; } = [];
 
     /// <summary>
-    /// Vitesse de convergence (0.0–1.0). Contrôle l'agressivité de la correction.
-    /// 0.3 = correction douce (30% de l'écart corrigé), 1.0 = correction totale.
-    /// Valeur recommandée : 0.5 (évite les oscillations).
+    /// Intensité de correction quand la dérive dépasse le seuil (0.0–1.0).
+    /// Ne s'applique QUE sur l'excès au-delà de la bande de tolérance.
+    /// 0.3 = correction douce, 1.0 = ramène au bord de la bande.
+    /// Valeur recommandée : 0.5.
     /// </summary>
     public double VitesseConvergenceRecalibration { get; set; } = 0.5;
+
+    /// <summary>
+    /// Seuil de tolérance de la bande garde-fou (0.0–1.0).
+    /// La recalibration n'intervient QUE si l'écart relatif dépasse ce seuil.
+    /// 0.30 = ±30% autour de la valeur observée → large latitude pour le scénario.
+    /// 0.10 = ±10% → très strict, le modèle sera très contraint par les données.
+    /// Valeur recommandée : 0.30 (laisse le scénario s'exprimer).
+    /// </summary>
+    public double SeuilToleranceRecalibration { get; set; } = 0.30;
 
     // ════════════════════════════════════════════════════════════════
 
@@ -931,7 +950,17 @@ public class ScenarioConfig
     public string SourceCalibrationImports { get; set; } = "Moyenne INSTAT Tableau 33 (juil 2023 – juin 2025)";
     public Dictionary<ECategorieImport, double> CIFCalibresJour { get; set; } = new();
 
-    public static ScenarioConfig BaseMadagascar() => new();
+    public static ScenarioConfig BaseMadagascar() => new()
+    {
+        Implications = new()
+        {
+            ChangementsClés = ["Paramètres calibrés INSTAT/BCM/BFM sept. 2025", "85% secteur informel", "Saisonnalité agricole active"],
+            CanauxTransmission = ["Consommation ménages (C)", "Dépenses publiques (G)", "Commerce extérieur (X−M)"],
+            RisquesAttendus = ["Référence : aucun choc appliqué", "Dépréciation MGA structurelle 5%/an"],
+            HorizonRecommande = "1 an",
+            Categorie = "baseline"
+        }
+    };
 
     public static List<ScenarioConfig> TousLesScenarios()
     {
@@ -943,7 +972,15 @@ public class ScenarioConfig
             new()
             {
                 Name = "🇲🇬 Baseline — Madagascar actuel (2025)",
-                Description = "Calibrage INSTAT/BCM/BFM sept. 2025. Référence pour mesurer l'impact de toute politique."
+                Description = "Calibrage INSTAT/BCM/BFM sept. 2025. Référence pour mesurer l'impact de toute politique.",
+                Implications = new()
+                {
+                    ChangementsClés = ["Paramètres calibrés sur données réelles sept. 2025", "M3 ~35 000 Mds MGA, PIB ~55 000 Mds MGA/an"],
+                    CanauxTransmission = ["Tous les mécanismes actifs (saisonnalité, inflation endogène, change)"],
+                    RisquesAttendus = ["Dépréciation MGA 5%/an (structurelle)", "Cyclone potentiel nov–avr (~54% sur 6 mois)"],
+                    HorizonRecommande = "1 an",
+                    Categorie = "baseline"
+                }
             },
 
             // ══════════════════════════════════════════════════════════════
@@ -957,6 +994,14 @@ public class ScenarioConfig
                 Description = "Transferts sociaux +50%. Impact : consommation ↑, PIB demand-pull ↑, inflation alimentaire ?, recettes TVA ?, secteur informel ?",
                 DepensesPubliquesJour = 4_827_000_000, // +50% du montant dédié transferts
                 AideInternationaleJour = 5_556_000_000, // +50% aide (financement externe)
+                Implications = new()
+                {
+                    ChangementsClés = ["Dépenses publiques +50%", "Aide internationale +50%", "Revenus ménages vulnérables ↑"],
+                    CanauxTransmission = ["Consommation C ↑ (propension 92% classe subsistance)", "Demande alimentaire informelle ↑", "Recettes TVA ↑ par rebond"],
+                    RisquesAttendus = ["Inflation alimentaire si offre inélastique", "Déficit budgétaire si non financé par aide", "Attractivité importations alimentaires"],
+                    HorizonRecommande = "3 mois",
+                    Categorie = "social"
+                }
             },
 
             // Q: Si je double les transferts avec financement par dette ?
@@ -965,6 +1010,14 @@ public class ScenarioConfig
                 Name = "🤝🤝 Appui ménages pauvres massif (×2 transferts, dette)",
                 Description = "Transferts sociaux ×2, financés par dette publique. Impact : demande ↑↑, inflation ?, dette ?, effet multiplicateur ?",
                 DepensesPubliquesJour = 6_436_000_000, // ×2
+                Implications = new()
+                {
+                    ChangementsClés = ["Dépenses publiques ×2", "Financement par dette (effet d'éviction)"],
+                    CanauxTransmission = ["Consommation C ↑↑", "M3 ↑ (financement monétaire)", "Taux d'intérêt ↑ (pression sur dette)"],
+                    RisquesAttendus = ["Inflation forte si M3 non stérilisé", "Dette/PIB ↑ rapidement", "Dépréciation MGA accélérée"],
+                    HorizonRecommande = "1 an",
+                    Categorie = "social"
+                }
             },
 
             // Q: Si j'augmente le salaire minimum (SMIG) de 200k à 300k MGA/mois ?
@@ -974,6 +1027,14 @@ public class ScenarioConfig
                 Description = "Salaire plancher +50%. Impact : pouvoir d'achat ↑, charges entreprises ↑, emploi formel ?, inflation salaires ?",
                 SalairePlancher = 75_000, // 300k/mois ÷ ~4 semaines ≈ plafond journalier ajusté
                 SalaireMedian = 200_000, // tiré vers le haut
+                Implications = new()
+                {
+                    ChangementsClés = ["SMIG 200k → 300k MGA/mois (+50%)", "Salaire médian relevé"],
+                    CanauxTransmission = ["Pouvoir d'achat classes InformelBas/FormelBas ↑", "Charges CNaPS entreprises ↑ (18% sur salaires)", "Pass-through salarial → inflation (η=0.15)"],
+                    RisquesAttendus = ["Hausse coûts de production → inflation ~7.5%", "Licenciements informels (ajustement rapide)", "Substitution capital/travail dans le formel"],
+                    HorizonRecommande = "1 an",
+                    Categorie = "social"
+                }
             },
 
             // ══════════════════════════════════════════════════════════════
@@ -985,9 +1046,17 @@ public class ScenarioConfig
             {
                 Name = "🏦 Facilités crédit TPE/PME (crédit +30%, taux -3pts)",
                 Description = "Crédit +30% aux entreprises, taux crédit -3pts. Impact : investissement ↑, emploi ↑, M3 ↑, NPL ?, inflation ?",
-                CroissanceCreditJour = 0.00053, // +30% vs base (0.00041)
-                TauxInteretCredits = 0.13, // -3pts
-                PartCreditEntreprises = 0.85, // ciblage entreprises
+                CroissanceCreditJour = 0.00053,
+                TauxInteretCredits = 0.13,
+                PartCreditEntreprises = 0.85,
+                Implications = new()
+                {
+                    ChangementsClés = ["Crédit bancaire +30%", "Taux crédit 16% → 13%", "75%→85% du crédit vers entreprises"],
+                    CanauxTransmission = ["Investissement FBCF privé ↑", "Emploi formel ↑ (embauche facilitée)", "M3 ↑ via multiplicateur bancaire"],
+                    RisquesAttendus = ["NPL potentiel si sélection adverse", "Pression inflationniste via M3", "Effet limité si demande insuffisante"],
+                    HorizonRecommande = "1 an",
+                    Categorie = "monetaire"
+                }
             },
 
             // Q: Politique monétaire expansive — taux directeur bas
@@ -996,9 +1065,17 @@ public class ScenarioConfig
                 Name = "🏦 Monnaie facile (taux directeur 3%, crédit ↑)",
                 Description = "BCM baisse taux à 3%. Impact : crédit ↑, investissement ↑, consommation ↑, inflation ?, taux change ?",
                 TauxDirecteur = 0.03,
-                CroissanceCreditJour = 0.00060, // croissance crédit plus rapide
+                CroissanceCreditJour = 0.00060,
                 TauxInteretCredits = 0.12,
                 TauxInteretDepots = 0.03,
+                Implications = new()
+                {
+                    ChangementsClés = ["Taux directeur BCM 9% → 3%", "Crédit +46%/an", "Taux débiteur 16% → 12%"],
+                    CanauxTransmission = ["Crédit entreprises ↑↑", "Investissement et consommation ↑", "MGA sous pression (carry trade sortant)"],
+                    RisquesAttendus = ["Inflation si output gap positif", "Dépréciation MGA accélérée", "Bulles actifs immobiliers"],
+                    HorizonRecommande = "1 an",
+                    Categorie = "monetaire"
+                }
             },
 
             // Q: Resserrement monétaire — taux directeur haut
@@ -1010,6 +1087,14 @@ public class ScenarioConfig
                 CroissanceCreditJour = 0.00020,
                 TauxInteretCredits = 0.22,
                 TauxInteretDepots = 0.07,
+                Implications = new()
+                {
+                    ChangementsClés = ["Taux directeur 9% → 15%", "Crédit divisé par 2", "Taux débiteur 22%"],
+                    CanauxTransmission = ["Crédit se contracte", "Investissement ↓", "MGA s'apprécie (afflux carry)"],
+                    RisquesAttendus = ["Récession si surchauffe contenue", "NPL ↑ (entreprises surendettées)", "Chômage ↑ à court terme"],
+                    HorizonRecommande = "1 an",
+                    Categorie = "monetaire"
+                }
             },
 
             // ══════════════════════════════════════════════════════════════
@@ -1021,8 +1106,16 @@ public class ScenarioConfig
             {
                 Name = "📋 Formalisation secteur informel (-10pts informel)",
                 Description = "Part informel 85%→75%. Impact : recettes fiscales ↑ (IR, IS, TVA), emploi formel ↑, productivité ↑, coût entreprises ?",
-                PartSecteurInformel = 0.75, // -10 points
+                PartSecteurInformel = 0.75,
                 TauxCotisationsPatronalesCNaPS = 0.18,
+                Implications = new()
+                {
+                    ChangementsClés = ["Secteur informel 85% → 75%", "Base fiscale élargie (IS + TVA)"],
+                    CanauxTransmission = ["Recettes IS/TVA ↑ (~+15%)", "Cotisations CNaPS ↑", "Productivité travail ↑ (formel plus productif)"],
+                    RisquesAttendus = ["Résistance des entreprises informelles", "Coûts de transition (comptabilité, CNaPS)", "Risque de fuite vers l'économie grise"],
+                    HorizonRecommande = "1 an",
+                    Categorie = "fiscal"
+                }
             },
 
             // Q: Si je formalise 20% du secteur informel ?
@@ -1031,6 +1124,14 @@ public class ScenarioConfig
                 Name = "📋📋 Formalisation massive (-20pts informel)",
                 Description = "Part informel 85%→65%. Impact : recettes fiscales ↑↑, base TVA élargie, productivité ↑, mais coûts sociaux transition ?",
                 PartSecteurInformel = 0.65,
+                Implications = new()
+                {
+                    ChangementsClés = ["Secteur informel 85% → 65%", "Base fiscale fortement élargie"],
+                    CanauxTransmission = ["Recettes IS/TVA ↑↑ (~+30%)", "M3 ↑ (plus de transactions formelles)", "PIB comptabilisé ↑ (moins d'économie souterraine)"],
+                    RisquesAttendus = ["Choc de transition élevé (horizon 3-5 ans)", "Résistance politique forte", "Risque de destruction emploi informel"],
+                    HorizonRecommande = "5 ans",
+                    Categorie = "fiscal"
+                }
             },
 
             // ══════════════════════════════════════════════════════════════
@@ -1043,6 +1144,14 @@ public class ScenarioConfig
                 Name = "📈 Hausse TVA (20% → 22%)",
                 Description = "TVA +2pts. Impact : recettes fiscales ↑, prix ↑, consommation ↓, secteur informel renforcé ?",
                 TauxTVA = 0.22,
+                Implications = new()
+                {
+                    ChangementsClés = ["TVA 20% → 22% (+2 pts)"],
+                    CanauxTransmission = ["Prix biens formels ↑ 2%", "Recettes TVA ↑ (~+10%)", "Substitution vers informel (pas de TVA)"],
+                    RisquesAttendus = ["Consommation formelle ↓", "Renforcement secteur informel", "Effet régressif (ménages pauvres plus impactés)"],
+                    HorizonRecommande = "3 mois",
+                    Categorie = "fiscal"
+                }
             },
 
             // Q: Si je baisse la TVA à 18% pour stimuler la consommation ?
@@ -1051,6 +1160,14 @@ public class ScenarioConfig
                 Name = "📉 Baisse TVA (20% → 18%)",
                 Description = "TVA -2pts. Impact : prix ↓, consommation ↑, recettes fiscales ↓, déficit ?, effet Laffer ?",
                 TauxTVA = 0.18,
+                Implications = new()
+                {
+                    ChangementsClés = ["TVA 20% → 18% (−2 pts)"],
+                    CanauxTransmission = ["Prix biens formels ↓ 2%", "Consommation formelle ↑", "Effet Laffer potentiel (volume ↑ compense taux ↓)"],
+                    RisquesAttendus = ["Recettes TVA ↓ à court terme", "Déficit budgétaire si pas compensé", "Réduction incitation à l'informalité"],
+                    HorizonRecommande = "3 mois",
+                    Categorie = "fiscal"
+                }
             },
 
             // Q: Si j'augmente l'IS sur les grandes entreprises ?
@@ -1059,6 +1176,14 @@ public class ScenarioConfig
                 Name = "🏢 Hausse IS (20% → 25%)",
                 Description = "IS +5pts. Impact : recettes IS ↑, investissement privé ↓, compétitivité ?, délocalisations ?",
                 TauxIS = 0.25,
+                Implications = new()
+                {
+                    ChangementsClés = ["IS 20% → 25% (+5 pts)"],
+                    CanauxTransmission = ["Recettes IS ↑ sur entreprises formelles", "Profit net entreprises ↓ → FBCF ↓", "Trésorerie entreprises ↓"],
+                    RisquesAttendus = ["Investissement privé ↓", "Fuite vers secteur informel", "Compétitivité exportateurs ↓"],
+                    HorizonRecommande = "1 an",
+                    Categorie = "fiscal"
+                }
             },
 
             // Q: Si je réduis les droits de douane pour baisser les prix ?
@@ -1068,6 +1193,14 @@ public class ScenarioConfig
                 Description = "Droits douane -4pts. Impact : prix imports ↓, inflation ↓, recettes douanières ↓, déficit commercial ?",
                 TauxDroitsDouane = 0.08,
                 TauxAccise = 0.08,
+                Implications = new()
+                {
+                    ChangementsClés = ["Droits douane 12% → 8%", "Accises 10% → 8%"],
+                    CanauxTransmission = ["Prix imports ↓ → inflation importée ↓", "Recettes douanières ↓", "Volume imports ↑ (biens moins chers)"],
+                    RisquesAttendus = ["Déficit commercial ↑", "Industrie locale sous pression concurrentielle", "MGA sous pression (imports ↑)"],
+                    HorizonRecommande = "3 mois",
+                    Categorie = "fiscal"
+                }
             },
 
             // ══════════════════════════════════════════════════════════════
@@ -1079,8 +1212,16 @@ public class ScenarioConfig
             {
                 Name = "🏗️ Stimulus investissement public (+20% FBCF)",
                 Description = "Dépenses capital +20%. Impact : FBCF ↑, emploi BTP ↑, PIB ↑, dette ?, effet d'éviction ?",
-                DepensesCapitalJour = 16_231_200_000, // +20%
-                DepensesPubliquesJour = 3_861_600_000, // +20%
+                DepensesCapitalJour = 16_231_200_000,
+                DepensesPubliquesJour = 3_861_600_000,
+                Implications = new()
+                {
+                    ChangementsClés = ["FBCF publique +20% (13.5 → 16.2 Mds/jour)", "Dépenses publiques +20%"],
+                    CanauxTransmission = ["Emploi BTP ↑ (multiplicateur ~1.5)", "PIB demande ↑", "Commandes secteur construction ↑"],
+                    RisquesAttendus = ["Dette publique ↑ si non financé", "Effet d'éviction crédit privé", "Inflation BTP si capacité saturée"],
+                    HorizonRecommande = "1 an",
+                    Categorie = "budgetaire"
+                }
             },
 
             // Q: Austérité budgétaire ?
@@ -1091,6 +1232,14 @@ public class ScenarioConfig
                 DepensesPubliquesJour = 2_574_400_000,
                 DepensesCapitalJour = 10_820_800_000,
                 NombreFonctionnaires = 280_000,
+                Implications = new()
+                {
+                    ChangementsClés = ["Dépenses publiques −20%", "FBCF publique −20%", "Fonctionnaires 350k → 280k"],
+                    CanauxTransmission = ["Demande agrégée ↓ (G ↓)", "Salaires fonctionnaires ↓", "Déficit budgétaire ↓"],
+                    RisquesAttendus = ["Récession à court terme", "Chômage fonctionnaires", "PIB ↓ si multiplicateur > 1"],
+                    HorizonRecommande = "1 an",
+                    Categorie = "budgetaire"
+                }
             },
 
             // ══════════════════════════════════════════════════════════════
@@ -1102,7 +1251,15 @@ public class ScenarioConfig
             {
                 Name = "⚡ Subvention énergie (Jirama +50%)",
                 Description = "Subvention Jirama +50%. Impact : facture ménages ↓, compétitivité entreprises ↑, déficit ↑, dette ?",
-                SubventionJiramaJour = 2_055_000_000, // +50%
+                SubventionJiramaJour = 2_055_000_000,
+                Implications = new()
+                {
+                    ChangementsClés = ["Subvention Jirama 1.37 → 2.05 Mds MGA/jour (+50%)"],
+                    CanauxTransmission = ["Facture électricité ménages ↓", "Coûts prod. entreprises ↓ (compétitivité ↑)", "Déficit État ↑"],
+                    RisquesAttendus = ["Déficit budgétaire ↑", "Aucune incitation à l'efficacité Jirama", "Dépendance subvention long terme"],
+                    HorizonRecommande = "1 an",
+                    Categorie = "sectoriel"
+                }
             },
 
             // Q: Si je supprime la subvention Jirama ?
@@ -1111,6 +1268,14 @@ public class ScenarioConfig
                 Name = "⚡ Fin subvention Jirama (0 MGA)",
                 Description = "Suppression subvention énergie. Impact : facture ménages ↑↑, compétitivité ↓, déficit ↓, pauvreté énergétique ?",
                 SubventionJiramaJour = 0,
+                Implications = new()
+                {
+                    ChangementsClés = ["Subvention Jirama supprimée (0 MGA)"],
+                    CanauxTransmission = ["Tarif électricité ménages ↑↑", "Coûts prod. entreprises ↑", "Déficit État ↓ (500 Mds MGA/an économisés)"],
+                    RisquesAttendus = ["Pauvreté énergétique (30% accès élec.)", "Inflation coûts de production", "Choc régressif sur ménages ruraux"],
+                    HorizonRecommande = "3 mois",
+                    Categorie = "sectoriel"
+                }
             },
 
             // Q: Si j'investis dans l'agriculture (+30% productivité) ?
@@ -1120,7 +1285,15 @@ public class ScenarioConfig
                 Description = "Productivité agricole +30%. Impact : prix alimentaires ↓, sécurité alimentaire ↑, exports ↑, revenu rural ↑",
                 ProductiviteParEmploye = 19_500,
                 PartEntreprisesAgricoles = 0.35,
-                PrixRizLocalKg = 2_000, // baisse prix grâce à la productivité
+                PrixRizLocalKg = 2_000,
+                Implications = new()
+                {
+                    ChangementsClés = ["Productivité/employé 15k → 19.5k MGA/jour (+30%)", "Secteur agricole 30% → 35% entreprises", "Prix riz local 2 400 → 2 000 MGA/kg"],
+                    CanauxTransmission = ["Prix alimentaires ↓ (inflation ↓)", "Revenus ruraux ↑", "Exports agricoles ↑ (vanille, girofle, riz)"],
+                    RisquesAttendus = ["Horizon long terme (3-5 ans pour effets)", "Nécessite infrastructures eau/routes", "Saisonnalité amplifie les gains"],
+                    HorizonRecommande = "5 ans",
+                    Categorie = "sectoriel"
+                }
             },
 
             // Q: Si je développe le tourisme (+50% capacité) ?
@@ -1128,7 +1301,15 @@ public class ScenarioConfig
             {
                 Name = "🏖️ Boost tourisme (+50% capacité hôtelière)",
                 Description = "Secteur tourisme +50%. Impact : devises ↑, emploi services ↑, taux change ↓, revenus régions ?",
-                PartEntreprisesHotellerieTourisme = 0.045, // +50%
+                PartEntreprisesHotellerieTourisme = 0.045,
+                Implications = new()
+                {
+                    ChangementsClés = ["Hôtellerie/tourisme 3% → 4.5% des entreprises"],
+                    CanauxTransmission = ["Devises USD/EUR ↑ (→ MGA s'apprécie)", "Emploi services ↑", "Recettes fiscales (IS, TVA hôtellerie) ↑"],
+                    RisquesAttendus = ["Saisonnalité forte (juil–oct pic)", "Dutch disease léger (MGA fort = exports moins compétitifs)", "Dépendance aux arrivées internationales"],
+                    HorizonRecommande = "1 an",
+                    Categorie = "sectoriel"
+                }
             },
 
             // ══════════════════════════════════════════════════════════════
@@ -1142,6 +1323,14 @@ public class ScenarioConfig
                 Description = "Carburant 5500→7150 MGA/L. Impact : inflation cost-push ↑, transport ↑, prix alimentaires ↑, pouvoir d'achat ↓",
                 PrixCarburantLitre = 7_150,
                 ElasticitePrixParCarburant = 0.70,
+                Implications = new()
+                {
+                    ChangementsClés = ["Prix carburant 5 500 → 7 150 MGA/L (+30%)"],
+                    CanauxTransmission = ["Coûts transport ↑ 30%", "Prix marchandises locales ↑ ~21% (ε=0.70)", "Inflation alimentaire ↑ (panier pauvres)"],
+                    RisquesAttendus = ["Pouvoir d'achat ménages pauvres −15% à −25%", "Récession si choc durable", "MGA sous pression (imports carburant +)"],
+                    HorizonRecommande = "3 mois",
+                    Categorie = "choc"
+                }
             },
 
             // Q: Impact d'un choc importations ?
@@ -1152,6 +1341,14 @@ public class ScenarioConfig
                 PrixRizImporteKg = 3_500,
                 PrixCarburantLitre = 6_875,
                 TauxDroitsDouane = 0.15,
+                Implications = new()
+                {
+                    ChangementsClés = ["Prix riz importé 2 800 → 3 500 MGA/kg (+25%)", "Carburant +25%", "DD 12% → 15%"],
+                    CanauxTransmission = ["Inflation importée (ζ=0.30 pass-through)", "Balance commerciale ↓", "Réserves BCM ↓ (défense MGA)"],
+                    RisquesAttendus = ["Dépréciation MGA si réserves faibles", "Inflation alimentaire importée", "Sécurité alimentaire compromise (riz)"],
+                    HorizonRecommande = "3 mois",
+                    Categorie = "choc"
+                }
             },
 
             // Q: Catastrophe climatique ?
@@ -1162,6 +1359,14 @@ public class ScenarioConfig
                 PartEntreprisesAgricoles = 0.18,
                 PrixRizLocalKg = 3_500,
                 PrixRizImporteKg = 4_200,
+                Implications = new()
+                {
+                    ChangementsClés = ["Agriculture 30% → 18% (−40% récoltes)", "Prix riz local +46%", "Prix riz importé +50%"],
+                    CanauxTransmission = ["Sécurité alimentaire ↓↓", "Reconstruction BTP ↑ (phase rebond)", "Imports alimentaires ↑ (pression MGA)"],
+                    RisquesAttendus = ["Pauvreté rurale ↑↑", "Inflation alimentaire +30 à +50%", "PIB agricole −3 à −5% du PIB total"],
+                    HorizonRecommande = "1 an",
+                    Categorie = "choc"
+                }
             },
 
             // Q: Boom export (prix matières premières mondiaux) ?
@@ -1171,6 +1376,14 @@ public class ScenarioConfig
                 Description = "Exports +30%. Impact : devises ↑, taux change ↓, investissement ↑, Dutch disease ?",
                 UseExportCalibresDirectement = true,
                 PartEntreprisesConstruction = 0.08,
+                Implications = new()
+                {
+                    ChangementsClés = ["Exports +30% (vanille, nickel, girofle)", "Secteur construction ↑"],
+                    CanauxTransmission = ["Devises ↑ → M3 ↑", "MGA s'apprécie", "Investissement minier ↑"],
+                    RisquesAttendus = ["Dutch disease (MGA fort → autres exports non-compétitifs)", "Dépendance aux cours mondiaux", "Enclave économique si peu de linkages locaux"],
+                    HorizonRecommande = "1 an",
+                    Categorie = "choc"
+                }
             },
 
             // ══════════════════════════════════════════════════════════════
@@ -1190,6 +1403,14 @@ public class ScenarioConfig
                 SalaireMedian = 220_000,
                 SalaireSigma = 0.70,
                 TauxIS = 0.18,
+                Implications = new()
+                {
+                    ChangementsClés = ["Informel 85% → 70%", "Crédit +30%, taux 13%", "FBCF +20%", "Productivité +30%", "IS réduit 20% → 18%"],
+                    CanauxTransmission = ["Investissement privé + public ↑↑", "Emploi formel ↑", "Productivité totale des facteurs ↑", "Recettes fiscales ↑ (base élargie)"],
+                    RisquesAttendus = ["Complexité de mise en œuvre simultanée", "Inflation transitoire possible", "Horizon 5 ans pour effets complets"],
+                    HorizonRecommande = "5 ans",
+                    Categorie = "composite"
+                }
             },
 
             // Q: Scénario de crise (combinaison de chocs) ?
@@ -1202,6 +1423,14 @@ public class ScenarioConfig
                 PrixRizLocalKg = 3_500,
                 TauxInflation = 0.15,
                 TauxDirecteur = 0.12,
+                Implications = new()
+                {
+                    ChangementsClés = ["Carburant +50% (8 250 MGA/L)", "Cyclone → agriculture −40%", "Inflation 15%", "Taux directeur 12%"],
+                    CanauxTransmission = ["Inflation cost-push ↑↑", "PIB agricole effondré", "Taux d'intérêt restrictif", "MGA dépréciation accélérée"],
+                    RisquesAttendus = ["Récession sévère (PIB −3% à −8%)", "Pauvreté extrême ↑↑", "Fuite de capitaux", "Crise de la balance des paiements"],
+                    HorizonRecommande = "1 an",
+                    Categorie = "choc"
+                }
             },
         };
     }

@@ -1,7 +1,11 @@
 @page "/doc-modele"
-@rendermode InteractiveServer
+@inject NavigationManager Nav
 
-<PageTitle>Documentation — Modèle Mathématique Tensoriel</PageTitle>
+<PageTitle>Documentation</PageTitle>
+
+@code {
+    protected override void OnInitialized() => Nav.NavigateTo("/documentation", replace: true);
+}
 
 <div class="container py-4 doc-container">
 

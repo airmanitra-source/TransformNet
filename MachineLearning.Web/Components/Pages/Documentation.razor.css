@@ -1,0 +1,198 @@
+.doc-wrapper {
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.doc-header {
+    border-bottom: 3px solid #0d6efd;
+    padding-bottom: 1rem;
+}
+
+.doc-title {
+    font-size: 2rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #0d6efd, #6f42c1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.doc-subtitle {
+    color: #6c757d;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.doc-meta {
+    margin-top: 0.5rem;
+}
+
+/* Accordion overrides */
+.accordion-button {
+    font-size: 0.95rem;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: #e7f0ff;
+    color: #0d6efd;
+    box-shadow: none;
+}
+
+.accordion-button.bg-primary:not(.collapsed) {
+    background-color: #0d6efd !important;
+    color: white !important;
+}
+
+/* Agent cards */
+.agent-card {
+    border: 2px solid;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    height: 100%;
+}
+
+.agent-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.agent-title {
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Flow diagram */
+.flow-diagram {
+    background: #f8f9fa;
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+
+.flow-title {
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    color: #495057;
+}
+
+.flow-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.flow-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.flow-num {
+    background: #0d6efd;
+    color: white;
+    border-radius: 50%;
+    width: 1.4rem;
+    height: 1.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 0.05rem;
+}
+
+.flow-text {
+    color: #212529;
+    line-height: 1.4;
+}
+
+/* Formula blocks */
+.formula-block {
+    background: #f8f9fa;
+    border-left: 4px solid #0d6efd;
+    padding: 0.75rem 1rem;
+    border-radius: 0 0.25rem 0.25rem 0;
+    margin-bottom: 1rem;
+}
+
+.formula-name {
+    font-weight: 700;
+    color: #0d6efd;
+    font-size: 0.875rem;
+    margin-bottom: 0.25rem;
+}
+
+.formula-block code {
+    font-size: 0.9rem;
+    color: #1a1a2e;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+}
+
+.formula-desc {
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+/* Mechanism cards */
+.mech-card {
+    border: 1px solid #dee2e6;
+    border-left: 4px solid #ffc107;
+    border-radius: 0 0.25rem 0.25rem 0;
+    padding: 0.75rem;
+    height: 100%;
+}
+
+.mech-title {
+    font-weight: 700;
+    font-size: 0.875rem;
+    margin-bottom: 0.35rem;
+    color: #212529;
+}
+
+.mech-formula {
+    margin-bottom: 0.35rem;
+}
+
+.mech-formula code {
+    font-size: 0.8rem;
+}
+
+.mech-desc {
+    margin-bottom: 0.35rem;
+}
+
+.mech-params {
+    color: #6c757d;
+}
+
+/* Choc cards */
+.choc-card {
+    border: 2px solid;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    height: 100%;
+}
+
+.choc-icon {
+    font-size: 1.75rem;
+    margin-bottom: 0.4rem;
+}
+
+.choc-title {
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Component cards */
+.comp-card {
+    background: #f8f9fa;
+}
+
+/* Param table */
+.param-table th {
+    white-space: nowrap;
+}
