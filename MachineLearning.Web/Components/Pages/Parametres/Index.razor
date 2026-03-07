@@ -74,13 +74,18 @@
                                 <a class="btn btn-sm btn-outline-secondary" href="parametres/@s.Id/commerce">🚢 Commerce</a>
                                 <a class="btn btn-sm btn-outline-secondary" href="parametres/@s.Id/immobilier">🏠 Immobilier</a>
                             </div>
-                            @if (!s.EstBase)
-                            {
-                                <button class="btn btn-sm btn-outline-danger mt-2"
-                                        @onclick="() => SupprimerScenario(s.Id)">
-                                    <span class="bi bi-trash me-1"></span> Supprimer
-                                </button>
-                            }
+                            <div class="d-flex gap-2 mt-2">
+                                <a class="btn btn-sm btn-primary" href="economie?scenarioBD=@s.Id">
+                                    ▶ Simuler ce scénario
+                                </a>
+                                @if (!s.EstBase)
+                                {
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            @onclick="() => SupprimerScenario(s.Id)">
+                                        <span class="bi bi-trash me-1"></span> Supprimer
+                                    </button>
+                                }
+                            </div>
                         </div>
                     </div>
                 </div>

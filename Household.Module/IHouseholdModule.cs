@@ -10,6 +10,18 @@ namespace Household.Module
     public interface IHouseholdModule
     {
         /// <summary>
+        /// Configure les comportements par classe socio-économique depuis la base de données.
+        /// Remplace les magic numbers hardcodés dans <c>GetComportementParClasse</c>.
+        /// Si non appelé, les valeurs par défaut historiques sont utilisées.
+        /// </summary>
+        void ConfigurerComportements(IEnumerable<Models.ComportementClasseConfig> configs);
+
+        /// <summary>
+        /// Configure les paramètres d'achat alimentaire depuis la base de données.
+        /// </summary>
+        void ConfigurerParametresAchat(double partInformelAlimentaire, double partFormelAlimentaire, double tauxTVAFormel);
+
+        /// <summary>
         /// Retourne le comportement économique (taux d'épargne, propension conso, dépenses)
         /// caractéristique d'une classe socio-économique.
         /// </summary>

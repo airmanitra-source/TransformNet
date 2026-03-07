@@ -1,4 +1,5 @@
 using Company.Module.Models;
+using Household.Module.Models;
 
 namespace Simulation.Module.Config;
 
@@ -17,13 +18,29 @@ public class ScenarioConfig
     public ScenarioImplications Implications { get; set; } = new();
 
     public static readonly double NombreMenagesReference = 6_000_000;
+
+    /// <summary>
+    /// Ratio ménages / entreprises dans l'économie réelle malgache.
+    /// Madagascar : ~6M ménages pour ~500k entreprises (formelles + informelles significatives) ≈ 12:1.
+    /// Utilisé pour calculer le facteur correctif de trésorerie quand NombreEntreprises
+    /// n'est pas proportionnel à NombreMenages.
+    /// </summary>
+    public static readonly double RatioMenagesParEntrepriseReference = 12.0;
+
     public static readonly int CourtTerme = 90;
     public static readonly int MoyenTerme = 365;
     public static readonly int LongTerme = 1825;
 
     public int DureeJours { get; set; } = 365;
-    public int NombreMenages { get; set; } = 100000;
-    public int NombreEntreprises { get; set; } = 50000;
+    public int NombreMenages { get; set; } = 100_000;
+
+    /// <summary>
+    /// Nombre d'entreprises simulées. Le défaut (8 000) maintient le ratio ~12:1
+    /// observé dans l'économie malgache (6M ménages / ~500k entreprises).
+    /// Un ratio trop bas (ex: 100k/50k = 2:1) gonfle artificiellement les dépôts
+    /// bancaires et donc M3.
+    /// </summary>
+    public int NombreEntreprises { get; set; } = 8_000;
 
     public double TauxIS { get; set; } = 0.20;
     public double TauxTVA { get; set; } = 0.20;
@@ -35,6 +52,15 @@ public class ScenarioConfig
     public double SalaireSigma { get; set; } = 0.85;
     public double SalairePlancher { get; set; } = 50_000;
     public double PartSecteurInformel { get; set; } = 0.85;
+
+    /// <summary>
+    /// Bornes du facteur de productivité pour les entreprises informelles (0-1).
+    /// Reflète l'absence de capital, formation et technologie dans l'informel.
+    /// INSTAT ENEMPSI : productivité informelle ≈ 30-60% du formel à secteur égal.
+    /// Les entreprises formelles ont un facteur de 1.0 (aucune réduction).
+    /// </summary>
+    public double FacteurProductiviteInformelMin { get; set; } = 0.30;
+    public double FacteurProductiviteInformelMax { get; set; } = 0.60;
 
     public double TauxEpargneMenage { get; set; } = 0.10;
     public double PropensionConsommation { get; set; } = 0.75;
@@ -51,11 +77,11 @@ public class ScenarioConfig
     {
         return classe switch
         {
-            Household.Module.Models.ClasseSocioEconomique.Subsistance => PropensionConsommation_Subsistance,
-            Household.Module.Models.ClasseSocioEconomique.InformelBas => PropensionConsommation_InformelBas,
-            Household.Module.Models.ClasseSocioEconomique.FormelBas => PropensionConsommation_FormelBas,
-            Household.Module.Models.ClasseSocioEconomique.FormelQualifie => PropensionConsommation_FormelQualifie,
-            Household.Module.Models.ClasseSocioEconomique.Cadre => PropensionConsommation_Cadre,
+            ClasseSocioEconomique.Subsistance => PropensionConsommation_Subsistance,
+            ClasseSocioEconomique.InformelBas => PropensionConsommation_InformelBas,
+            ClasseSocioEconomique.FormelBas => PropensionConsommation_FormelBas,
+            ClasseSocioEconomique.FormelQualifie => PropensionConsommation_FormelQualifie,
+            ClasseSocioEconomique.Cadre => PropensionConsommation_Cadre,
             _ => PropensionConsommation
         };
     }
@@ -65,19 +91,28 @@ public class ScenarioConfig
     public double PrixRizImporteKg { get; set; } = 2_800;
     public double PartRizImporte { get; set; } = 0.18;
 
-    public double TarifEauJourMenage { get; set; } = 500;
-    public double PrixElectriciteArKWh { get; set; } = 653;
-    public double ConsommationElecMenageKWhJour { get; set; } = 1.03;
-    public double PartProductionHydraulique { get; set; } = 0.516;
-    public double PartConsommationElecMenages { get; set; } = 0.474;
-    public double TauxPertesDistribution { get; set; } = 0.289;
+    // Chargés depuis sim.ParamJirama via ScenarioConfigLoader — pas de default C# intentionnel.
+    public double TarifEauJourMenage { get; set; }
+    public double PrixElectriciteArKWh { get; set; }
+    public double ConsommationElecMenageKWhJour { get; set; }
+    public double PartProductionHydraulique { get; set; }
+    public double PartConsommationElecMenages { get; set; }
+    public double TauxPertesDistribution { get; set; }
 
-    public double TauxAccesEau { get; set; } = 0.25;
-    public double TauxAccesElectricite { get; set; } = 0.30;
-    public double CoutTransportPaiementJirama { get; set; } = 1_200;
+    public double TauxAccesEau { get; set; }
+    public double TauxAccesElectricite { get; set; }
+    public double CoutTransportPaiementJirama { get; set; }
 
-    public double ConsommationElecParEmployeKWhJour { get; set; } = 2.5;
-    public double ConsommationElecEtatKWhJour { get; set; } = 44_400;
+    public double ConsommationElecParEmployeKWhJour { get; set; }
+    public double ConsommationElecEtatKWhJour { get; set; }
+
+    // ─── Agent Jirama ───────────────────────────────────────────────────
+    /// <summary>Trésorerie initiale de l'agent Jirama avant facteur d'échelle (MGA).</summary>
+    public double JiramaTresorerieInitiale { get; set; }
+    /// <summary>Nombre d'employés de base de la Jirama avant facteur d'échelle.</summary>
+    public int JiramaNombreEmployesBase { get; set; }
+    /// <summary>Salaire moyen mensuel des employés Jirama (MGA).</summary>
+    public double JiramaSalaireMoyenMensuelEmploye { get; set; }
 
     public double MargeBeneficiaireEntreprise { get; set; } = 0.20;
     public double ProductiviteParEmploye { get; set; } = 15_000;
@@ -85,6 +120,12 @@ public class ScenarioConfig
     public double PartEntreprisesConstruction { get; set; } = 0.05;
     /// <summary>Part des entreprises dans le secteur hôtellerie/tourisme (~3-4% à Madagascar)</summary>
     public double PartEntreprisesHotellerieTourisme { get; set; } = 0.03;
+
+    /// <summary>Marge de revente des importateurs agrégés sur la valeur CIF. Chargé depuis sim.ParamEntreprises.</summary>
+    public double MargeReventeImport { get; set; }
+
+    /// <summary>Part de la production des exportateurs orientée vers l'export. Chargé depuis sim.ParamEntreprises.</summary>
+    public double PartExporteurProduction { get; set; }
 
     public double TauxCotisationsPatronalesCNaPS { get; set; } = 0.18;
     public double TauxCotisationsSalarialesCNaPS { get; set; } = 0.01;
@@ -928,16 +969,48 @@ public class ScenarioConfig
 
     // ════════════════════════════════════════════════════════════════
 
-    public Dictionary<ESecteurActivite, double> TresorerieInitialeParSecteur { get; set; } = new()
-    {
-        { ESecteurActivite.Agriculture, 2_000_000 },
-        { ESecteurActivite.Textiles, 10_000_000 },
-        { ESecteurActivite.Commerces, 5_000_000 },
-        { ESecteurActivite.Services, 8_000_000 },
-        { ESecteurActivite.SecteurMinier, 50_000_000 },
-        { ESecteurActivite.Construction, 15_000_000 },
-        { ESecteurActivite.HotellerieTourisme, 12_000_000 }
-    };
+    // ════════════════════════════════════════════════════════════════
+    // ░░░ COMPORTEMENTS PAR CLASSE (chargés depuis BD) ░░░
+    // ════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Comportements par classe socio-économique chargés depuis la BD.
+    /// Si vide, les modules utilisent leurs valeurs hardcodées par défaut.
+    /// </summary>
+    public List<ComportementClasseConfig> ComportementsParClasse { get; set; } = [];
+
+    // ════════════════════════════════════════════════════════════════
+    // ░░░ TRANSPORT (parts formel/informel, configurables) ░░░
+    // ════════════════════════════════════════════════════════════════
+
+    // Chargés depuis sim.ParamTransport via ScenarioConfigLoader — pas de default C# intentionnel.
+    public double PartInformelTransportPublic { get; set; }
+    public double PartFormelCarburant { get; set; }
+    public double PartInformelEntretien { get; set; }
+    public double EntretienVoitureJour { get; set; }
+    public double EntretienFractionRevenuVoiture { get; set; }
+
+    // ════════════════════════════════════════════════════════════════
+    // ░░░ PROBABILITÉS INFORMEL PAR SECTEUR ░░░
+    // ════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Probabilité qu'une entreprise d'un secteur donné soit dans le secteur informel.
+    /// Chargé depuis sim.ParamSecteurActivite via ScenarioConfigLoader.
+    /// Vide par défaut — toujours alimenté depuis la BD avant simulation.
+    /// </summary>
+    public Dictionary<ESecteurActivite, double> ProbabiliteInformelParSecteur { get; set; } = new();
+
+    /// <summary>
+    /// Marge bénéficiaire par secteur (override du paramètre global MargeBeneficiaireEntreprise).
+    /// Chargé depuis sim.ParamSecteurActivite via ScenarioConfigLoader.
+    /// </summary>
+    public Dictionary<ESecteurActivite, double> MargeBeneficiaireParSecteur { get; set; } = new();
+
+    // ════════════════════════════════════════════════════════════════
+
+    // Chargé depuis sim.ParamSecteurActivite via ScenarioConfigLoader.
+    public Dictionary<ESecteurActivite, double> TresorerieInitialeParSecteur { get; set; } = new();
 
     public Dictionary<ECategorieExport, double> FOBJourParCategorie { get; set; } = new();
     public Dictionary<ECategorieImport, double> CIFJourParCategorie { get; set; } = new();

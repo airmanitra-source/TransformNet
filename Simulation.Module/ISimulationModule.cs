@@ -1,6 +1,7 @@
 using Household.Module.Models;
 using Simulation.Module.Config;
 using Simulation.Module.Models;
+using Simulation.Module.Models.Data;
 
 namespace Simulation.Module
 {
@@ -12,6 +13,12 @@ namespace Simulation.Module
         DistributionStats StatsInitiales { get; }
 
         event Action? OnTickCompleted;
+
+        /// <summary>Retourne la liste des scénarios disponibles en base de données.</summary>
+        Task<IEnumerable<IScenarioReadModel>> ListScenariosAsync();
+
+        /// <summary>Charge le ScenarioConfig complet pour un scénario donné depuis la base de données.</summary>
+        Task<ScenarioConfig> ChargerScenarioAsync(int scenarioId);
 
         void Initialiser(ScenarioConfig config);
         Task DemarrerAsync();

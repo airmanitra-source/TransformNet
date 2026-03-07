@@ -144,7 +144,23 @@ namespace Government.Module
             result.RecettesTotales = recettesJour;
 
             // 8. Dépenses publiques du jour
-            double depenses = government.DepensesPubliquesJour;
+            // Recyclage fiscal : quand les recettes fiscales dépassent le budget de dépenses prévu,
+            // le surplus est recyclé en dépenses publiques additionnelles (services, investissements, transferts).
+            // Sans ce mécanisme, l'augmentation des taxes (ex: formalisation) crée une fuite nette du circuit
+            // économique privé car l'État thésaurise, ce qui provoque une spirale déflationniste (chute du PIB).
+            double recettesFiscalesJour = irCollecte + isCollecte + tvaCollectee + result.RecettesDouanieres + cotisationsCNaPS;
+
+            double depensesPubliquesBase = government.DepensesPubliquesJour;
+            if (recettesFiscalesJour > depensesPubliquesBase)
+            {
+                double surplusFiscal = recettesFiscalesJour - depensesPubliquesBase;
+                // On utilise un taux de recyclage élevé (min 95%) pour assurer le bouclage macroéconomique
+                // et éviter d'assécher le secteur privé en liquidités lors d'un choc fiscal positif.
+                double tauxEffectif = Math.Max(government.TauxRecyclageFiscal, 0.95);
+                depensesPubliquesBase += surplusFiscal * tauxEffectif;
+            }
+
+            double depenses = depensesPubliquesBase;
 
             // 8b. Électricité Jirama de l'État (éclairage public + bâtiments publics)
             double facteurInflationJour = 1.0 + (government.TauxInflation / 365.0);
@@ -198,7 +214,8 @@ namespace Government.Module
             result.ConsommationFinaleEtat = depenses - subventionJiramaJour - depensesCapitalJour - interetsDetteJour;
 
             // 10. Transferts sociaux (redistribution)
-            double transferts = government.DepensesPubliquesJour * government.TauxRedistribution;
+            // Basés sur les dépenses publiques effectives (inclut le recyclage fiscal)
+            double transferts = depensesPubliquesBase * government.TauxRedistribution;
             result.TransfertsSociaux = transferts;
 
             // 11. Solde budgétaire

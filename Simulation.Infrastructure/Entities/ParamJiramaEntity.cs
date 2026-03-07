@@ -17,5 +17,13 @@ public class ParamJiramaEntity
     public double TauxAccesEau { get; set; } = 0.25;
     public double TauxAccesElectricite { get; set; } = 0.30;
 
+    // ─── Paramètres de l'agent AgentJirama ──────────────────────────
+    /// <summary>Trésorerie initiale de l'agent Jirama (MGA).</summary>
+    public double TresorerieInitiale { get; set; } = 10_000_000;
+    /// <summary>Nombre d'employés de base de la Jirama avant facteur d'échelle.</summary>
+    public int NombreEmployesBase { get; set; } = 5_000;
+    /// <summary>Salaire moyen mensuel des employés Jirama (MGA).</summary>
+    public double SalaireMoyenMensuelEmploye { get; set; } = 350_000;
+
     public DateTime MisAJourAt { get; set; }
 }

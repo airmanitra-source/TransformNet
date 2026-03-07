@@ -17,6 +17,7 @@ using Price.Module;
 using Bank.Module;
 using Transportation.Module;
 using Simulation.Module.Models;
+using Simulation.Module.Models.Data;
 using Agriculture.Module;
 
 namespace Simulation.Module;
@@ -38,6 +39,7 @@ public class SimulationModule : ISimulationModule
     private readonly IInflationModule _inflationModule;
     private readonly IExchangeRateModule _exchangeRateModule;
     private readonly ISeasonalityModule _seasonalityModule;
+    private readonly IScenarioConfigLoader _scenarioConfigLoader;
     private readonly List<AgentHousehold> _menages = [];
     private readonly List<AgentCompany> _entreprises = [];
     private readonly List<AgentImporter> _importateurs = [];
@@ -55,6 +57,7 @@ public class SimulationModule : ISimulationModule
     private Random _random = new Random();
     private double _salaireMoyenReference;
     private double _variationChangeJournaliere;
+    private double _demandePubliqueReportee;
 
     public SimulationResult Result => _result;
     public bool EnCours => _result.EnCours;
@@ -78,8 +81,10 @@ public class SimulationModule : ISimulationModule
         IInvestmentModule investmentModule,
         IInflationModule inflationModule,
         IExchangeRateModule exchangeRateModule,
-        ISeasonalityModule seasonalityModule)
+        ISeasonalityModule seasonalityModule,
+        IScenarioConfigLoader scenarioConfigLoader)
     {
+        _scenarioConfigLoader = scenarioConfigLoader;
         _governmentModule = governmentModule;
         _householdModule  = householdModule;
         _householdSalaryDistributionModule = householdSalaryDistributionModule;
@@ -96,6 +101,14 @@ public class SimulationModule : ISimulationModule
         _exchangeRateModule = exchangeRateModule;
         _seasonalityModule = seasonalityModule;
     }
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<IScenarioReadModel>> ListScenariosAsync()
+        => _scenarioConfigLoader.ListScenariosAsync();
+
+    /// <inheritdoc/>
+    public Task<ScenarioConfig> ChargerScenarioAsync(int scenarioId)
+        => _scenarioConfigLoader.LoadAsync(scenarioId);
 
     /// <summary>
     /// Initialise la simulation avec un scénario donné.
@@ -125,12 +138,39 @@ public class SimulationModule : ISimulationModule
         // Initialiser la référence salariale pour la spirale prix-salaires
         _salaireMoyenReference = _config.SalaireMedian;
         _variationChangeJournaliere = 0;
+        _demandePubliqueReportee = _config.DepensesPubliquesJour * _facteurEchelle * 0.5; // Estimation initiale jour 1
 
         _householdSalaryDistributionModule.ConfigurerDistributionSalariale(
             _config.SalaireMedian,
             _config.SalaireSigma,
             _config.SalairePlancher,
             _config.PartSecteurInformel);
+
+        // Configurer les comportements par classe depuis la BD (si disponibles)
+        if (_config.ComportementsParClasse.Count > 0)
+        {
+            _householdSalaryDistributionModule.ConfigurerComportements(_config.ComportementsParClasse);
+            _householdModule.ConfigurerComportements(_config.ComportementsParClasse);
+        }
+
+        // Configurer le module de transport avec les paramètres BD
+        _transportationModule.Configurer(
+            _config.PartInformelTransportPublic,
+            _config.PartFormelCarburant,
+            _config.PartInformelEntretien,
+            _config.EntretienVoitureJour,
+            _config.EntretienFractionRevenuVoiture);
+
+        // Configurer les paramètres d'achat alimentaire du module ménage.
+        // La formalisation doit augmenter la part de demande routée vers le formel.
+        // On garde au minimum la part structurelle liée aux circuits importés,
+        // mais on laisse la formalisation élargir la base formelle au-delà de ce plancher.
+        double partFormelAlimentaire = Math.Max(_config.PartRizImporte, 1.0 - _config.PartSecteurInformel);
+        double partInformelAlimentaire = Math.Max(0, 1.0 - partFormelAlimentaire);
+        _householdModule.ConfigurerParametresAchat(
+            partInformelAlimentaire: partInformelAlimentaire,
+            partFormelAlimentaire: partFormelAlimentaire,
+            tauxTVAFormel: 1.0 + _config.TauxTVA);
 
         // Créer les agents
         _menages.Clear();
@@ -149,9 +189,9 @@ public class SimulationModule : ISimulationModule
             TauxPertesDistribution = _config.TauxPertesDistribution,
             PartConsommationMenages = _config.PartConsommationElecMenages,
             SecteurActivite = ESecteurActivite.Services,
-            Tresorerie = 10_000_000 * _facteurEchelle,
-            NombreEmployes = Math.Max(1, (int)(5_000 * _facteurEchelle)),
-            SalaireMoyenMensuel = 350_000
+            Tresorerie = _config.JiramaTresorerieInitiale * _facteurEchelle,
+            NombreEmployes = Math.Max(1, (int)(_config.JiramaNombreEmployesBase * _facteurEchelle)),
+            SalaireMoyenMensuel = _config.JiramaSalaireMoyenMensuelEmploye
         };
 
         // Créer l'État avec les paramètres TOFE
@@ -188,6 +228,17 @@ public class SimulationModule : ISimulationModule
 
         int totalEntreprises = nbEntreprisesNormales + categoriesImport.Length + categoriesExport.Length;
         int employesParEntreprise = _config.NombreMenages / Math.Max(totalEntreprises, 1);
+
+        // ── Facteur correctif de trésorerie initiale ─────────────────────────
+        // Les valeurs de TresorerieInitialeParSecteur représentent le fonds de roulement
+        // d'UNE entreprise réelle. Si la simulation a trop d'entreprises par ménage
+        // (ratio bas) par rapport à la réalité (~12:1), les dépôts bancaires agrégés
+        // seront gonflés et M3 explosera. Ce facteur corrige proportionnellement.
+        double ratioSimulation = (double)_config.NombreMenages / Math.Max(_config.NombreEntreprises, 1);
+        double _facteurCorrectifTresorerie = Math.Clamp(
+            ratioSimulation / ScenarioConfig.RatioMenagesParEntrepriseReference,
+            0.01, 1.0);
+
         var random = new Random(42);
         var secteursLocaux = new[]
         {
@@ -203,6 +254,7 @@ public class SimulationModule : ISimulationModule
         foreach (var categorie in categoriesImport)
         {
             double cifJourCategorie = _config.CIFJourParCategorie.GetValueOrDefault(categorie, 500d);
+            // CIFJourParCategorie est en millions MGA (unité INSTAT) → × 1e6 pour convertir en MGA
             double cifJourMGA = cifJourCategorie * 1_000_000 * _facteurEchelle;
 
             var imp = new AgentImporter
@@ -215,11 +267,11 @@ public class SimulationModule : ISimulationModule
                 ProductiviteParEmployeJour = _companyModule.GetProductiviteParSecteur(ESecteurActivite.Commerces) * (0.8 + random.NextDouble() * 0.4),
                 // was: AgentCompany.GetTresorerieInitialeParSecteur(ESecteurActivite.Commerces, _config.TresorerieInitialeParSecteur)
                 Tresorerie = _companyModule.GetTresorerieInitiale(ESecteurActivite.Commerces, _config.TresorerieInitialeParSecteur)
-                             * (0.5 + random.NextDouble()),  // pondération aléatoire
+                             * _facteurCorrectifTresorerie * (0.5 + random.NextDouble()),
                 Categorie = categorie,
                 SecteurActivite = ESecteurActivite.Commerces,
                 ValeurCIFJour = cifJourMGA,
-                MargeReventeImport = 0.25
+                MargeReventeImport = _config.MargeReventeImport
             };
             _importateurs.Add(imp);
         }
@@ -229,6 +281,7 @@ public class SimulationModule : ISimulationModule
         {
             var secteur = SecteurDepuisCategorieExport(categorie);
             double fobJourCategorie = _config.FOBJourParCategorie.GetValueOrDefault(categorie, 200d);
+            // FOBJourParCategorie est en millions MGA (unité INSTAT) → × 1e6 pour convertir en MGA
             double fobJourMGA = fobJourCategorie * 1_000_000 * _facteurEchelle;
 
             var exp = new AgentExporter
@@ -240,11 +293,12 @@ public class SimulationModule : ISimulationModule
                 // was: AgentCompany.GetProductiviteParSecteur(secteur)
                 ProductiviteParEmployeJour = _companyModule.GetProductiviteParSecteur(secteur) * (0.8 + random.NextDouble() * 0.4),
                 // was: AgentCompany.GetTresorerieInitialeParSecteur(secteur, _config.TresorerieInitialeParSecteur)
-                Tresorerie = _companyModule.GetTresorerieInitiale(secteur, _config.TresorerieInitialeParSecteur) * (0.5 + random.NextDouble()),  // pondération aléatoire
+                Tresorerie = _companyModule.GetTresorerieInitiale(secteur, _config.TresorerieInitialeParSecteur)
+                             * _facteurCorrectifTresorerie * (0.5 + random.NextDouble()),
                 Categorie = categorie,
                 SecteurActivite = secteur,
                 ValeurFOBJour = fobJourMGA,
-                PartExport = 0.70
+                PartExport = _config.PartExporteurProduction
             };
             _exportateurs.Add(exp);
         }
@@ -268,16 +322,9 @@ public class SimulationModule : ISimulationModule
             else
                 secteur = secteursLocaux[2 + random.Next(secteursLocaux.Length - 2)]; // hors Agriculture/Construction
 
-            // Probabilité informel : agriculture ~95%, commerce ~80%, tourisme ~40%, autres ~70%
-            bool estInformel = secteur switch
-            {
-                ESecteurActivite.Agriculture => random.NextDouble() < 0.95,
-                ESecteurActivite.Commerces => random.NextDouble() < 0.80,
-                ESecteurActivite.Construction => random.NextDouble() < 0.75,
-                ESecteurActivite.SecteurMinier => random.NextDouble() < 0.20,
-                ESecteurActivite.HotellerieTourisme => random.NextDouble() < 0.40, // mix formel/informel
-                _ => random.NextDouble() < _config.PartSecteurInformel
-            };
+            // Probabilité informel : lue depuis ScenarioConfig (chargé depuis la BD)
+            bool estInformel = random.NextDouble() <
+                _config.ProbabiliteInformelParSecteur.GetValueOrDefault(secteur, _config.PartSecteurInformel);
 
             int indexTourisme = i - nbAgricoles - nbConstruction;
             var nomEntreprise = $"Entreprise {i + 1}";
@@ -288,11 +335,17 @@ public class SimulationModule : ISimulationModule
                 Name = nomEntreprise,
                 NombreEmployes = employesParEntreprise,
                 SalaireMoyenMensuel = _householdSalaryDistributionModule.TirerSalaire(random) * (0.9 + random.NextDouble() * 0.2),
-                MargeBeneficiaire = secteur == ESecteurActivite.HotellerieTourisme ? 0.25 : _config.MargeBeneficiaireEntreprise,
+                MargeBeneficiaire = _config.MargeBeneficiaireParSecteur.GetValueOrDefault(secteur, _config.MargeBeneficiaireEntreprise),
                 ProductiviteParEmployeJour = _companyModule.GetProductiviteParSecteur(secteur) * (0.8 + random.NextDouble() * 0.4),
-                Tresorerie = _companyModule.GetTresorerieInitiale(secteur, _config.TresorerieInitialeParSecteur) * (0.5 + random.NextDouble()),
+                Tresorerie = _companyModule.GetTresorerieInitiale(secteur, _config.TresorerieInitialeParSecteur)
+                             * _facteurCorrectifTresorerie * (0.5 + random.NextDouble()),
                 SecteurActivite = secteur,
-                EstInformel = estInformel
+                EstInformel = estInformel,
+                // Productivité informelle réduite (INSTAT ENEMPSI : 30-60% du formel)
+                FacteurProductiviteInformel = estInformel
+                    ? _config.FacteurProductiviteInformelMin + random.NextDouble()
+                      * (_config.FacteurProductiviteInformelMax - _config.FacteurProductiviteInformelMin)
+                    : 1.0
             };
             _entreprises.Add(entreprise);
 
@@ -933,10 +986,22 @@ public class SimulationModule : ISimulationModule
         double totalTransport = resultsMenages.Sum(r => r.DepensesTransport + r.DepensesTransportJirama);
         double demandeHorsAlim = Math.Max(0, demandeConsommationTotale - totalAlimSimulee - totalTransport);
 
-        // Split 85 % informel / 15 % formel pour la consommation non-alimentaire et hors transport.
-        // Le transport est désormais routé séparément via ITransportationModule (décomposition sectorielle).
-        double demandeHorsAlimInformelParEntreprise = (demandeHorsAlim * 0.85 + totalTransportInformel) / Math.Max(nbInformelles, 1);
-        double demandeHorsAlimFormelParEntreprise   = (demandeHorsAlim * 0.15 + totalTransportFormel) / Math.Max(nbFormelles, 1);
+        // Split dynamique informel/formel basé sur la CAPACITÉ DE PRODUCTION réelle.
+        // Remplace l'ancien split au prorata du nombre strict d'entreprises qui causait
+        // un effondrement du PIB lors des scénarios de formalisation (les formelles sont plus productives
+        // et absorbent donc naturellement une proportion plus grande de la demande).
+        double capaciteInformelle = _entreprises.Where(e => e.EstInformel).Sum(e => e.NombreEmployes * e.ProductiviteEffectiveParEmployeJour);
+        double capaciteFormelle = _entreprises.Where(e => !e.EstInformel).Sum(e => e.NombreEmployes * e.ProductiviteEffectiveParEmployeJour)
+                                + _importateurs.Sum(e => e.NombreEmployes * e.ProductiviteParEmployeJour)
+                                + _exportateurs.Sum(e => e.NombreEmployes * e.ProductiviteParEmployeJour);
+        double capaciteTotale = Math.Max(capaciteInformelle + capaciteFormelle, 1.0);
+
+        double partInformelEffective = capaciteInformelle / capaciteTotale;
+        double partFormelEffective = 1.0 - partInformelEffective;
+
+        // La demande publique (achats de l'État) s'adresse essentiellement au secteur formel
+        double demandeHorsAlimInformelParEntreprise = (demandeHorsAlim * partInformelEffective + totalTransportInformel) / Math.Max(nbInformelles, 1);
+        double demandeHorsAlimFormelParEntreprise   = (demandeHorsAlim * partFormelEffective + totalTransportFormel + _demandePubliqueReportee) / Math.Max(nbFormelles, 1);
         // ─────────────────────────────────────────────────────────────────────────
 
         // ── Routage des dépenses de loisirs vers les compagnies tourisme ────────
@@ -990,7 +1055,7 @@ public class SimulationModule : ISimulationModule
         {
             foreach (var importateur in _importateurs)
             {
-                // CIF calibré = moyenne INSTAT ± 15% de variation journaliire
+                // CIFCalibresJour est en millions MGA/jour (unité INSTAT Tableau 33) → × 1e6 pour MGA
                 double cifBase = _config.CIFCalibresJour.GetValueOrDefault(importateur.Categorie, 0d) * 1_000_000 * _facteurEchelle;
                 double cifJourImportateur = cifBase * (0.85 + rngJour.NextDouble() * 0.30);
 
@@ -1085,7 +1150,7 @@ public class SimulationModule : ISimulationModule
         {
             foreach (var exportateur in _exportateurs)
             {
-                // FOB calibré = moyenne INSTAT ± 15% de variation journalière
+                // FOBCalibresJour est en millions MGA/jour (unité INSTAT Tableau 32) → × 1e6 pour MGA
                 double fobBase = _config.FOBCalibresJour.GetValueOrDefault(exportateur.Categorie, 0d) * 1_000_000 * _facteurEchelle;
                 double fobJourExportateur = fobBase * (0.85 + rngJour.NextDouble() * 0.30);
 
@@ -1250,6 +1315,11 @@ public class SimulationModule : ISimulationModule
             menage.Epargne += transfertParMenage;
         }
 
+        // 4b. Enregistrer la demande publique (Fonctionnement + FBCF) pour le landemain
+        // L'Etat injecte ce qu'il a dépensé (hors salaires et transferts) dans l'économie
+        // Ce qui soutient l'activité des entreprises formelles.
+        _demandePubliqueReportee = resultEtat.ConsommationFinaleEtat + resultEtat.DepensesCapital;
+
         // --- MODULE BANCAIRE (agrégats monétaires, crédit, intérêts, NPL) ---
         _bankModule.CalculerBilansBancaires(
             _banque, _menages, _entreprises,
@@ -1386,6 +1456,7 @@ public class SimulationModule : ISimulationModule
                 PrixCarburantCourant = _config.PrixCarburantLitre,
                 PrixCarburantReference = _config.PrixCarburantReference,
                 ImportationsCIFJour = resultEtat.ImportationsCIF,
+                // CIFCalibresJour en millions MGA (INSTAT) → × 1e6 pour convertir en MGA
                 ImportationsCIFReference = _config.CIFCalibresJour.Values.Sum() * 1_000_000 * _facteurEchelle,
                 VariationChangeJournaliere = _variationChangeJournaliere,
                 ElasticiteChangeInflation = _config.ElasticiteChangeInflation,

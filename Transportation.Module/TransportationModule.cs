@@ -21,14 +21,28 @@ namespace Transportation.Module;
 /// </summary>
 public class TransportationModule : ITransportationModule
 {
-    /// <summary>Part du transport public allant au secteur informel (taxi-be)</summary>
-    private const double PartInformelTransportPublic = 0.70;
+    // Ces champs DOIVENT être initialisés via Configurer() (appelé par SimulationModule.Initialiser())
+    // avant tout usage. Zéro est une valeur délibérément invalide pour rendre visible un oubli.
+    private double _partInformelTransportPublic;
+    private double _partFormelCarburant;
+    private double _partInformelEntretien;
+    private double _entretienVoitureJour;
+    private double _entretienFractionRevenuVoiture;
 
-    /// <summary>Part du carburant allant au secteur formel (stations-service enregistrées)</summary>
-    private const double PartFormelCarburant = 0.60;
-
-    /// <summary>Part de l'entretien allant au secteur informel (garagistes de rue)</summary>
-    private const double PartInformelEntretien = 0.90;
+    /// <inheritdoc/>
+    public void Configurer(
+        double partInformelTransportPublic,
+        double partFormelCarburant,
+        double partInformelEntretien,
+        double entretienVoitureJour,
+        double entretienFractionRevenuVoiture)
+    {
+        _partInformelTransportPublic = partInformelTransportPublic;
+        _partFormelCarburant = partFormelCarburant;
+        _partInformelEntretien = partInformelEntretien;
+        _entretienVoitureJour = entretienVoitureJour;
+        _entretienFractionRevenuVoiture = entretienFractionRevenuVoiture;
+    }
 
     public TransportRoutingResult RouterDepenseTransport(
         ModeTransport modeTransport,
@@ -44,36 +58,32 @@ public class TransportationModule : ITransportationModule
         switch (modeTransport)
         {
             case ModeTransport.TransportPublic:
-                // Transport public : tout va en "transport public"
                 result.PartTransportPublic = depenseTransport;
-                result.PartInformel = depenseTransport * PartInformelTransportPublic
+                result.PartInformel = depenseTransport * _partInformelTransportPublic
                                     + depenseTransportJirama;
-                result.PartFormel = depenseTransport * (1.0 - PartInformelTransportPublic);
+                result.PartFormel = depenseTransport * (1.0 - _partInformelTransportPublic);
                 break;
 
             case ModeTransport.Moto:
-                // Moto : tout est du carburant
                 result.PartCarburant = depenseTransport;
-                result.PartInformel = depenseTransport * (1.0 - PartFormelCarburant)
+                result.PartInformel = depenseTransport * (1.0 - _partFormelCarburant)
                                     + depenseTransportJirama;
-                result.PartFormel = depenseTransport * PartFormelCarburant;
+                result.PartFormel = depenseTransport * _partFormelCarburant;
                 break;
 
             case ModeTransport.Voiture:
-                // Voiture : carburant + entretien (~500 MGA/jour)
-                double entretien = Math.Min(500.0, depenseTransport * 0.15);
+                double entretien = Math.Min(_entretienVoitureJour, depenseTransport * _entretienFractionRevenuVoiture);
                 double carburant = depenseTransport - entretien;
                 result.PartCarburant = carburant;
                 result.PartEntretien = entretien;
-                result.PartInformel = carburant * (1.0 - PartFormelCarburant)
-                                    + entretien * PartInformelEntretien
+                result.PartInformel = carburant * (1.0 - _partFormelCarburant)
+                                    + entretien * _partInformelEntretien
                                     + depenseTransportJirama;
-                result.PartFormel = carburant * PartFormelCarburant
-                                  + entretien * (1.0 - PartInformelEntretien);
+                result.PartFormel = carburant * _partFormelCarburant
+                                  + entretien * (1.0 - _partInformelEntretien);
                 break;
 
             default:
-                // À pied : aucune dépense
                 result.PartInformel = depenseTransportJirama;
                 break;
         }

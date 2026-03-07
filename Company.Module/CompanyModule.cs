@@ -250,14 +250,25 @@ namespace Company.Module
             entreprise.TotalCotisationsCNaPS += cotisationsCNaPS;
 
             // 5. Coût des achats B2B (matières premières, services)
-            // Les intrants subissent le choc carburant complet (transport, logistique)
-            // alors que les prix de vente ne sont que partiellement répercutés → compression de marge
-            double coutProductionBase = productionJour * (1.0 - entreprise.MargeBeneficiaire) - chargesSalariales;
-            coutProductionBase = Math.Max(0, coutProductionBase);
-            // Surcoût carburant sur les approvisionnements (écart entre choc complet et pass-through)
-            double surchargeCarburant = coutProductionBase * Math.Max(0, facteurChocPrix / facteurPrixVente - 1.0);
-            double coutProduction = coutProductionBase + surchargeCarburant;
-            result.AchatsB2B = coutProduction * entreprise.PartB2B;
+            // L'entreprise déduit ses bénéfices cibles de son chiffre d'affaires HORS TAXES 
+            // pour trouver son coût de production optimal.
+            double ventesHT = ventesTotales - tvaCollectee;
+            double coutTotalCible = ventesHT * (1.0 - entreprise.MargeBeneficiaire);
+
+            // Les achats matériels B2B correspondent à tous les coûts restants après salaires, cnaps et électricité
+            double facteurInflationElec = 1.0 + (tauxInflation / 365.0);
+            double estimationsDepensesElec = Jirama != null ? (consoElecParEmployeKWhJour * entreprise.NombreEmployes * Jirama.PrixElectriciteArKWh * facteurInflationElec) : 0;
+
+            double achatsB2BCible = coutTotalCible - chargesSalariales - cotisationsCNaPS - estimationsDepensesElec;
+            achatsB2BCible = Math.Max(0, achatsB2BCible);
+
+            // Surcoût carburant
+            double surchargeCarburant = achatsB2BCible * Math.Max(0, facteurChocPrix / facteurPrixVente - 1.0);
+
+            // NOTE IMPORTANTE: Ne PAS multiplier par PartB2B ici ! Les achats B2B représentent 
+            // la totalité des consommations intermédiaires physiques de l'entreprise. 
+            // PartB2B détermine uniquement à qui elle VEND, pas combien elle ACHETE.
+            result.AchatsB2B = achatsB2BCible + surchargeCarburant;
             entreprise.TotalAchatsB2B += result.AchatsB2B;
 
             // 5b. Électricité Jirama (facturée tous les jours si connecté)

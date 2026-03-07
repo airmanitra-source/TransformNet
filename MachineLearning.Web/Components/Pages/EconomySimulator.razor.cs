@@ -2,6 +2,7 @@ using Simulation.Module.Config;
 using Company.Module.Models;
 using Microsoft.AspNetCore.Components;
 using Simulation.Module.Models;
+using Simulation.Module.Models.Data;
 using Simulation.Module.Services;
 
 namespace MachineLearning.Web.Components.Pages;
@@ -13,6 +14,16 @@ public partial class EconomySimulator : IDisposable
     private bool _initialized = false;
     private MacroeconomicScrapedData? _derniereCollecte;
     private InstatTbeData? _derniereCollecteInstat;
+
+    /// <summary>Scénarios disponibles en base de données.</summary>
+    private List<IScenarioReadModel> _scenariosBD = [];
+    private int? _selectedScenarioBDId;
+    private bool _chargementBD;
+    private string? _erreurChargementBD;
+
+    /// <summary>Paramètre query string ?scenarioBD=123 pour charger automatiquement un scénario BD.</summary>
+    [SupplyParameterFromQuery(Name = "scenarioBD")]
+    public int? ScenarioBDFromQuery { get; set; }
 
     [Inject] private IMacroeconomicDataScraperService ScraperService { get; set; } = default!;
     [Inject] private IInstatTbeScraperService InstatScraperService { get; set; } = default!;
@@ -26,6 +37,64 @@ public partial class EconomySimulator : IDisposable
         }
 
         Simulator.OnTickCompleted += OnSimulationTick;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var scenarios = await Simulator.ListScenariosAsync();
+            _scenariosBD = scenarios.ToList();
+
+            // Priorité 1 : paramètre query string ?scenarioBD=X
+            if (ScenarioBDFromQuery is { } idFromQuery)
+            {
+                _selectedScenarioBDId = idFromQuery;
+            }
+            // Priorité 2 : scénario baseline (EstBase = true)
+            else if (_scenariosBD.FirstOrDefault(s => s.EstBase) is { } baseline)
+            {
+                _selectedScenarioBDId = baseline.Id;
+            }
+            // Priorité 3 : premier scénario disponible
+            else if (_scenariosBD.Count > 0)
+            {
+                _selectedScenarioBDId = _scenariosBD[0].Id;
+            }
+
+            if (_selectedScenarioBDId != null)
+                await ChargerScenarioBDAsync();
+        }
+        catch
+        {
+            // BD non disponible → on reste sur le scénario en mémoire BaseMadagascar
+            _scenariosBD = [];
+        }
+    }
+
+    /// <summary>
+    /// Charge un scénario depuis la base de données et l'applique comme config courante.
+    /// </summary>
+    private async Task ChargerScenarioBDAsync()
+    {
+        if (_selectedScenarioBDId is not { } id) return;
+
+        _chargementBD = true;
+        _erreurChargementBD = null;
+        try
+        {
+            int duree = _config.DureeJours;
+            _config = await Simulator.ChargerScenarioAsync(id);
+            _config.DureeJours = duree;
+        }
+        catch (Exception ex)
+        {
+            _erreurChargementBD = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            _chargementBD = false;
+        }
     }
 
     private void OnPropensionSubsistanceInput(ChangeEventArgs e)

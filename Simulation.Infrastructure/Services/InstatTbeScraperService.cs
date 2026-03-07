@@ -5,7 +5,6 @@ using Simulation.Module.Config;
 using Simulation.Module.Models;
 using Simulation.Module.Services;
 using UglyToad.PdfPig;
-using UglyToad.PdfPig.Content;
 
 namespace Simulation.Infrastructure;
 

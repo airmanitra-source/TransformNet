@@ -13,6 +13,10 @@ public class ParamSecteurActiviteEntity
     public double ProductiviteJourBasse { get; set; }
     public double TresorerieInitiale { get; set; }
     public int NombreEmployesDefaut { get; set; } = 10;
+    /// <summary>Probabilité qu'une entreprise de ce secteur soit informelle (0-1).</summary>
+    public double ProbabiliteInformel { get; set; } = 0.70;
+    /// <summary>Marge bénéficiaire spécifique à ce secteur (override de MargeBeneficiaireEntreprise global).</summary>
+    public double MargeBeneficiaire { get; set; } = 0.20;
 
     public DateTime MisAJourAt { get; set; }
 }

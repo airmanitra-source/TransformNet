@@ -8,76 +8,64 @@ namespace Household.Module
     /// Implémentation du module Ménages.
     /// Centralise le comportement économique par classe socio-économique
     /// et la logique d'achat alimentaire.
-    /// La distribution salariale (tirage, classification, stats) est déléguée
-    /// à <c>IHouseholdSalaryDistributionModule</c>.
+    /// Les paramètres peuvent être configurés depuis la BD via
+    /// <c>ConfigurerComportements</c> et <c>ConfigurerParametresAchat</c>.
     /// </summary>
     public class HouseholdModule : IHouseholdModule
     {
         private readonly IHouseholdSalaryDistributionModule _salaryDistributionModule;
+        private Dictionary<ClasseSocioEconomique, ComportementClasseConfig>? _configsParClasse;
+
+        // Paramètres d'achat alimentaire (configurables depuis BD)
+        private double _partInformelAlimentaire = 0.85;
+        private double _partFormelAlimentaire = 0.15;
+        private double _tauxTVAFormel = 1.20; // multiplicateur TVA 20%
 
         public HouseholdModule(IHouseholdSalaryDistributionModule salaryDistributionModule)
         {
             _salaryDistributionModule = salaryDistributionModule;
         }
 
-        /// <remarks>
-        /// NOTE DE CALIBRAGE : les valeurs de <c>DepensesAlimentairesJour</c> ici (15 000 MGA pour
-        /// Subsistance) sont sensiblement différentes de celles de
-        /// <c>HouseholdSalaryDistribution.ComportementParClasse</c> (2 000-3 500 MGA pour Subsistance),
-        /// qui est la source effectivement utilisée à l'initialisation dans
-        /// <c>SimulationModule.Initialiser()</c>. À réconcilier.
-        /// </remarks>
+        /// <inheritdoc/>
+        public void ConfigurerComportements(IEnumerable<ComportementClasseConfig> configs)
+        {
+            _configsParClasse = configs.ToDictionary(c => c.Classe);
+        }
+
+        /// <inheritdoc/>
+        public void ConfigurerParametresAchat(double partInformelAlimentaire, double partFormelAlimentaire, double tauxTVAFormel)
+        {
+            _partInformelAlimentaire = partInformelAlimentaire;
+            _partFormelAlimentaire = partFormelAlimentaire;
+            _tauxTVAFormel = tauxTVAFormel;
+        }
+
         public (double TauxEpargne, double PropensionConsommation, double DepensesAlimentairesJour,
                  double DepensesDiversJour, string Transport, double DistanceDomicileTravailKm,
                  double EpargneInitiale) GetComportementParClasse(ClasseSocioEconomique classe)
         {
+            // Si des paramètres BD sont configurés, les utiliser (milieu de plage)
+            if (_configsParClasse != null && _configsParClasse.TryGetValue(classe, out var cfg))
+            {
+                return (
+                    TauxEpargne: (cfg.TauxEpargneMin + cfg.TauxEpargneMax) / 2.0,
+                    PropensionConsommation: (cfg.PropensionConsommationMin + cfg.PropensionConsommationMax) / 2.0,
+                    DepensesAlimentairesJour: (cfg.DepensesAlimentairesJourMin + cfg.DepensesAlimentairesJourMax) / 2.0,
+                    DepensesDiversJour: (cfg.DepensesDiversJourMin + cfg.DepensesDiversJourMax) / 2.0,
+                    Transport: cfg.ModeTransportPreferentiel.ToString(),
+                    DistanceDomicileTravailKm: (cfg.DistanceDomicileTravailKmMin + cfg.DistanceDomicileTravailKmMax) / 2.0,
+                    EpargneInitiale: cfg.EpargneInitialeMax / 2.0
+                );
+            }
+
+            // Fallback : valeurs par défaut historiques
             return classe switch
             {
-                ClasseSocioEconomique.Subsistance => (
-                    TauxEpargne: 0.02,
-                    PropensionConsommation: 0.98,
-                    DepensesAlimentairesJour: 15_000,
-                    DepensesDiversJour: 2_000,
-                    Transport: "à pied",
-                    DistanceDomicileTravailKm: 2,
-                    EpargneInitiale: 5_000
-                ),
-                ClasseSocioEconomique.InformelBas => (
-                    TauxEpargne: 0.05,
-                    PropensionConsommation: 0.90,
-                    DepensesAlimentairesJour: 20_000,
-                    DepensesDiversJour: 5_000,
-                    Transport: "moto",
-                    DistanceDomicileTravailKm: 5,
-                    EpargneInitiale: 25_000
-                ),
-                ClasseSocioEconomique.FormelBas => (
-                    TauxEpargne: 0.15,
-                    PropensionConsommation: 0.80,
-                    DepensesAlimentairesJour: 25_000,
-                    DepensesDiversJour: 10_000,
-                    Transport: "moto",
-                    DistanceDomicileTravailKm: 8,
-                    EpargneInitiale: 100_000
-                ),
-                ClasseSocioEconomique.FormelQualifie => (
-                    TauxEpargne: 0.25,
-                    PropensionConsommation: 0.70,
-                    DepensesAlimentairesJour: 35_000,
-                    DepensesDiversJour: 20_000,
-                    Transport: "voiture",
-                    DistanceDomicileTravailKm: 12,
-                    EpargneInitiale: 500_000
-                ),
-                ClasseSocioEconomique.Cadre => (
-                    TauxEpargne: 0.40,
-                    PropensionConsommation: 0.55,
-                    DepensesAlimentairesJour: 50_000,
-                    DepensesDiversJour: 40_000,
-                    Transport: "voiture",
-                    DistanceDomicileTravailKm: 15,
-                    EpargneInitiale: 2_000_000
-                ),
+                ClasseSocioEconomique.Subsistance => (0.02, 0.98, 15_000, 2_000, "à pied", 2, 5_000),
+                ClasseSocioEconomique.InformelBas => (0.05, 0.90, 20_000, 5_000, "moto", 5, 25_000),
+                ClasseSocioEconomique.FormelBas => (0.15, 0.80, 25_000, 10_000, "moto", 8, 100_000),
+                ClasseSocioEconomique.FormelQualifie => (0.25, 0.70, 35_000, 20_000, "voiture", 12, 500_000),
+                ClasseSocioEconomique.Cadre => (0.40, 0.55, 50_000, 40_000, "voiture", 15, 2_000_000),
                 _ => (0.10, 0.80, 20_000, 5_000, "moto", 5, 50_000)
             };
         }
@@ -99,8 +87,8 @@ namespace Household.Module
 
             double depenseEffective = depenseAlimentairesJourBase * facteurReduction;
 
-            double coutInformel = depenseEffective * 0.85;
-            double coutFormel   = depenseEffective * 0.15 * 1.20; // TVA 20 %
+            double coutInformel = depenseEffective * _partInformelAlimentaire;
+            double coutFormel   = depenseEffective * _partFormelAlimentaire * _tauxTVAFormel;
 
             double coutTotal = Math.Min(coutInformel + coutFormel, revenuDisponible * 0.80);
 

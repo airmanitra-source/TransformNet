@@ -101,6 +101,24 @@ public class Government
     /// <summary>Dette publique cumulée (initialisée par ScenarioConfig.DettePubliqueInitiale)</summary>
     public double DettePublique { get; set; }
 
+    /// <summary>
+    /// Recettes fiscales journalières de référence (premier jour de simulation).
+    /// Sert de baseline pour le recyclage fiscal : quand les recettes augmentent
+    /// (ex : formalisation), le surplus est partiellement recyclé en dépenses publiques
+    /// supplémentaires, reflétant la capacité accrue de l'État à financer les services.
+    /// Sans ce mécanisme, l'augmentation des taxes extrait de l'argent du secteur privé
+    /// sans le réinjecter → spirale déflationniste artificielle.
+    /// </summary>
+    public double RecettesFiscalesReferenceJour { get; set; }
+
+    /// <summary>
+    /// Part du surplus fiscal recyclée en dépenses publiques (0-1).
+    /// 0.70 = l'État réinvestit 70% de ses recettes fiscales excédentaires.
+    /// Réaliste : un État qui formalise l'économie utilise la majorité des nouvelles
+    /// recettes pour des services publics, investissements et transferts sociaux.
+    /// </summary>
+    public double TauxRecyclageFiscal { get; set; } = 0.70;
+
 }
 
 

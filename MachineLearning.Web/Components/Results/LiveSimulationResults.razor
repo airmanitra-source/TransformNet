@@ -1,11 +1,19 @@
 @using Simulation.Module
 @using Simulation.Module.Models
 @using Simulation.Module.Config
+@using Microsoft.Extensions.DependencyInjection
 
 @if (Simulator.Result.Snapshots.Count > 0)
 {
     var last = Simulator.Result.Snapshots[^1];
     var first = Simulator.Result.Snapshots[0];
+    var recettesJourFirst = first.RecettesIR + first.RecettesIS + first.RecettesTVA + first.RecettesDouanieres;
+    var recettesJourLast = last.RecettesIR + last.RecettesIS + last.RecettesTVA + last.RecettesDouanieres;
+    var comparaison = _baselineLastSnapshot ?? first;
+    var recettesJourComparaison = _baselineLastSnapshot != null
+        ? _baselineLastSnapshot.RecettesIR + _baselineLastSnapshot.RecettesIS + _baselineLastSnapshot.RecettesTVA + _baselineLastSnapshot.RecettesDouanieres
+        : recettesJourFirst;
+    var libelleComparaison = _baselineLastSnapshot != null ? $"vs {_baselineScenarioName}" : "vs Jour 1";
 
     @* ═══════════════════════════════════════════════════════════════════
        TABLEAU DE BORD DÉCISIONNEL — KPI clés pour le policy-maker
@@ -16,16 +24,16 @@
                 <div class="card-body py-2">
                     <small class="text-muted">📊 PIB/jour</small>
                     <h5 class="text-warning mb-0">@FormatMGA(last.PIBProxy)</h5>
-                    <small class="@CssVariation(last.PIBProxy, first.PIBProxy)">@FormatDelta(last.PIBProxy, first.PIBProxy)</small>
+                    <small class="@CssVariation(last.PIBProxy, comparaison.PIBProxy)">@FormatDelta(last.PIBProxy, comparaison.PIBProxy) (@libelleComparaison)</small>
                 </div>
             </div>
         </div>
         <div class="col-md-2">
-            <div class="card text-center border-success kpi-card">
+            <div class="card text-center kpi-card @(recettesJourLast >= recettesJourComparaison ? "border-success" : "border-danger")">
                 <div class="card-body py-2">
                     <small class="text-muted">🏛️ Recettes fisc./j</small>
-                    <h5 class="text-success mb-0">@FormatMGA(last.RecettesIR + last.RecettesIS + last.RecettesTVA + last.RecettesDouanieres)</h5>
-                    <small>IR+IS+TVA+Douanes</small>
+                    <h5 class="@(recettesJourLast >= recettesJourComparaison ? "text-success" : "text-danger") mb-0">@FormatMGA(recettesJourLast)</h5>
+                    <small class="@CssVariation(recettesJourLast, recettesJourComparaison)">@FormatDelta(recettesJourLast, recettesJourComparaison) (@libelleComparaison)</small>
                 </div>
             </div>
         </div>
@@ -61,22 +69,79 @@
                 <div class="card-body py-2">
                     <small class="text-muted">📉 Gini</small>
                     <h5 class="@(last.Gini > 0.5 ? "text-danger" : last.Gini > 0.4 ? "text-warning" : "text-success") mb-0">@last.Gini.ToString("F3")</h5>
-                    <small class="@CssVariation(first.Gini, last.Gini)">@FormatDelta(first.Gini, last.Gini, true)</small>
+                    <small class="@CssVariation(comparaison.Gini, last.Gini)">@FormatDelta(comparaison.Gini, last.Gini, true) (@libelleComparaison)</small>
                 </div>
             </div>
         </div>
     </div>
 
+    @if (_baselineLoading)
+    {
+        <div class="alert alert-info py-2 mb-3">
+            <small>Calcul du scénario baseline pour le comparatif…</small>
+        </div>
+    }
+    else if (_baselineLastSnapshot != null)
+    {
+        <div class="row mb-3">
+            <div class="col-md-12">
+                <div class="card border-success">
+                    <div class="card-header bg-success text-white">
+                        <strong>📊 Comparatif politique — Scénario courant vs @_baselineScenarioName</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col">
+                                <small class="text-muted">PIB/jour</small><br />
+                                <strong class="@CssVariation(last.PIBProxy, comparaison.PIBProxy)">@FormatDelta(last.PIBProxy, comparaison.PIBProxy)</strong><br />
+                                <small>@FormatMGA(comparaison.PIBProxy) → @FormatMGA(last.PIBProxy)</small>
+                            </div>
+                            <div class="col">
+                                <small class="text-muted">Recettes fiscales/j</small><br />
+                                <strong class="@CssVariation(recettesJourLast, recettesJourComparaison)">@FormatDelta(recettesJourLast, recettesJourComparaison)</strong><br />
+                                <small>@FormatMGA(recettesJourComparaison) → @FormatMGA(recettesJourLast)</small>
+                            </div>
+                            <div class="col">
+                                <small class="text-muted">Emploi total</small><br />
+                                <strong class="@CssVariation(last.TotalEmployesEntreprises, comparaison.TotalEmployesEntreprises)">
+                                    @FormatDeltaInt(last.TotalEmployesEntreprises, comparaison.TotalEmployesEntreprises)
+                                </strong><br />
+                                <small>@comparaison.TotalEmployesEntreprises.ToString("N0") → @last.TotalEmployesEntreprises.ToString("N0")</small>
+                            </div>
+                            <div class="col">
+                                <small class="text-muted">Inégalités (Gini)</small><br />
+                                <strong class="@CssVariation(comparaison.Gini, last.Gini)">@((last.Gini - comparaison.Gini).ToString("+0.000;-0.000;0.000"))</strong><br />
+                                <small>@comparaison.Gini.ToString("F3") → @last.Gini.ToString("F3")</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(_baselineError))
+    {
+        <div class="alert alert-warning py-2 mb-3">
+            <small>@_baselineError</small>
+        </div>
+    }
+
     @* ═══════════════════════════════════════════════════════════════════
-       IMPACT MACRO — Synthèse des effets de la politique simulée
+       ÉVOLUTION INTERNE DU SCÉNARIO — Jour N vs Jour 1
        ═══════════════════════════════════════════════════════════════════ *@
     <div class="row mb-3">
         <div class="col-md-12">
             <div class="card border-dark">
                 <div class="card-header bg-dark text-white">
-                    <strong>🎯 Impact macro — Effets de la politique simulée</strong>
+                    <strong>🎯 Évolution interne du scénario — Jour final vs Jour 1</strong>
                 </div>
                 <div class="card-body">
+                    <div class="alert alert-secondary py-2 mb-3">
+                        <small>
+                            Les pourcentages ci-dessous comparent le <strong>dernier jour</strong> au <strong>premier jour du même scénario</strong>.
+                            Ils ne mesurent pas l'écart avec un scénario baseline.
+                        </small>
+                    </div>
                     <div class="row text-center">
                         <div class="col">
                             <small class="text-muted">PIB/jour</small><br />
@@ -84,9 +149,7 @@
                         </div>
                         <div class="col">
                             <small class="text-muted">Recettes fiscales/j</small><br />
-                            @{ var recFirst = first.RecettesIR + first.RecettesIS + first.RecettesTVA + first.RecettesDouanieres;
-                               var recLast = last.RecettesIR + last.RecettesIS + last.RecettesTVA + last.RecettesDouanieres; }
-                            <strong class="@CssVariation(recLast, recFirst)">@FormatDelta(recLast, recFirst)</strong>
+                            <strong class="@CssVariation(recettesJourLast, recettesJourFirst)">@FormatDelta(recettesJourLast, recettesJourFirst)</strong>
                         </div>
                         <div class="col">
                             <small class="text-muted">Emploi total</small><br />
@@ -542,43 +605,43 @@
                 📋 Bilan — @Config.Name (@FormatTemps(Config.DureeJours))
             </div>
             <div class="card-body">
-                <h6 class="mb-3">🎯 Réponse à la question de politique économique :</h6>
+                <h6 class="mb-3">🎯 @(_baselineLastSnapshot != null ? $"Réponse à la politique vs {_baselineScenarioName} :" : "Évolution du scénario sur la période simulée :")</h6>
                 <div class="row mb-3">
                     <div class="col-md-3">
-                        <div class="card text-center @(last.PIBProxy > first.PIBProxy ? "border-success" : "border-danger")">
+                        <div class="card text-center @(last.PIBProxy > comparaison.PIBProxy ? "border-success" : "border-danger")">
                             <div class="card-body py-2">
                                 <small class="text-muted">PIB/jour</small>
-                                <h5 class="@CssVariation(last.PIBProxy, first.PIBProxy)">@FormatDelta(last.PIBProxy, first.PIBProxy)</h5>
-                                <small>@FormatMGA(first.PIBProxy) → @FormatMGA(last.PIBProxy)</small>
+                                <h5 class="@CssVariation(last.PIBProxy, comparaison.PIBProxy)">@FormatDelta(last.PIBProxy, comparaison.PIBProxy)</h5>
+                                <small>@FormatMGA(comparaison.PIBProxy) → @FormatMGA(last.PIBProxy)</small>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="card text-center @(recLast > recFirst ? "border-success" : "border-danger")">
+                        <div class="card text-center @(recettesJourLast > recettesJourComparaison ? "border-success" : "border-danger")">
                             <div class="card-body py-2">
                                 <small class="text-muted">Recettes fiscales/j</small>
-                                <h5 class="@CssVariation(recLast, recFirst)">@FormatDelta(recLast, recFirst)</h5>
+                                <h5 class="@CssVariation(recettesJourLast, recettesJourComparaison)">@FormatDelta(recettesJourLast, recettesJourComparaison)</h5>
                                 <small>Cumul : @FormatMGA(last.RecettesFiscalesTotales)</small>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="card text-center @(last.TotalEmployesEntreprises > first.TotalEmployesEntreprises ? "border-success" : "border-danger")">
+                        <div class="card text-center @(last.TotalEmployesEntreprises > comparaison.TotalEmployesEntreprises ? "border-success" : "border-danger")">
                             <div class="card-body py-2">
                                 <small class="text-muted">Emploi total</small>
-                                <h5 class="@CssVariation(last.TotalEmployesEntreprises, first.TotalEmployesEntreprises)">
-                                    @FormatDeltaInt(last.TotalEmployesEntreprises, first.TotalEmployesEntreprises)
+                                <h5 class="@CssVariation(last.TotalEmployesEntreprises, comparaison.TotalEmployesEntreprises)">
+                                    @FormatDeltaInt(last.TotalEmployesEntreprises, comparaison.TotalEmployesEntreprises)
                                 </h5>
-                                <small>@first.TotalEmployesEntreprises.ToString("N0") → @last.TotalEmployesEntreprises.ToString("N0")</small>
+                                <small>@comparaison.TotalEmployesEntreprises.ToString("N0") → @last.TotalEmployesEntreprises.ToString("N0")</small>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="card text-center @(last.Gini < first.Gini ? "border-success" : "border-danger")">
+                        <div class="card text-center @(last.Gini < comparaison.Gini ? "border-success" : "border-danger")">
                             <div class="card-body py-2">
                                 <small class="text-muted">Inégalités (Gini)</small>
-                                <h5 class="@CssVariation(first.Gini, last.Gini)">@((last.Gini - first.Gini).ToString("+0.000;-0.000;0.000"))</h5>
-                                <small>@first.Gini.ToString("F3") → @last.Gini.ToString("F3")</small>
+                                <h5 class="@CssVariation(comparaison.Gini, last.Gini)">@((last.Gini - comparaison.Gini).ToString("+0.000;-0.000;0.000"))</h5>
+                                <small>@comparaison.Gini.ToString("F3") → @last.Gini.ToString("F3")</small>
                             </div>
                         </div>
                     </div>
@@ -734,6 +797,96 @@ else if (!Simulator.EnCours)
 
     [Parameter]
     public ScenarioConfig Config { get; set; } = default!;
+
+    [Inject]
+    private IServiceScopeFactory ScopeFactory { get; set; } = default!;
+
+    private DailySnapshot? _baselineLastSnapshot;
+    private string _baselineScenarioName = "baseline";
+    private string? _baselineError;
+    private string? _baselineCacheKey;
+    private bool _baselineLoading;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Simulator.Result.EstTerminee || Simulator.EnCours || Simulator.Result.Snapshots.Count == 0)
+        {
+            if (Simulator.EnCours)
+            {
+                _baselineLastSnapshot = null;
+                _baselineError = null;
+                _baselineCacheKey = null;
+            }
+            return;
+        }
+
+        var cacheKey = BuildBaselineCacheKey();
+        if (_baselineLoading || _baselineCacheKey == cacheKey)
+            return;
+
+        _baselineLoading = true;
+        _baselineError = null;
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var baselineSimulator = scope.ServiceProvider.GetRequiredService<ISimulationModule>();
+
+            var baselineConfig = await ChargerBaselineConfigAsync(baselineSimulator);
+            baselineConfig.DureeJours = Config.DureeJours;
+            baselineConfig.NombreMenages = Config.NombreMenages;
+            baselineConfig.NombreEntreprises = Config.NombreEntreprises;
+
+            // Synchronisation du calibrage structurel de l'utilisateur (propensions à consommer)
+            baselineConfig.PropensionConsommation_Subsistance = Config.PropensionConsommation_Subsistance;
+            baselineConfig.PropensionConsommation_InformelBas = Config.PropensionConsommation_InformelBas;
+            baselineConfig.PropensionConsommation_FormelBas = Config.PropensionConsommation_FormelBas;
+            baselineConfig.PropensionConsommation_FormelQualifie = Config.PropensionConsommation_FormelQualifie;
+            baselineConfig.PropensionConsommation_Cadre = Config.PropensionConsommation_Cadre;
+
+            // Synchronisation de la trésorerie initiale ajustée par l'utilisateur
+            baselineConfig.TresorerieInitialeParSecteur = new Dictionary<Company.Module.Models.ESecteurActivite, double>(Config.TresorerieInitialeParSecteur);
+
+            baselineSimulator.Initialiser(baselineConfig);
+            baselineSimulator.SimulerNJoursSync(baselineConfig.DureeJours);
+
+            _baselineLastSnapshot = baselineSimulator.Result.Snapshots.LastOrDefault();
+            _baselineCacheKey = cacheKey;
+        }
+        catch (Exception ex)
+        {
+            _baselineLastSnapshot = null;
+            _baselineError = $"Comparatif baseline indisponible : {ex.Message}";
+            _baselineCacheKey = cacheKey;
+        }
+        finally
+        {
+            _baselineLoading = false;
+        }
+    }
+
+    private string BuildBaselineCacheKey()
+        => $"{Config.Name}|{Config.DureeJours}|{Config.NombreMenages}|{Config.NombreEntreprises}|{Simulator.Result.JoursSimules}";
+
+    private async Task<ScenarioConfig> ChargerBaselineConfigAsync(ISimulationModule simulation)
+    {
+        try
+        {
+            var scenarios = await simulation.ListScenariosAsync();
+            if (scenarios.FirstOrDefault(s => s.EstBase) is { } baseline)
+            {
+                _baselineScenarioName = baseline.Nom;
+                return await simulation.ChargerScenarioAsync(baseline.Id);
+            }
+        }
+        catch
+        {
+        }
+
+        var config = ScenarioConfig.BaseMadagascar();
+        _baselineScenarioName = config.Name;
+        return config;
+    }
 
     private List<DailySnapshot> GetSampledSnapshots()
     {

@@ -17,6 +17,8 @@ public class ParamEntreprisesEntity
     public int SeuilJoursStressTresorerie { get; set; } = 30;
     public int SeuilJoursDemandeExcedentaire { get; set; } = 15;
     public double SalaireMoyenMensuelDefaut { get; set; } = 200_000;
+    public double MargeReventeImport { get; set; } = 0.25;
+    public double PartExporteurProduction { get; set; } = 0.70;
 
     public DateTime MisAJourAt { get; set; }
 }

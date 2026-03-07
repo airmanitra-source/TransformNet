@@ -63,6 +63,7 @@ var connectionString = builder.Configuration.GetConnectionString("SimulateurDb")
 builder.Services.AddSingleton<IDbConnectionFactory>(
     new SqlConnectionFactory(connectionString));
 builder.Services.AddScoped<IScenarioRepository, ScenarioRepository>();
+builder.Services.AddScoped<IScenarioConfigLoader, ScenarioConfigLoader>();
 
 var app = builder.Build();
 

@@ -10,6 +10,13 @@ namespace Household.Salary.Distribution.Module
             double salairePlancher,
             double partSecteurInformel);
 
+        /// <summary>
+        /// Configure les comportements par classe socio-économique depuis la base de données.
+        /// Remplace les magic numbers hardcodés dans <c>ComportementParClasse</c>.
+        /// Si non appelé, les valeurs par défaut historiques sont utilisées.
+        /// </summary>
+        void ConfigurerComportements(IEnumerable<ComportementClasseConfig> configs);
+
         double TirerSalaire(Random random);
 
         ClasseSocioEconomique DeterminerClasse(double salaireMensuel);

@@ -12,6 +12,17 @@ namespace Transportation.Module;
 public interface ITransportationModule
 {
     /// <summary>
+    /// Configure les paramètres de répartition formel/informel depuis la base de données.
+    /// Si non appelé, les valeurs par défaut historiques sont utilisées.
+    /// </summary>
+    void Configurer(
+        double partInformelTransportPublic,
+        double partFormelCarburant,
+        double partInformelEntretien,
+        double entretienVoitureJour,
+        double entretienFractionRevenuVoiture);
+
+    /// <summary>
     /// Route la dépense de transport d'un ménage vers l'entreprise de transport appropriée.
     /// Décompose la dépense selon le mode de transport :
     /// - Transport public → entreprises formelles de transport
