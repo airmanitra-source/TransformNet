@@ -847,6 +847,12 @@ else if (!Simulator.EnCours)
             // Synchronisation de la trésorerie initiale ajustée par l'utilisateur
             baselineConfig.TresorerieInitialeParSecteur = new Dictionary<Company.Module.Models.ESecteurActivite, double>(Config.TresorerieInitialeParSecteur);
 
+            // Synchronisation de la recalibration mensuelle (Garde-fous)
+            baselineConfig.RecalibrationMensuelleActivee = Config.RecalibrationMensuelleActivee;
+            baselineConfig.VitesseConvergenceRecalibration = Config.VitesseConvergenceRecalibration;
+            baselineConfig.SeuilToleranceRecalibration = Config.SeuilToleranceRecalibration;
+            baselineConfig.CiblesMensuelles = Config.CiblesMensuelles?.ToList() ?? new();
+
             baselineSimulator.Initialiser(baselineConfig);
             baselineSimulator.SimulerNJoursSync(baselineConfig.DureeJours);
 
@@ -866,7 +872,7 @@ else if (!Simulator.EnCours)
     }
 
     private string BuildBaselineCacheKey()
-        => $"{Config.Name}|{Config.DureeJours}|{Config.NombreMenages}|{Config.NombreEntreprises}|{Simulator.Result.JoursSimules}";
+        => $"{Config.Name}|{Config.DureeJours}|{Config.NombreMenages}|{Config.NombreEntreprises}|{Simulator.Result.JoursSimules}|{Config.RecalibrationMensuelleActivee}|{Config.SeuilToleranceRecalibration}|{Config.VitesseConvergenceRecalibration}";
 
     private async Task<ScenarioConfig> ChargerBaselineConfigAsync(ISimulationModule simulation)
     {
