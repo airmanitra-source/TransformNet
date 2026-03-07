@@ -1,6 +1,8 @@
 using Government.Module;
 using Company.Module;
 using Household.Module;
+using Household.Education.Module;
+using Household.HealthExpenditure.Module;
 using Household.Leisure.Spending.Module;
 using Household.Remittance.Module;
 using Household.Salary.Distribution.Module;
@@ -9,6 +11,7 @@ using Price.Module;
 using Bank.Module;
 using Transportation.Module;
 using Simulation.Module;
+using Simulation.Module.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add service defaults & Aspire client integrations.
@@ -27,8 +30,14 @@ builder.Services.AddScoped<IHouseholdSalaryDistributionModule>(sp =>
     (IHouseholdSalaryDistributionModule)sp.GetRequiredService<IHouseholdModule>());
 builder.Services.AddScoped<IHouseholdLeisureSpendingModule, HouseholdLeisureSpendingModule>();
 builder.Services.AddScoped<IHouseholdRemittanceModule, HouseholdRemittanceModule>();
+builder.Services.AddScoped<IHouseholdEducationModule, HouseholdEducationModule>();
+builder.Services.AddScoped<IHouseholdHealthExpenditureModule, HouseholdHealthExpenditureModule>();
 builder.Services.AddScoped<IBankModule, BankModule>();
 builder.Services.AddScoped<ITransportationModule, TransportationModule>();
+builder.Services.AddScoped<IInflationModule, InflationModule>();
+builder.Services.AddScoped<IExchangeRateModule, ExchangeRateModule>();
+builder.Services.AddScoped<ISeasonalityModule, SeasonalityModule>();
+builder.Services.AddScoped<IMacroValidationModule, MacroValidationModule>();
 
 builder.Services.AddScoped<ISimulationModule, SimulationModule>();
 builder.Services.AddOutputCache();

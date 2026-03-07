@@ -32,6 +32,27 @@ public class ScenarioConfig
 
     public double TauxEpargneMenage { get; set; } = 0.10;
     public double PropensionConsommation { get; set; } = 0.75;
+    // Propension marginale à consommer par classe socio-économique (0-1)
+    public double PropensionConsommation_Subsistance { get; set; } = 0.92; // précédemment behavior
+    public double PropensionConsommation_InformelBas { get; set; } = 0.85;
+    public double PropensionConsommation_FormelBas { get; set; } = 0.75;
+    public double PropensionConsommation_FormelQualifie { get; set; } = 0.65;
+    public double PropensionConsommation_Cadre { get; set; } = 0.50;
+
+    public double GetPropensionParClasse(Company.Module.Models.ESecteurActivite? dummy = null) => PropensionConsommation; // placeholder
+
+    public double GetPropensionParClasse(Household.Module.Models.ClasseSocioEconomique classe)
+    {
+        return classe switch
+        {
+            Household.Module.Models.ClasseSocioEconomique.Subsistance => PropensionConsommation_Subsistance,
+            Household.Module.Models.ClasseSocioEconomique.InformelBas => PropensionConsommation_InformelBas,
+            Household.Module.Models.ClasseSocioEconomique.FormelBas => PropensionConsommation_FormelBas,
+            Household.Module.Models.ClasseSocioEconomique.FormelQualifie => PropensionConsommation_FormelQualifie,
+            Household.Module.Models.ClasseSocioEconomique.Cadre => PropensionConsommation_Cadre,
+            _ => PropensionConsommation
+        };
+    }
 
     public double ConsommationRizAnnuelleKgParPersonne { get; set; } = 130;
     public double PrixRizLocalKg { get; set; } = 2_400;
@@ -68,6 +89,24 @@ public class ScenarioConfig
 
     public double LoyerImputeJourParMenage { get; set; } = 1_000;
     public double TauxMenagesProprietaires { get; set; } = 0.65;
+    public double LoyerJourLocataire { get; set; } = 3_500;
+    public double ProbabiliteConstructionMaisonLocataire { get; set; } = 0.08;
+    public int DureeConstructionMaisonJours { get; set; } = 240;
+    public double BudgetConstructionMaisonJour { get; set; } = 7_500;
+    public double PartBudgetConstructionBTP { get; set; } = 0.55;
+    public double PartBudgetConstructionQuincaillerie { get; set; } = 0.30;
+    public double PartBudgetConstructionTransportInformel { get; set; } = 0.15;
+
+    public double NombreEnfantsMoyenParMenage { get; set; } = 2.3;
+    public double PartEnfantsScolarises { get; set; } = 0.72;
+    public int DureeDepenseEducationJours { get; set; } = 180;
+    public double CoutEducationJournalierParEnfant { get; set; } = 900;
+    public double PartFormelleDepenseEducation { get; set; } = 0.75;
+
+    public double TauxOccupationHopitaux { get; set; } = 0.68;
+    public double CoutConsultationSanteBase { get; set; } = 8_000;
+    public double CoutHospitalisationSanteBase { get; set; } = 45_000;
+    public double PartFormelleDepenseSante { get; set; } = 0.70;
 
     public int NombreFonctionnaires { get; set; } = 350_000;
     public double SalaireMoyenFonctionnaireMensuel { get; set; } = 863_000;
@@ -123,10 +162,248 @@ public class ScenarioConfig
     public double PrixCarburantReference { get; set; } = 5_500;
 
     // ════════════════════════════════════════════════════════════════
+    // ░░░ TAUX DE CHANGE DYNAMIQUE MGA/USD ░░░
+    // ════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Active le taux de change dynamique.
+    /// Si true, le taux MGA/USD est recalculé chaque jour à partir des flux de devises.
+    /// Si false, le taux reste fixe (TauxChangeMGAParUSD).
+    /// </summary>
+    public bool TauxChangeDynamiqueActive { get; set; } = true;
+
+    /// <summary>
+    /// Taux de change initial MGA par USD. BCM sept. 2024 ≈ 4 500.
+    /// Interprétation : 1 USD = 4 500 MGA.
+    /// </summary>
+    public double TauxChangeMGAParUSD { get; set; } = 4_500;
+
+    /// <summary>
+    /// Taux de change MGA par EUR. BCM sept. 2024 ≈ 5 000.
+    /// Calculé comme TauxChangeMGAParUSD × 1.11 (parité EUR/USD).
+    /// </summary>
+    public double TauxChangeMGAParEUR => TauxChangeMGAParUSD * 1.11;
+
+    /// <summary>
+    /// Réserves de change BCM en USD. BCM 2024 ≈ 2.5 milliards USD.
+    /// Couvrent environ 5 mois d'importations.
+    /// </summary>
+    public double ReservesBCMUSD { get; set; } = 2_500_000_000;
+
+    /// <summary>
+    /// Taux d'inflation étrangère (USD zone, annuel).
+    /// Sert au calcul de la PPA relative. FED 2024 ≈ 2.5-3.5%.
+    /// </summary>
+    public double InflationEtrangere { get; set; } = 0.03;
+
+    /// <summary>
+    /// Élasticité du taux de change au solde commercial (0-1).
+    /// 0 = fixité (peg), 1 = flottement libre.
+    /// Madagascar ≈ 0.5 (flottement géré BCM).
+    /// </summary>
+    public double ElasticiteChangeBalanceCommerciale { get; set; } = 0.50;
+
+    /// <summary>
+    /// Poids de la PPA relative dans le taux de change (0-1).
+    /// Convergence lente vers la parité de pouvoir d'achat.
+    /// </summary>
+    public double PoidsChangePPA { get; set; } = 0.30;
+
+    /// <summary>
+    /// Intensité d'intervention BCM (0 = aucune, 1 = fixité totale).
+    /// 0.5 = intervention modérée pour lisser la volatilité.
+    /// </summary>
+    public double IntensiteInterventionBCM { get; set; } = 0.50;
+
+    /// <summary>
+    /// Réserves minimales BCM en mois d'imports.
+    /// En dessous, la BCM cesse d'intervenir. FMI recommande 3 mois.
+    /// </summary>
+    public double ReservesMinimalesMoisImports { get; set; } = 3.0;
+
+    /// <summary>
+    /// Tendance de dépréciation structurelle annuelle (ex: 0.05 = 5%/an).
+    /// Historique Madagascar 2015-2024 ≈ 5-7%/an.
+    /// </summary>
+    public double DepreciationStructurelleAnnuelle { get; set; } = 0.05;
+
+    /// <summary>
+    /// Élasticité du taux de change vers l'inflation (pass-through, ζ).
+    /// Part de la dépréciation MGA transmise aux prix intérieurs.
+    /// Madagascar ≈ 0.20-0.40 (pass-through modéré à élevé,
+    /// car ~40% du PIB est importé).
+    /// </summary>
+    public double ElasticiteChangeInflation { get; set; } = 0.30;
+
+    // ════════════════════════════════════════════════════════════════
+
+    // ════════════════════════════════════════════════════════════════
     // ░░░ SECTEUR BANCAIRE ET MONÉTAIRE ░░░
     // ════════════════════════════════════════════════════════════════
     public double TauxReserveObligatoire { get; set; } = 0.13;
     public double CroissanceCreditJour { get; set; } = 0.00041; // Permet de viser +15% sur un an (1.15^(1/365) - 1)
+    // ════════════════════════════════════════════════════════════════
+
+    // ════════════════════════════════════════════════════════════════
+    // ░░░ SAISONNALITÉ AGRICOLE ░░░
+    // ════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Active la saisonnalité agricole.
+    /// Si true, la productivité agricole, les prix alimentaires, les exports
+    /// et le tourisme varient selon le calendrier cultural malgache.
+    /// Si false, tous les facteurs saisonniers restent à 1.0 (pas de variation).
+    /// </summary>
+    public bool SaisonnaliteActivee { get; set; } = true;
+
+    /// <summary>
+    /// Jour calendaire du début de la simulation (1 = 1er janvier, 182 = 1er juillet).
+    /// Détermine la position dans le cycle saisonnier au jour 1 de la simulation.
+    /// Par défaut : 1er janvier (début d'année / milieu de saison des pluies).
+    /// </summary>
+    public int JourCalendaireDebutSimulation { get; set; } = 1;
+
+    /// <summary>
+    /// Amplitude de la variation saisonnière de productivité agricole (0-1).
+    /// 0 = pas de variation, 0.5 = ±50%, 1.0 = variation extrême.
+    /// Calibrage Madagascar : rendements rizicoles varient de 40-60% entre saisons.
+    /// </summary>
+    public double AmplitudeProductiviteAgricole { get; set; } = 0.50;
+
+    /// <summary>
+    /// Amplitude de la variation saisonnière du prix du riz (0-1).
+    /// INSTAT : prix du riz local varie de 25-40% entre soudure et post-récolte.
+    /// </summary>
+    public double AmplitudePrixRiz { get; set; } = 0.35;
+
+    /// <summary>
+    /// Amplitude de la variation des prix alimentaires généraux (0-1).
+    /// Plus faible que le riz seul (panier diversifié).
+    /// </summary>
+    public double AmplitudePrixAlimentaire { get; set; } = 0.18;
+
+    /// <summary>
+    /// Amplitude de la variation touristique (0-1).
+    /// Haute saison (jul-oct) vs basse saison cyclones (jan-mars).
+    /// </summary>
+    public double AmplitudeTourisme { get; set; } = 0.45;
+
+    /// <summary>
+    /// Amplitude de la variation de l'emploi agricole saisonnier (0-1).
+    /// Semis/récolte = embauche, inter-saison = sous-emploi rural.
+    /// </summary>
+    public double AmplitudeEmploiAgricole { get; set; } = 0.25;
+
+    // ════════════════════════════════════════════════════════════════
+
+    // ════════════════════════════════════════════════════════════════
+    // ░░░ INFLATION ENDOGÈNE ░░░
+    // ════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Active le calcul de l'inflation endogène.
+    /// Si true, TauxInflation est recalculé chaque jour à partir des fondamentaux
+    /// (Phillips, cost-push, monétaire, anticipations).
+    /// Si false, TauxInflation reste fixe (comportement d'origine).
+    /// </summary>
+    public bool InflationEndogeneActivee { get; set; } = true;
+
+    /// <summary>
+    /// NAIRU (Non-Accelerating Inflation Rate of Unemployment).
+    /// Taux de chômage structurel en dessous duquel l'inflation accélère.
+    /// Madagascar ≈ 0.15-0.20 (sous-emploi structurel élevé).
+    /// </summary>
+    public double NAIRU { get; set; } = 0.18;
+
+    /// <summary>
+    /// Coefficient de Phillips (β) : sensibilité de l'inflation à l'écart de chômage.
+    /// Plus β est élevé, plus un chômage bas génère de l'inflation.
+    /// Valeurs typiques : 0.01 (faible) à 0.10 (forte réactivité).
+    /// </summary>
+    public double CoefficientPhillips { get; set; } = 0.03;
+
+    /// <summary>
+    /// Poids des anticipations d'inflation dans la formule finale.
+    /// Reflète l'inertie inflationniste (spirale prix-salaires).
+    /// </summary>
+    public double PoidsAnticipationsInflation { get; set; } = 0.40;
+
+    /// <summary>
+    /// Poids de la composante demand-pull (Phillips) dans la formule finale.
+    /// </summary>
+    public double PoidsDemandPullInflation { get; set; } = 0.20;
+
+    /// <summary>
+    /// Poids de la composante cost-push (carburant + imports) dans la formule finale.
+    /// Élevé pour Madagascar (économie très dépendante des importations).
+    /// </summary>
+    public double PoidsCostPushInflation { get; set; } = 0.25;
+
+    /// <summary>
+    /// Poids de la composante monétaire (excès M3 vs PIB) dans la formule finale.
+    /// </summary>
+    public double PoidsMonetaireInflation { get; set; } = 0.15;
+
+    /// <summary>
+    /// Élasticité carburant → inflation (δ).
+    /// Part du choc carburant transmise aux prix intérieurs.
+    /// Madagascar ≈ 0.15-0.25 (forte transmission : routes, Jirama thermique).
+    /// </summary>
+    public double ElasticiteCarburantInflation { get; set; } = 0.20;
+
+    /// <summary>
+    /// Élasticité importations → inflation (ε).
+    /// Part de la hausse du coût CIF transmise aux prix intérieurs.
+    /// </summary>
+    public double ElasticiteImportInflation { get; set; } = 0.12;
+
+    /// <summary>
+    /// Coefficient monétaire (λ).
+    /// Part de l'excès de croissance monétaire (ΔM3/M3 - ΔPIB/PIB) transmise aux prix.
+    /// </summary>
+    public double CoefficientMonetaire { get; set; } = 0.30;
+
+    /// <summary>
+    /// Vitesse d'adaptation des anticipations (α).
+    /// 0 = ancrage parfait (BCM très crédible), 1 = adaptatif pur (spirale).
+    /// Madagascar ≈ 0.50-0.70 (ancrage modéré, crédibilité BCM limitée).
+    /// </summary>
+    public double VitesseAdaptationAnticipations { get; set; } = 0.60;
+
+    /// <summary>
+    /// Inflation d'ancrage (cible implicite BCM).
+    /// La composante anticipative converge vers cette valeur à long terme.
+    /// BCM cible implicite ≈ 5-7%.
+    /// </summary>
+    public double InflationAncrage { get; set; } = 0.06;
+
+    /// <summary>
+    /// Taux de croissance annuel du PIB potentiel (tendanciel).
+    /// Sert au calcul de l'output gap et à la composante monétaire.
+    /// Madagascar ≈ 4-5% (tendance historique 2015-2024).
+    /// </summary>
+    public double CroissancePIBPotentielAnnuel { get; set; } = 0.045;
+
+    // ════════════════════════════════════════════════════════════════
+
+    // ════════════════════════════════════════════════════════════════
+    // ░░░ VALIDATION MACRO AUTOMATIQUE ░░░
+    // ════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Active la validation macro automatique à la fin de la simulation.
+    /// Compare les résultats aux données de référence (INSTAT/BCM/FMI)
+    /// et génère un rapport de diagnostic avec scoring.
+    /// </summary>
+    public bool ValidationMacroActivee { get; set; } = true;
+
+    /// <summary>
+    /// Données macroéconomiques de référence pour la validation.
+    /// Par défaut : Madagascar 2024 (INSTAT/BCM/FMI).
+    /// Modifiables pour tester d'autres années ou scénarios contrefactuels.
+    /// </summary>
+    public Simulation.Module.Models.MacroReferenceData DonneesReference { get; set; } = new();
+
     // ════════════════════════════════════════════════════════════════
 
     // ════════════════════════════════════════════════════════════════

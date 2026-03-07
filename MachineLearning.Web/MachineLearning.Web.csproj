@@ -12,6 +12,8 @@
     <ProjectReference Include="..\Bank.Module\Bank.Module.csproj" />
     <ProjectReference Include="..\Company.Module\Company.Module.csproj" />
     <ProjectReference Include="..\Government.Module\Government.Module.csproj" />
+    <ProjectReference Include="..\Household.Education.Module\Household.Education.Module.csproj" />
+    <ProjectReference Include="..\Household.HealthExpenditure.Module\Household.HealthExpenditure.Module.csproj" />
     <ProjectReference Include="..\Household.Module\Household.Module.csproj" />
     <ProjectReference Include="..\Household.Leisure.Spending.Module\Household.Leisure.Spending.Module.csproj" />
     <ProjectReference Include="..\Household.Remittance.Module\Household.Remittance.Module.csproj" />

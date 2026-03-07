@@ -1,0 +1,66 @@
+@using Simulation.Module.Config
+
+<div>
+    <details class="mb-2">
+        <summary class="fw-bold" style="cursor: pointer;">🎓 Éducation des ménages</summary>
+        <div class="mt-2">
+            <div class="mb-2">
+                <label class="form-label">Nombre moyen d'enfants/ménage : <strong>@Config.NombreEnfantsMoyenParMenage.ToString("F1")</strong></label>
+                <input type="range" class="form-range" min="0" max="6" step="0.1"
+                       @bind="Config.NombreEnfantsMoyenParMenage" @bind:event="oninput" disabled="@Disabled" />
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Part des enfants scolarisés : <strong>@((Config.PartEnfantsScolarises * 100).ToString("F0"))%</strong></label>
+                <input type="range" class="form-range" min="0.20" max="1.00" step="0.01"
+                       @bind="Config.PartEnfantsScolarises" @bind:event="oninput" disabled="@Disabled" />
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Durée annuelle des dépenses d'éducation : <strong>@FormatTemps(Config.DureeDepenseEducationJours)</strong></label>
+                <input type="range" class="form-range" min="30" max="300" step="5"
+                       @bind="Config.DureeDepenseEducationJours" @bind:event="oninput" disabled="@Disabled" />
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Coût journalier par enfant : <strong>@FormatMGA(Config.CoutEducationJournalierParEnfant)</strong></label>
+                <input type="range" class="form-range" min="100" max="5000" step="50"
+                       @bind="Config.CoutEducationJournalierParEnfant" @bind:event="oninput" disabled="@Disabled" />
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Part formelle de la dépense d'éducation : <strong>@((Config.PartFormelleDepenseEducation * 100).ToString("F0"))%</strong></label>
+                <input type="range" class="form-range" min="0.20" max="1.00" step="0.01"
+                       @bind="Config.PartFormelleDepenseEducation" @bind:event="oninput" disabled="@Disabled" />
+            </div>
+        </div>
+    </details>
+</div>
+
+@code {
+    [Parameter]
+    public ScenarioConfig Config { get; set; } = new ScenarioConfig();
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    private static string FormatMGA(double montant)
+    {
+        if (Math.Abs(montant) >= 1_000_000_000)
+            return $"{montant / 1_000_000_000:F2} Mrd MGA";
+        if (Math.Abs(montant) >= 1_000_000)
+            return $"{montant / 1_000_000:F2} M MGA";
+        if (Math.Abs(montant) >= 1_000)
+            return $"{montant / 1_000:F1} k MGA";
+        return $"{montant:F0} MGA";
+    }
+
+    private static string FormatTemps(int jours)
+    {
+        if (jours >= 365)
+        {
+            int ans = jours / 365;
+            int moisRestants = (jours % 365) / 30;
+            return moisRestants > 0 ? $"{ans} an(s) {moisRestants} mois" : $"{ans} an(s)";
+        }
+        if (jours >= 30)
+            return $"{jours / 30} mois";
+        return $"{jours} jour(s)";
+    }
+}

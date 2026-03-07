@@ -1,0 +1,96 @@
+@using Simulation.Module.Config
+@using Company.Module.Models
+
+<div>
+    <hr />
+    <h6>🏢 Entreprises</h6>
+    <div class="mb-2">
+        <label class="form-label">Nombre d'entreprises : <strong>@Config.NombreEntreprises.ToString("N0")</strong></label>
+        <input type="range" class="form-range" min="2" max="70000" step="10"
+               @bind="Config.NombreEntreprises" @bind:event="oninput" disabled="@Disabled" />
+        <small class="text-muted">2–70 000 entreprises</small>
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Marge bénéficiaire : <strong>@(Config.MargeBeneficiaireEntreprise * 100)%</strong></label>
+        <input type="range" class="form-range" min="0.05" max="0.50" step="0.01"
+               @bind="Config.MargeBeneficiaireEntreprise" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+
+    <details class="mb-2">
+        <summary class="fw-bold" style="cursor: pointer;">💰 Trésorerie initiale par secteur</summary>
+        <div class="mt-2">
+            <small class="text-muted d-block mb-2">Fonds de roulement initial (MGA) — fourchette ×0.5 à ×1.5 appliquée aléatoirement.</small>
+            @foreach (var secteur in Enum.GetValues<ESecteurActivite>())
+            {
+                <div class="mb-1">
+                    <label class="form-label mb-0">
+                        @GetSecteurIcon(secteur) @secteur : <strong>@FormatMGA(Config.TresorerieInitialeParSecteur.GetValueOrDefault(secteur))</strong>
+                    </label>
+                    <input type="range" class="form-range"
+                           min="@GetTresorerieMin(secteur)" max="@GetTresorerieMax(secteur)" step="@GetTresorerieStep(secteur)"
+                           value="@Config.TresorerieInitialeParSecteur.GetValueOrDefault(secteur)"
+                           @oninput="(e) => SetTresorerie(secteur, e)"
+                           disabled="@Disabled" />
+                </div>
+            }
+        </div>
+    </details>
+</div>
+
+@code {
+    [Parameter]
+    public ScenarioConfig Config { get; set; } = new ScenarioConfig();
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    private static string FormatMGA(double montant)
+    {
+        if (Math.Abs(montant) >= 1_000_000_000)
+            return $"{montant / 1_000_000_000:F2} Mrd MGA";
+        if (Math.Abs(montant) >= 1_000_000)
+            return $"{montant / 1_000_000:F2} M MGA";
+        if (Math.Abs(montant) >= 1_000)
+            return $"{montant / 1_000:F1} k MGA";
+        return $"{montant:F0} MGA";
+    }
+
+    private static string GetSecteurIcon(ESecteurActivite secteur) => secteur switch
+    {
+        ESecteurActivite.Agriculture => "🌾",
+        ESecteurActivite.Textiles => "🧵",
+        ESecteurActivite.Commerces => "🏪",
+        ESecteurActivite.Services => "🔧",
+        ESecteurActivite.SecteurMinier => "⛏️",
+        ESecteurActivite.Construction => "🏗️",
+        ESecteurActivite.HotellerieTourisme => "🏨",
+        _ => "🏢"
+    };
+
+    private static double GetTresorerieMin(ESecteurActivite secteur) => secteur switch
+    {
+        ESecteurActivite.Agriculture => 100_000,
+        ESecteurActivite.SecteurMinier => 5_000_000,
+        _ => 500_000
+    };
+
+    private static double GetTresorerieMax(ESecteurActivite secteur) => secteur switch
+    {
+        ESecteurActivite.Agriculture => 5_000_000,
+        ESecteurActivite.SecteurMinier => 200_000_000,
+        _ => 30_000_000
+    };
+
+    private static double GetTresorerieStep(ESecteurActivite secteur) => secteur switch
+    {
+        ESecteurActivite.Agriculture => 50_000,
+        ESecteurActivite.SecteurMinier => 1_000_000,
+        _ => 500_000
+    };
+
+    private void SetTresorerie(ESecteurActivite secteur, ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out double val))
+            Config.TresorerieInitialeParSecteur[secteur] = val;
+    }
+}

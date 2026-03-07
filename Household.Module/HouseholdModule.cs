@@ -331,6 +331,13 @@ namespace Household.Module
             double volatiliteAleatoireMarche = 0.10,
             double elasticiteComportementMenage = 0.65,
             double partRevenuAlimentaireNormale = 0.40,
+            double depensesEducation = 0,
+            double depensesSante = 0,
+            double depensesLoyerLocatif = 0,
+            double depensesConstructionMaison = 0,
+            double depensesConstructionBTP = 0,
+            double depensesConstructionQuincaillerie = 0,
+            double depensesConstructionTransportInformel = 0,
             Random? random = null)
         {
             var result = new DailyHouseholdResult();
@@ -437,13 +444,30 @@ namespace Household.Module
             menage.TotalDepensesRiz += depensesRiz;
             // ────────────────────────────────────────────────────────────────────────
 
+            result.DepensesEducation = depensesEducation;
+            result.DepensesSante = depensesSante;
+            result.DepensesLoyerLocatif = depensesLoyerLocatif;
+            result.DepensesConstructionMaison = depensesConstructionMaison;
+            result.DepensesConstructionBTP = depensesConstructionBTP;
+            result.DepensesConstructionQuincaillerie = depensesConstructionQuincaillerie;
+            result.DepensesConstructionTransportInformel = depensesConstructionTransportInformel;
+
+            menage.TotalDepensesEducation += depensesEducation;
+            menage.TotalDepensesSante += depensesSante;
+            menage.TotalDepensesLoyer += depensesLoyerLocatif;
+            menage.TotalDepensesConstructionMaison += depensesConstructionMaison;
+
             // 6b. Consommation totale
             double depensesIncompressibles = depensesAlimentaires
                                              + menage.DepensesDiversJour * facteurInflationJour
                                              + depensesTransport
                                              + depensesRiz
                                              + depensesEau + depensesElectricite
-                                             + depensesTransportJirama;
+                                             + depensesTransportJirama
+                                             + depensesEducation
+                                             + depensesSante
+                                             + depensesLoyerLocatif
+                                             + depensesConstructionMaison;
 
             double budgetDiscretionnaire = Math.Max(0, (revenuNet - depensesIncompressibles) * menage.PropensionConsommation);
             double consommationTotale = depensesIncompressibles + budgetDiscretionnaire;

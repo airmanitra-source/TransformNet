@@ -47,6 +47,13 @@ namespace Household.Module
             double volatiliteAleatoireMarche = 0.10,
             double elasticiteComportementMenage = 0.65,
             double partRevenuAlimentaireNormale = 0.40,
+            double depensesEducation = 0,
+            double depensesSante = 0,
+            double depensesLoyerLocatif = 0,
+            double depensesConstructionMaison = 0,
+            double depensesConstructionBTP = 0,
+            double depensesConstructionQuincaillerie = 0,
+            double depensesConstructionTransportInformel = 0,
             Random? random = null);
     }
 }

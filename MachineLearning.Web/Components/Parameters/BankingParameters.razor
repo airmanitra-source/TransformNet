@@ -1,0 +1,28 @@
+@using Simulation.Module.Config
+
+<div>
+    <hr />
+    <h6>3E6 Secteur Bancaire & M3</h6>
+    <div class="alert alert-info py-1 px-2 mb-2">
+        <small>Ajustez ces curseurs pour calibrer M3 et le crédit bancaire.</small>
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Taux réserve oblig. : <strong>@(Config.TauxReserveObligatoire * 100)%</strong></label>
+        <input type="range" class="form-range" min="0.05" max="0.25" step="0.01"
+               @bind="Config.TauxReserveObligatoire" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Création Crédit/jour : <strong>@((Config.CroissanceCreditJour * 100).ToString("F4"))%</strong></label>
+        <input type="range" class="form-range" min="0.0000" max="0.0020" step="0.0001"
+               @bind="Config.CroissanceCreditJour" @bind:event="oninput" disabled="@Disabled" />
+        <small class="text-muted">Impacte l'évolution de M3</small>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public ScenarioConfig Config { get; set; } = new ScenarioConfig();
+
+    [Parameter]
+    public bool Disabled { get; set; }
+}

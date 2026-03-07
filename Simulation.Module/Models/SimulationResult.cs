@@ -16,6 +16,13 @@ public class SimulationResult
 
     /// <summary>Journal des recalibrations mensuelles appliquées pendant la simulation.</summary>
     public List<CalibrationEvent> CalibrationEvents { get; set; } = [];
+
+    /// <summary>
+    /// Rapport de validation macro automatique.
+    /// Généré à la fin de la simulation si ScenarioConfig.ValidationMacroActivee = true.
+    /// Compare les résultats simulés aux données de référence INSTAT/BCM/FMI.
+    /// </summary>
+    public MacroValidationReport? ValidationReport { get; set; }
 }
 
 

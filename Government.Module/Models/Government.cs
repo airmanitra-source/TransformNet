@@ -25,8 +25,19 @@ public class Government
     /// <summary>Taux directeur de la Banque Centrale de Madagascar (~9%)</summary>
     public double TauxDirecteur { get; set; } = 0.09;
 
-    /// <summary>Taux d'inflation annuel (~8%)</summary>
+    /// <summary>
+    /// Taux d'inflation annuel (~8%).
+    /// Si l'inflation endogène est activée (ScenarioConfig.InflationEndogeneActivee),
+    /// cette valeur est recalculée chaque jour par IInflationModule.
+    /// Sinon, elle reste fixe (valeur initiale du scénario).
+    /// </summary>
     public double TauxInflation { get; set; } = 0.08;
+
+    /// <summary>
+    /// Importations CIF journalières de référence (baseline pour le calcul d'inflation cost-push).
+    /// Initialisé au premier jour de simulation, sert de base de comparaison.
+    /// </summary>
+    public double ImportationsCIFReferenceJour { get; set; }
 
     // --- Recettes et dépenses ---
     /// <summary>Total des recettes IRSA collectées</summary>

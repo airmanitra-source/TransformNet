@@ -1,0 +1,32 @@
+@using Simulation.Module.Config
+
+<div>
+    <hr />
+    <h6>🚢 Commerce extérieur</h6>
+    <div class="alert alert-info py-1 px-2 mb-2">
+        <small>6 importateurs + 7 exportateurs (1 par catégorie INSTAT)</small>
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Droits de douane : <strong>@((Config.TauxDroitsDouane * 100).ToString("F0"))%</strong></label>
+        <input type="range" class="form-range" min="0.00" max="0.40" step="0.01"
+               @bind="Config.TauxDroitsDouane" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Droits d'accise : <strong>@((Config.TauxAccise * 100).ToString("F0"))%</strong></label>
+        <input type="range" class="form-range" min="0.00" max="0.60" step="0.01"
+               @bind="Config.TauxAccise" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Taxe export : <strong>@((Config.TauxTaxeExport * 100).ToString("F1"))%</strong></label>
+        <input type="range" class="form-range" min="0.00" max="0.10" step="0.005"
+               @bind="Config.TauxTaxeExport" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public ScenarioConfig Config { get; set; } = new ScenarioConfig();
+
+    [Parameter]
+    public bool Disabled { get; set; }
+}

@@ -22,6 +22,61 @@ public partial class EconomySimulator : IDisposable
         Simulator.OnTickCompleted += OnSimulationTick;
     }
 
+    private void OnPropensionSubsistanceInput(ChangeEventArgs e)
+    {
+        if (TryParseRangeValue(e, out var v))
+        {
+            _config.PropensionConsommation_Subsistance = v;
+            ApplyPropensionToMenages();
+        }
+    }
+
+    private void OnPropensionInformelBasInput(ChangeEventArgs e)
+    {
+        if (TryParseRangeValue(e, out var v))
+        {
+            _config.PropensionConsommation_InformelBas = v;
+            ApplyPropensionToMenages();
+        }
+    }
+
+    private void OnPropensionFormelBasInput(ChangeEventArgs e)
+    {
+        if (TryParseRangeValue(e, out var v))
+        {
+            _config.PropensionConsommation_FormelBas = v;
+            ApplyPropensionToMenages();
+        }
+    }
+
+    private void OnPropensionFormelQualifieInput(ChangeEventArgs e)
+    {
+        if (TryParseRangeValue(e, out var v))
+        {
+            _config.PropensionConsommation_FormelQualifie = v;
+            ApplyPropensionToMenages();
+        }
+    }
+
+    private void OnPropensionCadreInput(ChangeEventArgs e)
+    {
+        if (TryParseRangeValue(e, out var v))
+        {
+            _config.PropensionConsommation_Cadre = v;
+            ApplyPropensionToMenages();
+        }
+    }
+
+    private static bool TryParseRangeValue(ChangeEventArgs e, out double value)
+    {
+        value = 0;
+        if (e?.Value == null) return false;
+        var s = e.Value.ToString();
+        // Normalize decimal separator (handle locales that use comma)
+        s = s.Replace(',', '.');
+        return double.TryParse(s, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out value);
+    }
+
     private void OnScenarioChange(ChangeEventArgs e)
     {
         var name = e.Value?.ToString();
@@ -218,6 +273,26 @@ public partial class EconomySimulator : IDisposable
     {
         _config.CiblesMensuelles.RemoveAll(c => c.Mois == mois);
     }
+
+    private void ApplyPropensionToMenages()
+    {
+        // Appliquer immédiatement la configuration courante aux ménages existants
+        try
+        {
+            Simulator.AppliquerPropensionConsommationParClasse(_config);
+        }
+        catch
+        {
+            // silence : si le simulateur n'est pas initialisé ou erreur, continuer et forcer le rendu
+        }
+        finally
+        {
+            // Toujours redessiner l'UI pour refléter la nouvelle valeur dans _config
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // Sliders bind directly to _config properties; ApplyPropensionToMenages() button applies values to households.
 
     private static void SetCibleM3(MonthlyCalibrationTarget cible, ChangeEventArgs e)
     {

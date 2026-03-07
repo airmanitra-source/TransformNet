@@ -112,6 +112,30 @@ public class DailySnapshot
     /// <summary>Total des dépenses de loisirs (sorties + vacances) tous ménages (MGA).</summary>
     public double DepensesLoisirsTotales { get; set; }
 
+    /// <summary>Total des dépenses d'éducation tous ménages (MGA).</summary>
+    public double DepensesEducationTotales { get; set; }
+
+    /// <summary>Total des dépenses de santé tous ménages (MGA).</summary>
+    public double DepensesSanteTotales { get; set; }
+
+    /// <summary>Nombre de ménages malades ce jour.</summary>
+    public int NbMenagesMalades { get; set; }
+
+    /// <summary>Total des loyers locatifs payés par les ménages locataires (MGA).</summary>
+    public double DepensesLoyerLocatifTotales { get; set; }
+
+    /// <summary>Total des dépenses de construction de maison des locataires bâtisseurs (MGA).</summary>
+    public double DepensesConstructionMaisonTotales { get; set; }
+
+    /// <summary>Part de la construction allant au secteur BTP (MGA).</summary>
+    public double DepensesConstructionBTPTotales { get; set; }
+
+    /// <summary>Part de la construction allant aux commerces de quincaillerie (MGA).</summary>
+    public double DepensesConstructionQuincaillerieTotales { get; set; }
+
+    /// <summary>Part de la construction allant au transport informel des matériaux (MGA).</summary>
+    public double DepensesConstructionTransportInformelTotales { get; set; }
+
     /// <summary>Nombre de ménages en sortie weekend ce jour.</summary>
     public int NbMenagesEnSortie { get; set; }
 
@@ -156,6 +180,93 @@ public class DailySnapshot
     /// Nombre d'entreprises dans le secteur HôtellerieTourisme.
     /// </summary>
     public int NbEntreprisesTourisme { get; set; }
+
+    // ─── Saisonnalité agricole ──────────────────────────────────────────────────
+
+    /// <summary>Jour calendaire dans l'année (1-365).</summary>
+    public int JourCalendaire { get; set; }
+
+    /// <summary>Mois calendaire (1-12).</summary>
+    public int MoisCalendaire { get; set; }
+
+    /// <summary>Nom de la saison agricole courante (ex: "Soudure (kere)").</summary>
+    public string SaisonCourante { get; set; } = "";
+
+    /// <summary>True si on est en période de soudure (fév-avril).</summary>
+    public bool EstPeriodeSoudure { get; set; }
+
+    /// <summary>Facteur de productivité agricole saisonnier (0.3-1.8).</summary>
+    public double FacteurProductiviteAgricole { get; set; } = 1.0;
+
+    /// <summary>Facteur de prix du riz saisonnier (0.7-1.6).</summary>
+    public double FacteurPrixRiz { get; set; } = 1.0;
+
+    /// <summary>Facteur de prix alimentaire général saisonnier (0.85-1.3).</summary>
+    public double FacteurPrixAlimentaire { get; set; } = 1.0;
+
+    /// <summary>Facteur tourisme saisonnier (0.35-1.6).</summary>
+    public double FacteurTourisme { get; set; } = 1.0;
+
+    /// <summary>Facteur d'emploi agricole saisonnier (0.6-1.4).</summary>
+    public double FacteurEmploiAgricole { get; set; } = 1.0;
+
+    // ─── Inflation endogène ──────────────────────────────────────────────────
+
+    /// <summary>Taux d'inflation annualisé endogène calculé ce jour (ex: 0.08 = 8%).</summary>
+    public double TauxInflationEndogene { get; set; }
+
+    /// <summary>Composante demand-pull (Phillips) de l'inflation.</summary>
+    public double InflationDemandPull { get; set; }
+
+    /// <summary>Composante cost-push (carburant + imports) de l'inflation.</summary>
+    public double InflationCostPush { get; set; }
+
+    /// <summary>Composante monétaire (excès M3 vs PIB) de l'inflation.</summary>
+    public double InflationMonetaire { get; set; }
+
+    /// <summary>Composante anticipations adaptatives de l'inflation.</summary>
+    public double InflationAnticipations { get; set; }
+
+    /// <summary>Output gap = (PIB_effectif - PIB_potentiel) / PIB_potentiel.</summary>
+    public double OutputGap { get; set; }
+
+    /// <summary>Écart de chômage = taux_chômage - NAIRU.</summary>
+    public double EcartChomage { get; set; }
+
+    /// <summary>Croissance annualisée de M3.</summary>
+    public double CroissanceM3 { get; set; }
+
+    /// <summary>Croissance annualisée du PIB.</summary>
+    public double CroissancePIB { get; set; }
+
+    /// <summary>Anticipations d'inflation (annualisées).</summary>
+    public double AnticipationsInflation { get; set; }
+
+    // ─── Taux de change dynamique MGA/USD ──────────────────────────────────────
+
+    /// <summary>Taux de change MGA par USD (ex: 4500 = 1 USD = 4500 MGA).</summary>
+    public double TauxChangeMGAParUSD { get; set; }
+
+    /// <summary>Variation journalière du taux de change (ex: 0.0002 = +0.02%).</summary>
+    public double VariationChangeJournaliere { get; set; }
+
+    /// <summary>Dépréciation annualisée du MGA (ex: 0.07 = 7%/an).</summary>
+    public double DepreciationAnnualisee { get; set; }
+
+    /// <summary>Réserves de change BCM en USD.</summary>
+    public double ReservesBCMUSD { get; set; }
+
+    /// <summary>Réserves BCM en mois d'importations.</summary>
+    public double ReservesMoisImports { get; set; }
+
+    /// <summary>Intervention BCM du jour en USD (vente de devises).</summary>
+    public double InterventionBCMUSD { get; set; }
+
+    /// <summary>Solde net de devises du jour en USD.</summary>
+    public double SoldeDevisesJourUSD { get; set; }
+
+    /// <summary>Indice de pression sur le change (-1 à +1, positif = dépréciation).</summary>
+    public double IndicePressionChange { get; set; }
 }
 
 

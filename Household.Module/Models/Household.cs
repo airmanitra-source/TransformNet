@@ -44,6 +44,30 @@ public class Household
     /// <summary>Indique si le ménage est propriétaire occupant (pour loyer imputé, SCN 2008)</summary>
     public bool EstProprietaire { get; set; }
 
+    /// <summary>Nombre total d'enfants dans le ménage.</summary>
+    public int NombreEnfants { get; set; }
+
+    /// <summary>Nombre d'enfants scolarisés exposés à la dépense d'éducation.</summary>
+    public int NombreEnfantsScolarises { get; set; }
+
+    /// <summary>Durée annuelle de la dépense d'éducation en jours.</summary>
+    public int DureeDepenseEducationJours { get; set; }
+
+    /// <summary>Loyer journalier payé par les locataires.</summary>
+    public double LoyerJournalier { get; set; }
+
+    /// <summary>Indique si le ménage locataire est en train de construire sa maison.</summary>
+    public bool EstEnConstructionMaison { get; set; }
+
+    /// <summary>Durée totale de construction de la maison en jours.</summary>
+    public int DureeConstructionMaisonJours { get; set; }
+
+    /// <summary>Nombre de jours restants pour la construction de la maison.</summary>
+    public int JoursConstructionMaisonRestants { get; set; }
+
+    /// <summary>Budget journalier consacré à la construction de la maison.</summary>
+    public double BudgetConstructionMaisonJour { get; set; }
+
     // --- Consommation de riz ---
     /// <summary>Dépenses quotidiennes de riz (calculé lors de l'initialisation, en MGA)</summary>
     public double DepensesRizJour { get; set; }
@@ -150,6 +174,18 @@ public class Household
 
     /// <summary>Total des dépenses loisirs cumulées depuis le début</summary>
     public double TotalDepensesLoisirs { get; set; }
+
+    /// <summary>Total des dépenses d'éducation cumulées depuis le début.</summary>
+    public double TotalDepensesEducation { get; set; }
+
+    /// <summary>Total des dépenses de santé cumulées depuis le début.</summary>
+    public double TotalDepensesSante { get; set; }
+
+    /// <summary>Total des loyers locatifs payés depuis le début.</summary>
+    public double TotalDepensesLoyer { get; set; }
+
+    /// <summary>Total des dépenses de construction de maison depuis le début.</summary>
+    public double TotalDepensesConstructionMaison { get; set; }
 
 }
 

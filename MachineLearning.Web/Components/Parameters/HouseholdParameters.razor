@@ -1,0 +1,148 @@
+@using Simulation.Module.Config
+@using Company.Module.Models
+
+<div>
+    <hr />
+    <h6>🏠 Ménages — Distribution salariale</h6>
+    <div class="mb-2">
+        <label class="form-label">Nombre de ménages : <strong>@Config.NombreMenages.ToString("N0")</strong></label>
+        <input type="range" class="form-range" min="20" max="5000000" step="100"
+               @bind="Config.NombreMenages" @bind:event="oninput" disabled="@Disabled" />
+        <small class="text-muted">20–5 000 000 ménages</small>
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Salaire médian : <strong>@FormatMGA(Config.SalaireMedian)</strong></label>
+        <input type="range" class="form-range" min="80000" max="500000" step="5000"
+               @bind="Config.SalaireMedian" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+
+    <details class="mb-2">
+        <summary class="fw-bold" style="cursor: pointer;">📊 Propension marginale à consommer par classe</summary>
+        <div class="mt-2">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <small class="text-muted d-block mb-2">Valeurs appliquées à l'initialisation des ménages selon leur classe socio‑économique.</small>
+                <button class="btn btn-sm btn-outline-primary" @onclick="() => OnApplyPropension.InvokeAsync(null)" disabled="@Disabled">Appliquer aux ménages</button>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Subsistance : <strong>@(Config.PropensionConsommation_Subsistance.ToString("P0"))</strong></label>
+                <input type="range" class="form-range" min="0.10" max="0.99" step="0.01"
+                       @bind="Config.PropensionConsommation_Subsistance" @bind:event="oninput" disabled="@Disabled" />
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Informel bas : <strong>@(Config.PropensionConsommation_InformelBas.ToString("P0"))</strong></label>
+                <input type="range" class="form-range" min="0.10" max="0.99" step="0.01"
+                       @bind="Config.PropensionConsommation_InformelBas" @bind:event="oninput" disabled="@Disabled" />
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Formel bas : <strong>@(Config.PropensionConsommation_FormelBas.ToString("P0"))</strong></label>
+                <input type="range" class="form-range" min="0.10" max="0.99" step="0.01"
+                       @bind="Config.PropensionConsommation_FormelBas" @bind:event="oninput" disabled="@Disabled" />
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Formel qualifié : <strong>@(Config.PropensionConsommation_FormelQualifie.ToString("P0"))</strong></label>
+                <input type="range" class="form-range" min="0.10" max="0.99" step="0.01"
+                       @bind="Config.PropensionConsommation_FormelQualifie" @bind:event="oninput" disabled="@Disabled" />
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Cadre : <strong>@(Config.PropensionConsommation_Cadre.ToString("P0"))</strong></label>
+                <input type="range" class="form-range" min="0.10" max="0.99" step="0.01"
+                       @bind="Config.PropensionConsommation_Cadre" @bind:event="oninput" disabled="@Disabled" />
+            </div>
+        </div>
+    </details>
+
+    <hr />
+    <div class="mb-2">
+        <label class="form-label">Inégalités (σ) : <strong>@Config.SalaireSigma.ToString("F2")</strong>
+            → Gini ≈ @GiniEstime(Config).ToString("F2")</label>
+        <input type="range" class="form-range" min="0.30" max="1.50" step="0.05"
+               @bind="Config.SalaireSigma" @bind:event="oninput" disabled="@Disabled" />
+        <div class="d-flex justify-content-between">
+            <small class="text-success">Égalitaire</small>
+            <small class="text-danger">Très inégal</small>
+        </div>
+    </div>
+
+    <div class="mb-2">
+        <label class="form-label">Salaire plancher : <strong>@FormatMGA(Config.SalairePlancher)</strong></label>
+        <input type="range" class="form-range" min="20000" max="200000" step="5000"
+               @bind="Config.SalairePlancher" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+
+    <!-- Education, Health, Housing sections retained -->
+    <EducationParameters Config="Config" Disabled="@Disabled" />
+    <details class="mb-2">
+        <summary class="fw-bold" style="cursor: pointer;">🏥 Santé des ménages</summary>
+        <div class="mt-2">
+            <div class="mb-2">
+                <label class="form-label">Taux d'occupation des hôpitaux : <strong>@((Config.TauxOccupationHopitaux * 100).ToString("F0"))%</strong></label>
+                <input type="range" class="form-range" min="0.10" max="1.00" step="0.01"
+                       @bind="Config.TauxOccupationHopitaux" @bind:event="oninput" disabled="@Disabled" />
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Coût consultation de base : <strong>@FormatMGA(Config.CoutConsultationSanteBase)</strong></label>
+                <input type="range" class="form-range" min="1000" max="50000" step="500"
+                       @bind="Config.CoutConsultationSanteBase" @bind:event="oninput" disabled="@Disabled" />
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Coût hospitalisation de base : <strong>@FormatMGA(Config.CoutHospitalisationSanteBase)</strong></label>
+                <input type="range" class="form-range" min="5000" max="150000" step="1000"
+                       @bind="Config.CoutHospitalisationSanteBase" @bind:event="oninput" disabled="@Disabled" />
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Part formelle de la dépense de santé : <strong>@((Config.PartFormelleDepenseSante * 100).ToString("F0"))%</strong></label>
+                <input type="range" class="form-range" min="0.20" max="1.00" step="0.01"
+                       @bind="Config.PartFormelleDepenseSante" @bind:event="oninput" disabled="@Disabled" />
+            </div>
+        </div>
+    </details>
+
+    <HousingParameters Config="Config" Disabled="@Disabled" />
+
+</div>
+
+@code {
+    [Parameter]
+    public ScenarioConfig Config { get; set; } = new ScenarioConfig();
+
+    [Parameter]
+    public bool Disabled { get; set; } = false;
+
+    [Parameter]
+    public EventCallback OnApplyPropension { get; set; }
+
+    private static string FormatMGA(double montant)
+    {
+        if (Math.Abs(montant) >= 1_000_000_000)
+            return $"{montant / 1_000_000_000:F2} Mrd MGA";
+        if (Math.Abs(montant) >= 1_000_000)
+            return $"{montant / 1_000_000:F2} M MGA";
+        if (Math.Abs(montant) >= 1_000)
+            return $"{montant / 1_000:F1} k MGA";
+        return $"{montant:F0} MGA";
+    }
+
+    private static string FormatTemps(int jours)
+    {
+        if (jours >= 365)
+        {
+            int ans = jours / 365;
+            int moisRestants = (jours % 365) / 30;
+            return moisRestants > 0 ? $"{ans} an(s) {moisRestants} mois" : $"{ans} an(s)";
+        }
+        if (jours >= 30)
+            return $"{jours / 30} mois";
+        return $"{jours} jour(s)";
+    }
+
+    private static double GiniEstime(ScenarioConfig cfg)
+    {
+        double x = cfg.SalaireSigma / Math.Sqrt(2.0);
+        double t = 1.0 / (1.0 + 0.2316419 * Math.Abs(x));
+        double d = 0.3989422804014327;
+        double p = d * Math.Exp(-x * x / 2.0) *
+                   (t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.8212560 + t * 1.3302744)))));
+        double cdf = x >= 0 ? 1.0 - p : p;
+        return 2.0 * cdf - 1.0;
+    }
+}

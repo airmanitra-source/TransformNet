@@ -26,6 +26,15 @@ public class DailyHouseholdResult
     public double DepensesElectricite { get; set; }
     /// <summary>Dépenses transport pour paiement facture Jirama (MGA, 0 sauf jour de paiement mensuel)</summary>
     public double DepensesTransportJirama { get; set; }
+    public double DepensesEducation { get; set; }
+    public double DepensesSante { get; set; }
+    public bool EstMalade { get; set; }
+    public double ProbabiliteMaladie { get; set; }
+    public double DepensesLoyerLocatif { get; set; }
+    public double DepensesConstructionMaison { get; set; }
+    public double DepensesConstructionBTP { get; set; }
+    public double DepensesConstructionQuincaillerie { get; set; }
+    public double DepensesConstructionTransportInformel { get; set; }
     public double EpargneJour { get; set; }
     public double EpargneTotale { get; set; }
 

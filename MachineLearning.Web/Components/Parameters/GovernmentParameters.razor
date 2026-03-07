@@ -1,0 +1,46 @@
+@using Simulation.Module.Config
+
+<div>
+    <hr />
+    <h6>🏛️ Politique fiscale & monétaire</h6>
+
+    <div class="mb-2 p-2 border rounded bg-light">
+        <small class="fw-bold">📋 Barème IRSA (progressif) :</small>
+        <div class="d-flex flex-wrap gap-1 mt-1">
+            <span class="badge bg-success">≤350k: 0%</span>
+            <span class="badge bg-info">350-400k: 5%</span>
+            <span class="badge bg-primary">400-500k: 10%</span>
+            <span class="badge bg-warning text-dark">500-600k: 15%</span>
+            <span class="badge bg-danger">>600k: 20%</span>
+        </div>
+    </div>
+
+    <div class="mb-2">
+        <label class="form-label">Taux IS : <strong>@(Config.TauxIS * 100)%</strong></label>
+        <input type="range" class="form-range" min="0.05" max="0.45" step="0.01"
+               @bind="Config.TauxIS" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+    <div class="mb-2">
+        <label class="form-label">TVA : <strong>@(Config.TauxTVA * 100)%</strong></label>
+        <input type="range" class="form-range" min="0.05" max="0.35" step="0.01"
+               @bind="Config.TauxTVA" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Taux directeur : <strong>@(Config.TauxDirecteur * 100)%</strong></label>
+        <input type="range" class="form-range" min="0.01" max="0.25" step="0.005"
+               @bind="Config.TauxDirecteur" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Inflation : <strong>@(Config.TauxInflation * 100)%</strong></label>
+        <input type="range" class="form-range" min="0.01" max="0.30" step="0.005"
+               @bind="Config.TauxInflation" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public ScenarioConfig Config { get; set; } = new ScenarioConfig();
+
+    [Parameter]
+    public bool Disabled { get; set; }
+}

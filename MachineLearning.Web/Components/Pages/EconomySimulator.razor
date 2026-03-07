@@ -10,7 +10,7 @@
 
 <PageTitle>Simulateur Économique - Madagascar</PageTitle>
 
-<h1>🇲🇬 Simulateur Économique - Madagascar</h1>
+<h1> Simulateur Économique - Madagascar</h1>
 <p class="text-muted">Simulation macroéconomique avec 3 agents : État, Ménages, Entreprises. <strong>1 seconde = 1 jour.</strong></p>
 
 <div class="row mb-4">
@@ -46,11 +46,10 @@
                                 @onclick="() => SetDuree(1825)" disabled="@Simulator.EnCours">
                             5 ans
                         </button>
-                    </div>
                 </div>
 
-                <hr />
                 <h6>🏠 Ménages — Distribution salariale</h6>
+                
                 <div class="mb-2">
                     <label class="form-label">Nombre de ménages : <strong>@_config.NombreMenages.ToString("N0")</strong></label>
                     <input type="range" class="form-range" min="20" max="5000000" step="100"
@@ -62,6 +61,45 @@
                     <input type="range" class="form-range" min="80000" max="500000" step="5000"
                            @bind="_config.SalaireMedian" @bind:event="oninput" disabled="@Simulator.EnCours" />
                 </div>
+                <details class="mb-2">
+                    <summary class="fw-bold" style="cursor: pointer;">📊 Propension marginale à consommer par classe</summary>
+                    <div class="mt-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <small class="text-muted d-block mb-2">Valeurs appliquées à l'initialisation des ménages selon leur classe socio‑économique.</small>
+                            <button class="btn btn-sm btn-outline-primary" @onclick="ApplyPropensionToMenages">Appliquer aux ménages</button>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Subsistance : <strong>@(_config.PropensionConsommation_Subsistance.ToString("P0"))</strong></label>
+                            <input type="range" class="form-range" min="0.10" max="0.99" step="0.01"
+                                   value="@_config.PropensionConsommation_Subsistance"
+                                   @oninput="OnPropensionSubsistanceInput" disabled="@Simulator.EnCours" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Informel bas : <strong>@(_config.PropensionConsommation_InformelBas.ToString("P0"))</strong></label>
+                            <input type="range" class="form-range" min="0.10" max="0.99" step="0.01"
+                                   value="@_config.PropensionConsommation_InformelBas"
+                                   @oninput="OnPropensionInformelBasInput" disabled="@Simulator.EnCours" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Formel bas : <strong>@(_config.PropensionConsommation_FormelBas.ToString("P0"))</strong></label>
+                            <input type="range" class="form-range" min="0.10" max="0.99" step="0.01"
+                                   value="@_config.PropensionConsommation_FormelBas"
+                                   @oninput="OnPropensionFormelBasInput" disabled="@Simulator.EnCours" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Formel qualifié : <strong>@(_config.PropensionConsommation_FormelQualifie.ToString("P0"))</strong></label>
+                            <input type="range" class="form-range" min="0.10" max="0.99" step="0.01"
+                                   value="@_config.PropensionConsommation_FormelQualifie"
+                                   @oninput="OnPropensionFormelQualifieInput" disabled="@Simulator.EnCours" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Cadre : <strong>@(_config.PropensionConsommation_Cadre.ToString("P0"))</strong></label>
+                            <input type="range" class="form-range" min="0.10" max="0.99" step="0.01"
+                                   value="@_config.PropensionConsommation_Cadre"
+                                   @oninput="OnPropensionCadreInput" disabled="@Simulator.EnCours" />
+                        </div>
+                    </div>
+                </details>
                 <div class="mb-2">
                     <label class="form-label">Inégalités (σ) : <strong>@_config.SalaireSigma.ToString("F2")</strong>
                         → Gini ≈ @GiniEstime().ToString("F2")</label>
@@ -78,181 +116,142 @@
                            @bind="_config.SalairePlancher" @bind:event="oninput" disabled="@Simulator.EnCours" />
                 </div>
 
-                <hr />
-                <h6>🏢 Entreprises</h6>
-                <div class="mb-2">
-                    <label class="form-label">Nombre d'entreprises : <strong>@_config.NombreEntreprises.ToString("N0")</strong></label>
-                    <input type="range" class="form-range" min="2" max="70000" step="10"
-                           @bind="_config.NombreEntreprises" @bind:event="oninput" disabled="@Simulator.EnCours" />
-                    <small class="text-muted">2–70 000 entreprises</small>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Marge bénéficiaire : <strong>@(_config.MargeBeneficiaireEntreprise * 100)%</strong></label>
-                    <input type="range" class="form-range" min="0.05" max="0.50" step="0.01"
-                           @bind="_config.MargeBeneficiaireEntreprise" @bind:event="oninput" disabled="@Simulator.EnCours" />
-                </div>
-
                 <details class="mb-2">
-                    <summary class="fw-bold" style="cursor: pointer;">💰 Trésorerie initiale par secteur</summary>
+                    <summary class="fw-bold" style="cursor: pointer;">🎓 Éducation des ménages</summary>
                     <div class="mt-2">
-                        <small class="text-muted d-block mb-2">Fonds de roulement initial (MGA) — fourchette ×0.5 à ×1.5 appliquée aléatoirement.</small>
-                        @foreach (var secteur in Enum.GetValues<ESecteurActivite>())
-                        {
-                            <div class="mb-1">
-                                <label class="form-label mb-0">
-                                    @GetSecteurIcon(secteur) @secteur : <strong>@FormatMGA(_config.TresorerieInitialeParSecteur.GetValueOrDefault(secteur))</strong>
-                                </label>
-                                <input type="range" class="form-range"
-                                       min="@GetTresorerieMin(secteur)" max="@GetTresorerieMax(secteur)" step="@GetTresorerieStep(secteur)"
-                                       value="@_config.TresorerieInitialeParSecteur.GetValueOrDefault(secteur)"
-                                       @oninput="(e) => SetTresorerie(secteur, e)"
-                                       disabled="@Simulator.EnCours" />
+                        <div class="mb-2">
+                            <label class="form-label">Nombre moyen d'enfants/ménage : <strong>@_config.NombreEnfantsMoyenParMenage.ToString("F1")</strong></label>
+                            <input type="range" class="form-range" min="0" max="6" step="0.1"
+                                   @bind="_config.NombreEnfantsMoyenParMenage" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Part des enfants scolarisés : <strong>@((_config.PartEnfantsScolarises * 100).ToString("F0"))%</strong></label>
+                            <input type="range" class="form-range" min="0.20" max="1.00" step="0.01"
+                                   @bind="_config.PartEnfantsScolarises" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Durée annuelle des dépenses d'éducation : <strong>@FormatTemps(_config.DureeDepenseEducationJours)</strong></label>
+                            <input type="range" class="form-range" min="30" max="300" step="5"
+                                   @bind="_config.DureeDepenseEducationJours" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Coût journalier par enfant : <strong>@FormatMGA(_config.CoutEducationJournalierParEnfant)</strong></label>
+                            <input type="range" class="form-range" min="100" max="5000" step="50"
+                                   @bind="_config.CoutEducationJournalierParEnfant" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Part formelle de la dépense d'éducation : <strong>@((_config.PartFormelleDepenseEducation * 100).ToString("F0"))%</strong></label>
+                            <input type="range" class="form-range" min="0.20" max="1.00" step="0.01"
+                                   @bind="_config.PartFormelleDepenseEducation" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                        </div>
+                        <div class="p-2 border rounded bg-light">
+                            <small class="fw-bold">📚 Résumé éducation :</small>
+                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                <span class="badge bg-primary">Enfants: @_config.NombreEnfantsMoyenParMenage.ToString("F1")/ménage</span>
+                                <span class="badge bg-success">Scolarisation: @((_config.PartEnfantsScolarises * 100).ToString("F0"))%</span>
+                                <span class="badge bg-info text-dark">Coût/enfant: @FormatMGA(_config.CoutEducationJournalierParEnfant)</span>
                             </div>
-                        }
+                        </div>
                     </div>
                 </details>
 
-                <hr />
-                <h6>🚢 Commerce extérieur</h6>
-                <div class="alert alert-info py-1 px-2 mb-2">
-                    <small>6 importateurs + 7 exportateurs (1 par catégorie INSTAT)</small>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Droits de douane : <strong>@((_config.TauxDroitsDouane * 100).ToString("F0"))%</strong></label>
-                    <input type="range" class="form-range" min="0.00" max="0.40" step="0.01"
-                           @bind="_config.TauxDroitsDouane" @bind:event="oninput" disabled="@Simulator.EnCours" />
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Droits d'accise : <strong>@((_config.TauxAccise * 100).ToString("F0"))%</strong></label>
-                    <input type="range" class="form-range" min="0.00" max="0.60" step="0.01"
-                           @bind="_config.TauxAccise" @bind:event="oninput" disabled="@Simulator.EnCours" />
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Taxe export : <strong>@((_config.TauxTaxeExport * 100).ToString("F1"))%</strong></label>
-                    <input type="range" class="form-range" min="0.00" max="0.10" step="0.005"
-                           @bind="_config.TauxTaxeExport" @bind:event="oninput" disabled="@Simulator.EnCours" />
-                </div>
-
-                <hr />
-                <h6>🏛️ Politique fiscale & monétaire</h6>
-                <div class="mb-2 p-2 border rounded bg-light">
-                    <small class="fw-bold">📋 Barème IRSA (progressif) :</small>
-                    <div class="d-flex flex-wrap gap-1 mt-1">
-                        <span class="badge bg-success">≤350k: 0%</span>
-                        <span class="badge bg-info">350-400k: 5%</span>
-                        <span class="badge bg-primary">400-500k: 10%</span>
-                        <span class="badge bg-warning text-dark">500-600k: 15%</span>
-                        <span class="badge bg-danger">>600k: 20%</span>
-                    </div>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Taux IS : <strong>@(_config.TauxIS * 100)%</strong></label>
-                    <input type="range" class="form-range" min="0.05" max="0.45" step="0.01"
-                           @bind="_config.TauxIS" @bind:event="oninput" disabled="@Simulator.EnCours" />
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">TVA : <strong>@(_config.TauxTVA * 100)%</strong></label>
-                    <input type="range" class="form-range" min="0.05" max="0.35" step="0.01"
-                           @bind="_config.TauxTVA" @bind:event="oninput" disabled="@Simulator.EnCours" />
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Taux directeur : <strong>@(_config.TauxDirecteur * 100)%</strong></label>
-                    <input type="range" class="form-range" min="0.01" max="0.25" step="0.005"
-                           @bind="_config.TauxDirecteur" @bind:event="oninput" disabled="@Simulator.EnCours" />
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Inflation : <strong>@(_config.TauxInflation * 100)%</strong></label>
-                    <input type="range" class="form-range" min="0.01" max="0.30" step="0.005"
-                           @bind="_config.TauxInflation" @bind:event="oninput" disabled="@Simulator.EnCours" />
-                </div>
-                
-                <hr />
-                <h6>🏦 Secteur Bancaire & M3</h6>
-                <div class="alert alert-info py-1 px-2 mb-2">
-                    <small>Ajustez ces curseurs pour calibrer M3 et le crédit bancaire.</small>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Taux réserve oblig. : <strong>@(_config.TauxReserveObligatoire * 100)%</strong></label>
-                    <input type="range" class="form-range" min="0.05" max="0.25" step="0.01"
-                           @bind="_config.TauxReserveObligatoire" @bind:event="oninput" disabled="@Simulator.EnCours" />
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Création Crédit/jour : <strong>@((_config.CroissanceCreditJour * 100).ToString("F4"))%</strong></label>
-                    <input type="range" class="form-range" min="0.0000" max="0.0020" step="0.0001"
-                           @bind="_config.CroissanceCreditJour" @bind:event="oninput" disabled="@Simulator.EnCours" />
-                    <small class="text-muted">Impacte l'évolution de M3</small>
-                </div>
-
-                <hr />
-                <h6>🏛️ Budget de l'État <small class="text-muted">(TOFE sept. 2025)</small></h6>
-                <div class="alert alert-light border py-1 px-2 mb-2">
-                    <small>📋 Valeurs de départ calibrées sur le TOFE réel jan–sept 2025. Modifiables pour tester d'autres scénarios.</small>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Agents publics : <strong>@_config.NombreFonctionnaires.ToString("N0")</strong></label>
-                    <input type="range" class="form-range" min="100000" max="600000" step="10000"
-                           @bind="_config.NombreFonctionnaires" @bind:event="oninput" disabled="@Simulator.EnCours" />
-                    <small class="text-muted">TOFE Personnel : @FormatMds(_config.NombreFonctionnaires * _config.SalaireMoyenFonctionnaireMensuel / 30.0)/jour</small>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Salaire moyen agent public : <strong>@FormatMGA(_config.SalaireMoyenFonctionnaireMensuel)/mois</strong></label>
-                    <input type="range" class="form-range" min="300000" max="2000000" step="10000"
-                           @bind="_config.SalaireMoyenFonctionnaireMensuel" @bind:event="oninput" disabled="@Simulator.EnCours" />
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Fonctionnement État/jour : <strong>@FormatMds(_config.DepensesPubliquesJour)</strong></label>
-                    <input type="range" class="form-range" min="500000000" max="10000000000" step="100000000"
-                           @bind="_config.DepensesPubliquesJour" @bind:event="oninput" disabled="@Simulator.EnCours" />
-                    <small class="text-muted">TOFE Tableau 6 : Fonctionnement (1 239 Mds) − SubventionJIRAMA</small>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Dépenses capital/jour (FBCF publique) : <strong>@FormatMds(_config.DepensesCapitalJour)</strong></label>
-                    <input type="range" class="form-range" min="1000000000" max="30000000000" step="500000000"
-                           @bind="_config.DepensesCapitalJour" @bind:event="oninput" disabled="@Simulator.EnCours" />
-                    <small class="text-muted">TOFE : 3 651,9 Mds / 9 mois</small>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Intérêts dette/jour : <strong>@FormatMds(_config.InteretsDetteJour)</strong></label>
-                    <input type="range" class="form-range" min="0" max="5000000000" step="100000000"
-                           @bind="_config.InteretsDetteJour" @bind:event="oninput" disabled="@Simulator.EnCours" />
-                    <small class="text-muted">TOFE : ext. 164,6 + int. 288,4 Mds</small>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Dons (aide internationale)/jour : <strong>@FormatMds(_config.AideInternationaleJour)</strong></label>
-                    <input type="range" class="form-range" min="0" max="20000000000" step="100000000"
-                           @bind="_config.AideInternationaleJour" @bind:event="oninput" disabled="@Simulator.EnCours" />
-                    <small class="text-muted">TOFE : 1 000,1 Mds / 9 mois</small>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Subventions JIRAMA/jour : <strong>@FormatMds(_config.SubventionJiramaJour)</strong></label>
-                    <input type="range" class="form-range" min="0" max="5000000000" step="50000000"
-                           @bind="_config.SubventionJiramaJour" @bind:event="oninput" disabled="@Simulator.EnCours" />
-                    <small class="text-muted">~500 Mds MGA/an (FMI Art. IV)</small>
-                </div>
                 <details class="mb-2">
-                    <summary class="fw-bold" style="cursor: pointer;">📊 Dette & investissement</summary>
+                    <summary class="fw-bold" style="cursor: pointer;">🏥 Santé des ménages</summary>
                     <div class="mt-2">
                         <div class="mb-2">
-                            <label class="form-label">Dette publique initiale : <strong>@FormatMds(_config.DettePubliqueInitiale)</strong></label>
-                            <input type="range" class="form-range" min="10000000000000" max="60000000000000" step="500000000000"
-                                   @bind="_config.DettePubliqueInitiale" @bind:event="oninput" disabled="@Simulator.EnCours" />
-                            <small class="text-muted">~$6,5 Mds ≈ 29 250 Mds MGA (FMI)</small>
+                            <label class="form-label">Taux d'occupation des hôpitaux : <strong>@((_config.TauxOccupationHopitaux * 100).ToString("F0"))%</strong></label>
+                            <input type="range" class="form-range" min="0.10" max="1.00" step="0.01"
+                                   @bind="_config.TauxOccupationHopitaux" @bind:event="oninput" disabled="@Simulator.EnCours" />
                         </div>
                         <div class="mb-2">
-                            <label class="form-label">Taux réinvestissement privé : <strong>@((_config.TauxReinvestissementPrive * 100).ToString("F0"))%</strong></label>
-                            <input type="range" class="form-range" min="0.05" max="0.50" step="0.01"
-                                   @bind="_config.TauxReinvestissementPrive" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                            <label class="form-label">Coût consultation de base : <strong>@FormatMGA(_config.CoutConsultationSanteBase)</strong></label>
+                            <input type="range" class="form-range" min="1000" max="50000" step="500"
+                                   @bind="_config.CoutConsultationSanteBase" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Coût hospitalisation de base : <strong>@FormatMGA(_config.CoutHospitalisationSanteBase)</strong></label>
+                            <input type="range" class="form-range" min="5000" max="150000" step="1000"
+                                   @bind="_config.CoutHospitalisationSanteBase" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Part formelle de la dépense de santé : <strong>@((_config.PartFormelleDepenseSante * 100).ToString("F0"))%</strong></label>
+                            <input type="range" class="form-range" min="0.20" max="1.00" step="0.01"
+                                   @bind="_config.PartFormelleDepenseSante" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                        </div>
+                        <div class="p-2 border rounded bg-light">
+                            <small class="fw-bold">🩺 Résumé santé :</small>
+                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                <span class="badge bg-danger">Occupation: @((_config.TauxOccupationHopitaux * 100).ToString("F0"))%</span>
+                                <span class="badge bg-warning text-dark">Consultation: @FormatMGA(_config.CoutConsultationSanteBase)</span>
+                                <span class="badge bg-secondary">Hospitalisation: @FormatMGA(_config.CoutHospitalisationSanteBase)</span>
+                            </div>
                         </div>
                     </div>
                 </details>
-                <div class="p-2 border rounded bg-light">
-                    <small class="fw-bold">📊 Budget résumé/jour :</small>
-                    <div class="d-flex flex-wrap gap-1 mt-1">
-                        <span class="badge bg-success">Dons: @FormatMds(_config.AideInternationaleJour)</span>
-                        <span class="badge bg-primary">Personnel: @FormatMds(_config.NombreFonctionnaires * _config.SalaireMoyenFonctionnaireMensuel / 30.0)</span>
-                        <span class="badge bg-info text-dark">Capital: @FormatMds(_config.DepensesCapitalJour)</span>
-                        <span class="badge bg-warning text-dark">Intérêts: @FormatMds(_config.InteretsDetteJour)</span>
+
+                <details class="mb-2">
+                    <summary class="fw-bold" style="cursor: pointer;">🏘️ Logement, loyers et auto-construction</summary>
+                    <div class="mt-2">
+                        <div class="mb-2">
+                            <label class="form-label">Taux de propriétaires : <strong>@((_config.TauxMenagesProprietaires * 100).ToString("F0"))%</strong></label>
+                            <input type="range" class="form-range" min="0.10" max="0.95" step="0.01"
+                                   @bind="_config.TauxMenagesProprietaires" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Loyer journalier locataire : <strong>@FormatMGA(_config.LoyerJourLocataire)</strong></label>
+                            <input type="range" class="form-range" min="500" max="20000" step="100"
+                                   @bind="_config.LoyerJourLocataire" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Probabilité de construction chez les locataires : <strong>@((_config.ProbabiliteConstructionMaisonLocataire * 100).ToString("F0"))%</strong></label>
+                            <input type="range" class="form-range" min="0.00" max="0.40" step="0.01"
+                                   @bind="_config.ProbabiliteConstructionMaisonLocataire" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Durée de construction : <strong>@FormatTemps(_config.DureeConstructionMaisonJours)</strong></label>
+                            <input type="range" class="form-range" min="30" max="720" step="10"
+                                   @bind="_config.DureeConstructionMaisonJours" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Budget journalier de construction : <strong>@FormatMGA(_config.BudgetConstructionMaisonJour)</strong></label>
+                            <input type="range" class="form-range" min="500" max="30000" step="100"
+                                   @bind="_config.BudgetConstructionMaisonJour" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Part BTP : <strong>@((_config.PartBudgetConstructionBTP * 100).ToString("F0"))%</strong></label>
+                            <input type="range" class="form-range" min="0.10" max="0.80" step="0.01"
+                                   @bind="_config.PartBudgetConstructionBTP" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Part quincaillerie : <strong>@((_config.PartBudgetConstructionQuincaillerie * 100).ToString("F0"))%</strong></label>
+                            <input type="range" class="form-range" min="0.05" max="0.70" step="0.01"
+                                   @bind="_config.PartBudgetConstructionQuincaillerie" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Part transport informel briques/matériaux : <strong>@((_config.PartBudgetConstructionTransportInformel * 100).ToString("F0"))%</strong></label>
+                            <input type="range" class="form-range" min="0.00" max="0.50" step="0.01"
+                                   @bind="_config.PartBudgetConstructionTransportInformel" @bind:event="oninput" disabled="@Simulator.EnCours" />
+                        </div>
+                        <div class="p-2 border rounded bg-light">
+                            <small class="fw-bold">🏗️ Résumé logement :</small>
+                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                <span class="badge bg-secondary">Locataires: @(((1 - _config.TauxMenagesProprietaires) * 100).ToString("F0"))%</span>
+                                <span class="badge bg-primary">Loyer: @FormatMGA(_config.LoyerJourLocataire)/jour</span>
+                                <span class="badge bg-success">Construction: @FormatMGA(_config.BudgetConstructionMaisonJour)/jour</span>
+                            </div>
+                            <small class="text-muted d-block mt-1">Les parts BTP/quincaillerie/transport sont normalisées côté simulation avant routage.</small>
+                        </div>
                     </div>
+                </details>
+
+                <HouseholdParameters Config="_config" Disabled="@Simulator.EnCours" OnApplyPropension="ApplyPropensionToMenages" />
+                <EnterpriseParameters Config="_config" Disabled="@Simulator.EnCours" />
+
+                <TradeParameters Config="_config" Disabled="@Simulator.EnCours" />
+
+                <GovernmentParameters Config="_config" Disabled="@Simulator.EnCours" />
+                <BankingParameters Config="_config" Disabled="@Simulator.EnCours" />
+                <div class="hr-placeholder"></div>
                 </div>
 
                 <hr />
