@@ -1,0 +1,83 @@
+@page "/parametres/{ScenarioId:int}/prix"
+@using Simulation.Infrastructure; @using Simulation.Infrastructure.Entities
+@inject IScenarioRepository Repo
+@rendermode InteractiveServer
+
+<PageTitle>Prix — Paramètres</PageTitle>
+
+<ParamModuleLayout ScenarioId="ScenarioId" TitreModule="Module Prix & Élasticités" IconeModule="⛽" ModuleActif="prix">
+    @if (_p == null) { <div class="d-flex justify-content-center py-4"><div class="spinner-border text-primary"></div></div> }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-danger text-white">⛽ Carburant</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Prix carburant courant (MGA/litre)</label>
+                            <input type="number" class="form-control" @bind="_p.PrixCarburantLitre" min="0" step="100" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Prix carburant de référence (MGA/litre)</label>
+                            <input type="number" class="form-control" @bind="_p.PrixCarburantReference" min="0" step="100" />
+                            <div class="form-text">Base pour le calcul de l'élasticité</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-warning">📐 Élasticités & Volatilité</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Élasticité prix/carburant</label>
+                            <input type="range" class="form-range" @bind="_p.ElasticitePrixParCarburant" min="0" max="1" step="0.05" />
+                            <div class="d-flex justify-content-between"><small>0 — faible</small><strong>@_p.ElasticitePrixParCarburant.ToString("F2")</strong><small>1 — totale</small></div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Volatilité aléatoire marché (σ)</label>
+                            <input type="range" class="form-range" @bind="_p.VolatiliteAleatoireMarche" min="0" max="0.5" step="0.01" />
+                            <div class="form-text text-center">±@((_p.VolatiliteAleatoireMarche * 100).ToString("F0"))% d'aléa journalier</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Part revenu alimentaire</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_alimentairePC" min="0" max="100" step="5" /><span class="input-group-text">%</span></div>
+                            <div class="form-text">40% = pauvres, 20% = classe moyenne</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Élasticité comportement ménage</label>
+                            <input type="range" class="form-range" @bind="_p.ElasticiteComportementMenage" min="0" max="1" step="0.05" />
+                            <div class="d-flex justify-content-between"><small>0 — insensible</small><strong>@_p.ElasticiteComportementMenage.ToString("F2")</strong><small>1 — très sensible</small></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 d-flex gap-2 align-items-center">
+                <button class="btn btn-primary px-4" @onclick="Sauvegarder" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> } 💾 Sauvegarder
+                </button>
+                @if (_ok) { <div class="alert alert-success py-2 mb-0">✅ Sauvegardé.</div> }
+            </div>
+        </div>
+    }
+</ParamModuleLayout>
+
+@code {
+    [Parameter] public int ScenarioId { get; set; }
+    private ParamPrixEntity? _p;
+    private bool _saving, _ok;
+    private double _alimentairePC { get => _p!.PartRevenuAlimentaire * 100; set => _p!.PartRevenuAlimentaire = value / 100; }
+    protected override async Task OnParametersSetAsync()
+    {
+        _p = await Repo.GetParamPrixAsync(ScenarioId) ?? new ParamPrixEntity { ScenarioId = ScenarioId };
+        _ok = false;
+    }
+    private async Task Sauvegarder()
+    {
+        _saving = true; _ok = false;
+        _p!.ScenarioId = ScenarioId;
+        await Repo.UpsertParamPrixAsync(_p);
+        _saving = false; _ok = true;
+    }
+}

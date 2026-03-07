@@ -1,0 +1,87 @@
+@page "/parametres/{ScenarioId:int}/agriculture"
+@using Simulation.Infrastructure; @using Simulation.Infrastructure.Entities
+@inject IScenarioRepository Repo
+@rendermode InteractiveServer
+
+<PageTitle>Agriculture — Paramètres</PageTitle>
+
+<ParamModuleLayout ScenarioId="ScenarioId" TitreModule="Agriculture & Sécheresse" IconeModule="🌾" ModuleActif="agriculture">
+    @if (_p == null) { <div class="d-flex justify-content-center py-4"><div class="spinner-border text-primary"></div></div> }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-warning">🌡️ Sécheresse</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Probabilité sécheresse (par jour de saison)</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_sechePC" min="0" max="100" step="0.1" /><span class="input-group-text">%</span></div>
+                            <div class="form-text">Saison sèche = ~180 jours/an. JICA/BVPI Madagascar.</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Part ménages ruraux affectés</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_menageAffPC" min="0" max="100" step="5" /><span class="input-group-text">%</span></div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Durée sécheresse de base (jours)</label>
+                            <input type="number" class="form-control" @bind="_p.DureeSecheresseJoursBase" min="1" max="180" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Réduction production agricole</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_reductionPC" min="0" max="100" step="5" /><span class="input-group-text">%</span></div>
+                            <div class="form-text">Réduction du PIB agricole journalier (-20 à -80%)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-success text-white">🍚 Autoconsommation & Réponse</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Aide alimentaire d'urgence (MGA/ménage/jour)</label>
+                            <input type="number" class="form-control" @bind="_p.AideAlimentaireJourParMenage" min="0" step="500" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Probabilité de migration saisonnière</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_migrationPC" min="0" max="50" step="1" /><span class="input-group-text">%</span></div>
+                            <div class="form-text">Part des ménages ruraux migrant temporairement</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Valeur autoconsommation de base (MGA/ménage/jour)</label>
+                            <input type="number" class="form-control" @bind="_p.ValeurAutoconsommationJourBase" min="0" step="500" />
+                            <div class="form-text">Non monétisé : production autoconsommée (~3 500 MGA/j rural)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 d-flex gap-2">
+                <button class="btn btn-primary px-4" @onclick="Sauvegarder" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> } 💾 Sauvegarder
+                </button>
+                @if (_ok) { <div class="alert alert-success py-2 mb-0">✅ Sauvegardé.</div> }
+            </div>
+        </div>
+    }
+</ParamModuleLayout>
+
+@code {
+    [Parameter] public int ScenarioId { get; set; }
+    private ParamAgricultureEntity? _p;
+    private bool _saving, _ok;
+    private double _sechePC { get => _p!.ProbabiliteSecheresseJourSaison * 100; set => _p!.ProbabiliteSecheresseJourSaison = value / 100; }
+    private double _menageAffPC { get => _p!.PartMenagesRurauxAffectes * 100; set => _p!.PartMenagesRurauxAffectes = value / 100; }
+    private double _reductionPC { get => _p!.ReductionProductionAgricole * 100; set => _p!.ReductionProductionAgricole = value / 100; }
+    private double _migrationPC { get => _p!.ProbabiliteMigrationSaison * 100; set => _p!.ProbabiliteMigrationSaison = value / 100; }
+    protected override async Task OnParametersSetAsync()
+    {
+        _p = await Repo.GetParamAgricultureAsync(ScenarioId) ?? new ParamAgricultureEntity { ScenarioId = ScenarioId };
+        _ok = false;
+    }
+    private async Task Sauvegarder()
+    {
+        _saving = true; _ok = false; _p!.ScenarioId = ScenarioId;
+        await Repo.UpsertParamAgricultureAsync(_p); _saving = false; _ok = true;
+    }
+}

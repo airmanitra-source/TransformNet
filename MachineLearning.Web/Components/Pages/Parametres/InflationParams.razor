@@ -1,0 +1,117 @@
+@page "/parametres/{ScenarioId:int}/inflation"
+@using Simulation.Infrastructure; @using Simulation.Infrastructure.Entities
+@inject IScenarioRepository Repo
+@rendermode InteractiveServer
+
+<PageTitle>Inflation — Paramètres</PageTitle>
+
+<ParamModuleLayout ScenarioId="ScenarioId" TitreModule="Inflation (Courbe de Phillips)" IconeModule="📈" ModuleActif="inflation">
+    @if (_p == null) { <div class="d-flex justify-content-center py-4"><div class="spinner-border text-primary"></div></div> }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-danger text-white">🔢 Paramètres Initiaux</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Taux d'inflation initial (annualisé)</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_inflInitPC" min="0" max="100" step="0.5" /><span class="input-group-text">%</span></div>
+                            <div class="form-text">IPC Madagascar 2024 : ~9–11%</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">
+                                <input type="checkbox" class="form-check-input me-1" @bind="_p.InflationEndogeneActivee" />
+                                Inflation endogène activée
+                            </label>
+                            <div class="form-text">Si désactivé, l'inflation est fixe au taux initial.</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">NAIRU (taux chômage d'équilibre)</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_nairu" min="0" max="30" step="0.5" /><span class="input-group-text">%</span></div>
+                            <div class="form-text">Madagascar : ~5–7% (emploi informel ≠ chômage classique)</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Coefficient Phillips (sensibilité)</label>
+                            <input type="number" class="form-control" @bind="_p.CoefficientPhillips" min="0" max="2" step="0.05" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-warning">⚡ Élasticités Inflationnistes</div>
+                    <div class="card-body row g-3">
+                        @foreach (var (lbl, get, set, hint) in Elasticites)
+                        {
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">@lbl</label>
+                                <input type="range" class="form-range" value="@get()" @onchange="e => set(Convert.ToDouble(e.Value))" min="0" max="1" step="0.05" />
+                                <div class="d-flex justify-content-between"><small>@hint</small><strong>@get().ToString("F2")</strong></div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-info text-white">🎯 Anticipations</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Coefficient monétaire (QTM)</label>
+                            <input type="range" class="form-range" @bind="_p.CoefficientMonetaire" min="0" max="1" step="0.05" />
+                            <div class="d-flex justify-content-between"><small>0 — non monétariste</small><strong>@_p.CoefficientMonetaire.ToString("F2")</strong><small>1 — pur QTM</small></div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Poids anticipations adaptatives</label>
+                            <input type="range" class="form-range" @bind="_p.PoidsAnticipationsAdaptatives" min="0" max="1" step="0.05" />
+                            <div class="form-text text-center">@(_p.PoidsAnticipationsAdaptatives.ToString("P0")) adaptatif, @((1 - _p.PoidsAnticipationsAdaptatives).ToString("P0")) ancrage</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Inflation d'ancrage (long terme)</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_ancragePC" min="0" max="30" step="0.5" /><span class="input-group-text">%</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 d-flex gap-2 align-items-center">
+                <button class="btn btn-primary px-4" @onclick="Sauvegarder" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> } 💾 Sauvegarder
+                </button>
+                @if (_ok) { <div class="alert alert-success py-2 mb-0">✅ Sauvegardé.</div> }
+            </div>
+        </div>
+    }
+</ParamModuleLayout>
+
+@code {
+    [Parameter] public int ScenarioId { get; set; }
+    private ParamInflationEntity? _p;
+    private bool _saving, _ok;
+
+    private double _inflInitPC { get => _p!.TauxInflationInitial * 100; set => _p!.TauxInflationInitial = value / 100; }
+    private double _nairu { get => _p!.NAIRU * 100; set => _p!.NAIRU = value / 100; }
+    private double _ancragePC { get => _p!.PoidsAncrageInflation * 100; set => _p!.PoidsAncrageInflation = value / 100; }
+
+    private (string Lbl, Func<double> Get, Action<double> Set, string Hint)[] Elasticites => _p == null ? [] :
+    [
+        ("Élasticité carburant → inflation", () => _p.ElasticiteCarburantInflation, v => _p.ElasticiteCarburantInflation = v, "pass-through pétrolier"),
+        ("Élasticité import → inflation",    () => _p.ElasticiteImportInflation,    v => _p.ElasticiteImportInflation = v,    "inflation importée"),
+        ("Élasticité change → inflation",    () => _p.ElasticiteChangeInflation,    v => _p.ElasticiteChangeInflation = v,    "dépréciation MGA"),
+        ("Élasticité salaires → inflation",  () => _p.ElasticiteSalairesInflation,  v => _p.ElasticiteSalairesInflation = v,  "spirale salaires-prix"),
+    ];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _p = await Repo.GetParamInflationAsync(ScenarioId) ?? new ParamInflationEntity { ScenarioId = ScenarioId };
+        _ok = false;
+    }
+
+    private async Task Sauvegarder()
+    {
+        _saving = true; _ok = false;
+        _p!.ScenarioId = ScenarioId;
+        await Repo.UpsertParamInflationAsync(_p);
+        _saving = false; _ok = true;
+    }
+}

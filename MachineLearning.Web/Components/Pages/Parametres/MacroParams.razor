@@ -1,0 +1,201 @@
+@page "/parametres/{ScenarioId:int}/macro"
+@using Simulation.Infrastructure
+@using Simulation.Infrastructure.Entities
+@inject IScenarioRepository Repo
+@rendermode InteractiveServer
+
+<PageTitle>Macro — Paramètres</PageTitle>
+
+<ParamModuleLayout ScenarioId="ScenarioId" TitreModule="Paramètres Macroéconomiques" IconeModule="🌍" ModuleActif="macro">
+    @if (_param == null)
+    {
+        <div class="d-flex justify-content-center py-4"><div class="spinner-border text-primary"></div></div>
+    }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">🔢 Simulation</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Durée (jours)</label>
+                                <input type="number" class="form-control" @bind="_param.DureeJours" min="1" max="3650" />
+                                <div class="form-text">Horizons : CT=90 j, MT=365 j, LT=1825 j</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Nombre de ménages</label>
+                                <input type="number" class="form-control" @bind="_param.NombreMenages" min="1000" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Nombre d'entreprises</label>
+                                <input type="number" class="form-control" @bind="_param.NombreEntreprises" min="100" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Part ménages urbains</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" @bind="_partUrbainsPC" min="0" max="100" step="1" />
+                                    <span class="input-group-text">%</span>
+                                </div>
+                                <div class="form-text">30% urbains (RGPH 2018)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-success text-white">🏛️ Fonctionnaires & Gouvernement</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Nombre de fonctionnaires</label>
+                                <input type="number" class="form-control" @bind="_param.NombreFonctionnaires" min="0" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Salaire moyen fonctionnaire (MGA/mois)</label>
+                                <input type="number" class="form-control" @bind="_param.SalaireMoyenFonctionnaireMensuel" min="0" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Dépenses publiques (MGA/jour)</label>
+                                <input type="number" class="form-control" @bind="_param.DepensesPubliquesJour" min="0" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Taux redistribution</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" @bind="_tauxRedistributionPC" min="0" max="100" step="1" />
+                                    <span class="input-group-text">%</span>
+                                </div>
+                                <div class="form-text">Transferts sociaux (~15%)</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Dette publique initiale (MGA)</label>
+                                <input type="number" class="form-control" @bind="_param.DettePubliqueInitiale" min="0" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-info text-white">🌐 Finances extérieures (MGA/jour)</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Aide internationale</label>
+                                <input type="number" class="form-control" @bind="_param.AideInternationaleJour" min="0" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Subvention Jirama</label>
+                                <input type="number" class="form-control" @bind="_param.SubventionJiramaJour" min="0" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Dépenses en capital</label>
+                                <input type="number" class="form-control" @bind="_param.DepensesCapitalJour" min="0" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Intérêts de la dette</label>
+                                <input type="number" class="form-control" @bind="_param.InteretsDetteJour" min="0" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Taux réinvestissement privé</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" @bind="_tauxReinvestissementPC" min="0" max="100" step="1" />
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-warning">📦 Capital Productif (FBCF)</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">
+                                    <input type="checkbox" class="form-check-input me-1" @bind="_param.InvestissementProductifActive" />
+                                    Investissement productif actif
+                                </label>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Dépréciation capital/an</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" @bind="_tauxDepreciationPC" min="0" max="50" step="0.5" />
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Seuil utilisation capacité</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" @bind="_seuilUtilisationPC" min="0" max="100" step="5" />
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Élasticité capital/productivité</label>
+                                <input type="number" class="form-control" @bind="_param.ElasticiteCapitalProductivite" min="0" max="1" step="0.01" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">
+                                    <input type="checkbox" class="form-check-input me-1" @bind="_param.InputOutputActivee" />
+                                    Matrice Input-Output active
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 d-flex gap-2">
+                <button class="btn btn-primary px-4" @onclick="Sauvegarder" disabled="@_sauvegarde">
+                    @if (_sauvegarde) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    💾 Sauvegarder
+                </button>
+                @if (_succes)
+                {
+                    <div class="alert alert-success py-2 mb-0 d-flex align-items-center">
+                        ✅ Paramètres sauvegardés avec succès.
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</ParamModuleLayout>
+
+@code {
+    [Parameter] public int ScenarioId { get; set; }
+
+    private ParamMacroEntity? _param;
+    private bool _sauvegarde;
+    private bool _succes;
+
+    private double _partUrbainsPC { get => _param!.PartMenagesUrbains * 100; set => _param!.PartMenagesUrbains = value / 100; }
+    private double _tauxRedistributionPC { get => _param!.TauxRedistribution * 100; set => _param!.TauxRedistribution = value / 100; }
+    private double _tauxReinvestissementPC { get => _param!.TauxReinvestissementPrive * 100; set => _param!.TauxReinvestissementPrive = value / 100; }
+    private double _tauxDepreciationPC { get => _param!.TauxDepreciationCapitalAnnuel * 100; set => _param!.TauxDepreciationCapitalAnnuel = value / 100; }
+    private double _seuilUtilisationPC { get => _param!.SeuilUtilisationInvestissement * 100; set => _param!.SeuilUtilisationInvestissement = value / 100; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _param = await Repo.GetParamMacroAsync(ScenarioId)
+                 ?? new ParamMacroEntity { ScenarioId = ScenarioId };
+        _succes = false;
+    }
+
+    private async Task Sauvegarder()
+    {
+        if (_param == null) return;
+        _sauvegarde = true;
+        _succes = false;
+        _param.ScenarioId = ScenarioId;
+        await Repo.UpsertParamMacroAsync(_param);
+        _sauvegarde = false;
+        _succes = true;
+    }
+}

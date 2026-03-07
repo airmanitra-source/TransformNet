@@ -1,0 +1,165 @@
+@page "/parametres"
+@using Simulation.Infrastructure
+@using Simulation.Infrastructure.Entities
+@inject IScenarioRepository Repo
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<PageTitle>Paramètres — Scénarios</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h1 class="h3 mb-1">⚙️ Paramètres du Simulateur</h1>
+            <p class="text-muted mb-0">Gérez les scénarios et configurez chaque module économique.</p>
+        </div>
+        <button class="btn btn-success" @onclick="NouveauScenario">
+            <span class="bi bi-plus-circle me-1"></span> Nouveau scénario
+        </button>
+    </div>
+
+    @if (_scenarios == null)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Chargement…</span>
+            </div>
+        </div>
+    }
+    else if (!_scenarios.Any())
+    {
+        <div class="alert alert-info">
+            <span class="bi bi-info-circle me-2"></span>
+            Aucun scénario trouvé. Cliquez sur <strong>Nouveau scénario</strong> pour commencer.
+        </div>
+    }
+    else
+    {
+        <div class="row g-3">
+            @foreach (var s in _scenarios)
+            {
+                <div class="col-md-6 col-xl-4">
+                    <div class="card h-100 shadow-sm @(s.EstBase ? "border-primary" : "")">
+                        <div class="card-header d-flex align-items-center justify-content-between">
+                            <div>
+                                <span class="fw-semibold">@s.Nom</span>
+                                @if (s.EstBase)
+                                {
+                                    <span class="badge bg-primary ms-2">Baseline</span>
+                                }
+                            </div>
+                            <small class="text-muted">v@(s.Version)</small>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text text-muted small">@s.Description</p>
+                            <small class="text-muted">Modifié : @s.MisAJourAt.ToString("dd/MM/yyyy HH:mm")</small>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <div class="d-flex flex-wrap gap-1">
+                                <a class="btn btn-sm btn-outline-secondary" href="parametres/@s.Id/macro">🌍 Macro</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="parametres/@s.Id/fiscalite">🏛️ Fiscalité</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="parametres/@s.Id/salaires">💰 Salaires</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="parametres/@s.Id/banque">🏦 Banque</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="parametres/@s.Id/prix">⛽ Prix</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="parametres/@s.Id/inflation">📈 Inflation</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="parametres/@s.Id/change">💱 Change</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="parametres/@s.Id/agriculture">🌾 Agriculture</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="parametres/@s.Id/cyclone">🌀 Cyclone</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="parametres/@s.Id/transport">🚌 Transport</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="parametres/@s.Id/sante">🏥 Santé</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="parametres/@s.Id/education">🎓 Éducation</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="parametres/@s.Id/loisirs">🎭 Loisirs</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="parametres/@s.Id/entreprises">🏭 Entreprises</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="parametres/@s.Id/jirama">⚡ Jirama</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="parametres/@s.Id/commerce">🚢 Commerce</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="parametres/@s.Id/immobilier">🏠 Immobilier</a>
+                            </div>
+                            @if (!s.EstBase)
+                            {
+                                <button class="btn btn-sm btn-outline-danger mt-2"
+                                        @onclick="() => SupprimerScenario(s.Id)">
+                                    <span class="bi bi-trash me-1"></span> Supprimer
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@if (_showForm)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Nouveau scénario</h5>
+                    <button class="btn-close" @onclick="() => _showForm = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Nom</label>
+                        <input class="form-control" @bind="_nouveauNom" placeholder="Ex : Choc carburant +20%" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Description</label>
+                        <textarea class="form-control" rows="3" @bind="_nouvelleDescription"
+                                  placeholder="Décrivez le scénario…"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="() => _showForm = false">Annuler</button>
+                    <button class="btn btn-success" @onclick="SauvegarderNouveauScenario">Créer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private IEnumerable<ScenarioEntity>? _scenarios;
+    private bool _showForm;
+    private string _nouveauNom = string.Empty;
+    private string _nouvelleDescription = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ChargerScenarios();
+    }
+
+    private async Task ChargerScenarios()
+    {
+        _scenarios = await Repo.GetAllScenariosAsync();
+    }
+
+    private void NouveauScenario()
+    {
+        _nouveauNom = string.Empty;
+        _nouvelleDescription = string.Empty;
+        _showForm = true;
+    }
+
+    private async Task SauvegarderNouveauScenario()
+    {
+        if (string.IsNullOrWhiteSpace(_nouveauNom)) return;
+        var entity = new ScenarioEntity
+        {
+            Nom = _nouveauNom,
+            Description = _nouvelleDescription,
+            EstBase = false,
+            EstActif = true,
+            CreePar = "user"
+        };
+        await Repo.CreateScenarioAsync(entity);
+        _showForm = false;
+        await ChargerScenarios();
+    }
+
+    private async Task SupprimerScenario(int id)
+    {
+        await Repo.DeleteScenarioAsync(id);
+        await ChargerScenarios();
+    }
+}

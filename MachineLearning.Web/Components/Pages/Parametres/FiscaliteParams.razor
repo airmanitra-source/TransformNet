@@ -1,0 +1,242 @@
+@page "/parametres/{ScenarioId:int}/fiscalite"
+@using Simulation.Infrastructure
+@using Simulation.Infrastructure.Entities
+@inject IScenarioRepository Repo
+@rendermode InteractiveServer
+
+<PageTitle>Fiscalité — Paramètres</PageTitle>
+
+<ParamModuleLayout ScenarioId="ScenarioId" TitreModule="Fiscalité & Taxation" IconeModule="🏛️" ModuleActif="fiscalite">
+    @if (_param == null)
+    {
+        <div class="d-flex justify-content-center py-4"><div class="spinner-border text-primary"></div></div>
+    }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-primary text-white">📊 Impôts Directs</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Impôt sur les Sociétés (IS)</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" @bind="_isPC" min="0" max="50" step="0.5" />
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">TVA</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" @bind="_tvaPC" min="0" max="30" step="0.5" />
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Taux directeur BCM</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" @bind="_directeurPC" min="0" max="30" step="0.25" />
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">IRSA minimum de perception (MGA/mois)</label>
+                                <input type="number" class="form-control" @bind="_param.IRSAMinimumPerception" min="0" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-success text-white">🚢 Douanes & Commerce Extérieur</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Droits de douane (import)</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" @bind="_droitsDouanePC" min="0" max="50" step="1" />
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Droits d'accise</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" @bind="_accisePC" min="0" max="50" step="1" />
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Taxe à l'export</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" @bind="_taxeExportPC" min="0" max="20" step="0.5" />
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-info text-white">👷 Cotisations Sociales CNaPS</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Part patronale</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" @bind="_cnapsPaPC" min="0" max="30" step="0.5" />
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Part salariale</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" @bind="_cnapsSaPC" min="0" max="10" step="0.5" />
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-warning">📐 Barème IRSA (CGI Madagascar)</div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-3">Barème progressif par tranches marginales mensuel (MGA)</p>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered align-middle">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Ordre</th>
+                                        <th>Seuil minimum (MGA/mois)</th>
+                                        <th>Taux marginal (%)</th>
+                                        <th>Description</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var t in _tranches)
+                                    {
+                                        <tr>
+                                            <td class="text-center fw-bold">@t.Ordre</td>
+                                            <td>
+                                                <input type="number" class="form-control form-control-sm"
+                                                       @bind="t.SeuilMin" min="0" />
+                                            </td>
+                                            <td>
+                                                <div class="input-group input-group-sm">
+                                                    <input type="number" class="form-control"
+                                                           value="@(t.Taux * 100)"
+                                                           @onchange="e => t.Taux = Convert.ToDouble(e.Value) / 100"
+                                                           min="0" max="60" step="1" />
+                                                    <span class="input-group-text">%</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control form-control-sm" @bind="t.Description" />
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-danger"
+                                                        @onclick="() => SupprimerTranche(t)"
+                                                        disabled="@(_tranches.Count <= 1)">✕</button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        <button class="btn btn-sm btn-outline-success" @onclick="AjouterTranche">
+                            ＋ Ajouter une tranche
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 d-flex gap-2 align-items-center">
+                <button class="btn btn-primary px-4" @onclick="Sauvegarder" disabled="@_sauvegarde">
+                    @if (_sauvegarde) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    💾 Sauvegarder
+                </button>
+                @if (_succes)
+                {
+                    <div class="alert alert-success py-2 mb-0">✅ Paramètres sauvegardés.</div>
+                }
+            </div>
+        </div>
+    }
+</ParamModuleLayout>
+
+@code {
+    [Parameter] public int ScenarioId { get; set; }
+
+    private ParamFiscaliteEntity? _param;
+    private List<ParamIRSATrancheEntity> _tranches = [];
+    private bool _sauvegarde;
+    private bool _succes;
+
+    private double _isPC { get => _param!.TauxIS * 100; set => _param!.TauxIS = value / 100; }
+    private double _tvaPC { get => _param!.TauxTVA * 100; set => _param!.TauxTVA = value / 100; }
+    private double _directeurPC { get => _param!.TauxDirecteur * 100; set => _param!.TauxDirecteur = value / 100; }
+    private double _droitsDouanePC { get => _param!.TauxDroitsDouane * 100; set => _param!.TauxDroitsDouane = value / 100; }
+    private double _accisePC { get => _param!.TauxAccise * 100; set => _param!.TauxAccise = value / 100; }
+    private double _taxeExportPC { get => _param!.TauxTaxeExport * 100; set => _param!.TauxTaxeExport = value / 100; }
+    private double _cnapsPaPC { get => _param!.TauxCotisationsPatronalesCNaPS * 100; set => _param!.TauxCotisationsPatronalesCNaPS = value / 100; }
+    private double _cnapsSaPC { get => _param!.TauxCotisationsSalarialesCNaPS * 100; set => _param!.TauxCotisationsSalarialesCNaPS = value / 100; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _param = await Repo.GetParamFiscaliteAsync(ScenarioId)
+                 ?? new ParamFiscaliteEntity { ScenarioId = ScenarioId };
+        _tranches = (await Repo.GetParamIRSATranchesAsync(ScenarioId)).ToList();
+        if (!_tranches.Any())
+        {
+            _tranches =
+            [
+                new() { ScenarioId = ScenarioId, Ordre = 1, SeuilMin = 0,      Taux = 0.00, Description = "Exonéré (≤ 350 000)" },
+                new() { ScenarioId = ScenarioId, Ordre = 2, SeuilMin = 350001, Taux = 0.05, Description = "5% (350 001 – 400 000)" },
+                new() { ScenarioId = ScenarioId, Ordre = 3, SeuilMin = 400001, Taux = 0.10, Description = "10% (400 001 – 500 000)" },
+                new() { ScenarioId = ScenarioId, Ordre = 4, SeuilMin = 500001, Taux = 0.15, Description = "15% (500 001 – 600 000)" },
+                new() { ScenarioId = ScenarioId, Ordre = 5, SeuilMin = 600001, Taux = 0.20, Description = "20% (> 600 000)" },
+            ];
+        }
+        _succes = false;
+    }
+
+    private void AjouterTranche()
+    {
+        int nextOrdre = _tranches.Any() ? _tranches.Max(t => t.Ordre) + 1 : 1;
+        _tranches.Add(new ParamIRSATrancheEntity
+        {
+            ScenarioId = ScenarioId,
+            Ordre = nextOrdre,
+            SeuilMin = 0,
+            Taux = 0,
+            Description = string.Empty
+        });
+    }
+
+    private void SupprimerTranche(ParamIRSATrancheEntity t) => _tranches.Remove(t);
+
+    private async Task Sauvegarder()
+    {
+        if (_param == null) return;
+        _sauvegarde = true;
+        _succes = false;
+        _param.ScenarioId = ScenarioId;
+        for (int i = 0; i < _tranches.Count; i++)
+        {
+            _tranches[i].Ordre = i + 1;
+            _tranches[i].ScenarioId = ScenarioId;
+        }
+        await Repo.UpsertParamFiscaliteAsync(_param);
+        await Repo.ReplaceParamIRSATranchesAsync(ScenarioId, _tranches);
+        _sauvegarde = false;
+        _succes = true;
+    }
+}

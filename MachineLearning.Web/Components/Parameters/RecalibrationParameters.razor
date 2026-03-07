@@ -202,6 +202,10 @@
                                 {
                                     <div class="col-6"><span class="badge bg-info text-white">Touristes</span> @dernierMois.ArriveesTouristes.Value.ToString("N0")</div>
                                 }
+                                @if (dernierMois?.DevisesTourismeMillionsUSD != null)
+                                {
+                                    <div class="col-6"><span class="badge bg-info text-white">Devises tour.</span> @dernierMois.DevisesTourismeMillionsUSD.Value.ToString("F1") M USD</div>
+                                }
                                 @if (dernierMois?.NouveauxAffiliesCNaPS != null)
                                 {
                                     <div class="col-6"><span class="badge bg-dark">CNaPS</span> @dernierMois.NouveauxAffiliesCNaPS.Value.ToString("N0") nouveaux</div>

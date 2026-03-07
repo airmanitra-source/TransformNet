@@ -1,0 +1,77 @@
+@page "/parametres/{ScenarioId:int}/sante"
+@using Simulation.Infrastructure; @using Simulation.Infrastructure.Entities
+@inject IScenarioRepository Repo
+@rendermode InteractiveServer
+
+<PageTitle>Santé — Paramètres</PageTitle>
+
+<ParamModuleLayout ScenarioId="ScenarioId" TitreModule="Dépenses de Santé" IconeModule="🏥" ModuleActif="sante">
+    @if (_p == null) { <div class="d-flex justify-content-center py-4"><div class="spinner-border text-primary"></div></div> }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-danger text-white">🏥 Coûts Unitaires (MGA)</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Coût consultation de base</label>
+                            <input type="number" class="form-control" @bind="_p.CoutConsultationBase" min="0" step="1000" />
+                            <div class="form-text">CSB II Madagascar : ~3 000 à 15 000 MGA</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Coût hospitalisation de base (journée)</label>
+                            <input type="number" class="form-control" @bind="_p.CoutHospitalisationBase" min="0" step="5000" />
+                            <div class="form-text">CHD/CHR : ~20 000 à 80 000 MGA/jour</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-info text-white">📊 Probabilités & Accès</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Taux d'occupation des hôpitaux</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_occupationPC" min="0" max="100" step="5" /><span class="input-group-text">%</span></div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Probabilité d'hospitalisation de base (par ménage/jour)</label>
+                            <input type="number" class="form-control" @bind="_p.ProbabiliteHospitalisationBase" min="0" max="0.01" step="0.0001" />
+                            <div class="form-text">~1 hospitalisation/an/ménage ≈ 0.0027/jour</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Part formelle des dépenses santé</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_formelPC" min="0" max="100" step="5" /><span class="input-group-text">%</span></div>
+                            <div class="form-text">~45% formel (CSB, hôpitaux), 55% informel (tradipraticiens, pharmacie)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 d-flex gap-2">
+                <button class="btn btn-primary px-4" @onclick="Sauvegarder" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> } 💾 Sauvegarder
+                </button>
+                @if (_ok) { <div class="alert alert-success py-2 mb-0">✅ Sauvegardé.</div> }
+            </div>
+        </div>
+    }
+</ParamModuleLayout>
+
+@code {
+    [Parameter] public int ScenarioId { get; set; }
+    private ParamSanteEntity? _p;
+    private bool _saving, _ok;
+    private double _occupationPC { get => _p!.TauxOccupationHopitaux * 100; set => _p!.TauxOccupationHopitaux = value / 100; }
+    private double _formelPC { get => _p!.PartFormelleDepenseSante * 100; set => _p!.PartFormelleDepenseSante = value / 100; }
+    protected override async Task OnParametersSetAsync()
+    {
+        _p = await Repo.GetParamSanteAsync(ScenarioId) ?? new ParamSanteEntity { ScenarioId = ScenarioId };
+        _ok = false;
+    }
+    private async Task Sauvegarder()
+    {
+        _saving = true; _ok = false; _p!.ScenarioId = ScenarioId;
+        await Repo.UpsertParamSanteAsync(_p); _saving = false; _ok = true;
+    }
+}

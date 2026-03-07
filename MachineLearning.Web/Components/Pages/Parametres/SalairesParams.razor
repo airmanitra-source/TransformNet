@@ -1,0 +1,193 @@
+@page "/parametres/{ScenarioId:int}/salaires"
+@using Simulation.Infrastructure
+@using Simulation.Infrastructure.Entities
+@inject IScenarioRepository Repo
+@rendermode InteractiveServer
+
+<PageTitle>Distribution Salariale — Paramètres</PageTitle>
+
+<ParamModuleLayout ScenarioId="ScenarioId" TitreModule="Distribution Salariale" IconeModule="💰" ModuleActif="salaires">
+    @if (_param == null)
+    {
+        <div class="d-flex justify-content-center py-4"><div class="spinner-border text-primary"></div></div>
+    }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">📊 Loi Log-Normale</div>
+                    <div class="card-body">
+                        <div class="alert alert-info small">
+                            <strong>Fondements :</strong> La distribution des revenus à Madagascar suit une loi log-normale
+                            (Gini ~0.43, ~85% secteur informel). Source : INSTAT Madagascar, Banque Mondiale.
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Salaire médian (MGA/mois)</label>
+                                <input type="number" class="form-control" @bind="_param.SalaireMedian" min="0" step="5000" />
+                                <div class="form-text">Médiane mensuelle (~170 000 MGA pour Madagascar)</div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Sigma σ (dispersion)</label>
+                                <input type="number" class="form-control" @bind="_param.Sigma" min="0.1" max="2" step="0.05" />
+                                <div class="form-text">σ ≈ 0.85 → Gini ~0.43. Plus σ est élevé, plus les inégalités sont fortes.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-success text-white">📏 Bornes & Secteur Informel</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Salaire plancher (MGA/mois)</label>
+                                <input type="number" class="form-control" @bind="_param.SalairePlancher" min="0" step="5000" />
+                                <div class="form-text">Inférieur au SMIG pour l'informel (≈ 50 000 MGA)</div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Salaire plafond (MGA/mois)</label>
+                                <input type="number" class="form-control" @bind="_param.SalairePlafond" min="0" step="100000" />
+                                <div class="form-text">PDG grandes entreprises (~10 000 000 MGA)</div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Part secteur informel</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" @bind="_informelPC" min="0" max="100" step="1" />
+                                    <span class="input-group-text">%</span>
+                                </div>
+                                <div class="form-text">~85% à Madagascar (INSTAT ENEMPSI)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-warning">👥 Comportement par Classe Socio-Économique</div>
+                    <div class="card-body">
+                        <div class="alert alert-light small border">
+                            Les seuils de classe sont calculés automatiquement à partir de μ = ln(médiane) et σ :
+                            Q1 (z=-0.842), Q2 (z=-0.253), Q3 (z=+0.253), Q4 (z=+0.842).
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Classe</th>
+                                        <th>Épargne min–max (%)</th>
+                                        <th>Propension conso min–max (%)</th>
+                                        <th>Alim./jour min–max (MGA)</th>
+                                        <th>Emploi min–max (%)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var c in _comportements)
+                                    {
+                                        <tr>
+                                            <td><span class="badge bg-secondary">@c.ClasseLibelle</span></td>
+                                            <td>
+                                                <div class="d-flex gap-1 align-items-center">
+                                                    <input type="number" class="form-control form-control-sm" style="width:70px"
+                                                           value="@(Math.Round(c.TauxEpargneMin * 100, 1))"
+                                                           @onchange="e => c.TauxEpargneMin = Convert.ToDouble(e.Value) / 100"
+                                                           min="0" max="100" step="1" />
+                                                    –
+                                                    <input type="number" class="form-control form-control-sm" style="width:70px"
+                                                           value="@(Math.Round(c.TauxEpargneMax * 100, 1))"
+                                                           @onchange="e => c.TauxEpargneMax = Convert.ToDouble(e.Value) / 100"
+                                                           min="0" max="100" step="1" />
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex gap-1 align-items-center">
+                                                    <input type="number" class="form-control form-control-sm" style="width:70px"
+                                                           value="@(Math.Round(c.PropensionConsommationMin * 100, 1))"
+                                                           @onchange="e => c.PropensionConsommationMin = Convert.ToDouble(e.Value) / 100"
+                                                           min="0" max="100" step="1" />
+                                                    –
+                                                    <input type="number" class="form-control form-control-sm" style="width:70px"
+                                                           value="@(Math.Round(c.PropensionConsommationMax * 100, 1))"
+                                                           @onchange="e => c.PropensionConsommationMax = Convert.ToDouble(e.Value) / 100"
+                                                           min="0" max="100" step="1" />
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex gap-1 align-items-center">
+                                                    <input type="number" class="form-control form-control-sm" style="width:80px"
+                                                           @bind="c.DepensesAlimentairesJourMin" min="0" step="500" />
+                                                    –
+                                                    <input type="number" class="form-control form-control-sm" style="width:80px"
+                                                           @bind="c.DepensesAlimentairesJourMax" min="0" step="500" />
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex gap-1 align-items-center">
+                                                    <input type="number" class="form-control form-control-sm" style="width:70px"
+                                                           value="@(Math.Round(c.ProbabiliteEmploiMin * 100, 1))"
+                                                           @onchange="e => c.ProbabiliteEmploiMin = Convert.ToDouble(e.Value) / 100"
+                                                           min="0" max="100" step="1" />
+                                                    –
+                                                    <input type="number" class="form-control form-control-sm" style="width:70px"
+                                                           value="@(Math.Round(c.ProbabiliteEmploiMax * 100, 1))"
+                                                           @onchange="e => c.ProbabiliteEmploiMax = Convert.ToDouble(e.Value) / 100"
+                                                           min="0" max="100" step="1" />
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 d-flex gap-2 align-items-center">
+                <button class="btn btn-primary px-4" @onclick="Sauvegarder" disabled="@_sauvegarde">
+                    @if (_sauvegarde) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    💾 Sauvegarder
+                </button>
+                @if (_succes) { <div class="alert alert-success py-2 mb-0">✅ Paramètres sauvegardés.</div> }
+            </div>
+        </div>
+    }
+</ParamModuleLayout>
+
+@code {
+    [Parameter] public int ScenarioId { get; set; }
+
+    private ParamDistributionSalarialeEntity? _param;
+    private List<ParamComportementMenageEntity> _comportements = [];
+    private bool _sauvegarde;
+    private bool _succes;
+
+    private double _informelPC { get => _param!.PartSecteurInformel * 100; set => _param!.PartSecteurInformel = value / 100; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _param = await Repo.GetParamDistributionSalarialeAsync(ScenarioId)
+                 ?? new ParamDistributionSalarialeEntity { ScenarioId = ScenarioId };
+        _comportements = (await Repo.GetParamComportementMenageAsync(ScenarioId)).ToList();
+        _succes = false;
+    }
+
+    private async Task Sauvegarder()
+    {
+        if (_param == null) return;
+        _sauvegarde = true;
+        _param.ScenarioId = ScenarioId;
+        await Repo.UpsertParamDistributionSalarialeAsync(_param);
+        foreach (var c in _comportements)
+        {
+            c.ScenarioId = ScenarioId;
+            await Repo.UpsertParamComportementMenageAsync(c);
+        }
+        _sauvegarde = false;
+        _succes = true;
+    }
+}

@@ -4,7 +4,7 @@ using Simulation.Module.Config;
 using Simulation.Module.Models;
 using Simulation.Module.Services;
 
-namespace Simulation.Infrastructure;
+namespace Simulation.Infrastructure.Services;
 
 /// <summary>
 /// Implémentation du service de collecte automatique des agrégats macroéconomiques.

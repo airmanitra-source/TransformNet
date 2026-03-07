@@ -1,0 +1,77 @@
+@page "/parametres/{ScenarioId:int}/education"
+@using Simulation.Infrastructure; @using Simulation.Infrastructure.Entities
+@inject IScenarioRepository Repo
+@rendermode InteractiveServer
+
+<PageTitle>Éducation — Paramètres</PageTitle>
+
+<ParamModuleLayout ScenarioId="ScenarioId" TitreModule="Dépenses d'Éducation" IconeModule="🎓" ModuleActif="education">
+    @if (_p == null) { <div class="d-flex justify-content-center py-4"><div class="spinner-border text-primary"></div></div> }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">👶 Enfants Scolarisés</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Nombre moyen d'enfants par ménage</label>
+                            <input type="number" class="form-control" @bind="_p.NombreEnfantsMoyenParMenage" min="0" max="10" step="0.1" />
+                            <div class="form-text">RGPH Madagascar 2018 : 4.5 enfants/ménage</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Part d'enfants scolarisés</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_scolarisesPC" min="0" max="100" step="5" /><span class="input-group-text">%</span></div>
+                            <div class="form-text">Taux de scolarisation primaire ~84%, secondaire ~35%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-warning">💸 Coûts & Durée</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Durée période dépenses éducation (jours/an)</label>
+                            <input type="number" class="form-control" @bind="_p.DureeDepenseEducationJours" min="1" max="90" />
+                            <div class="form-text">Rentrée scolaire : ~30 jours de dépenses concentrées (septembre–octobre)</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Coût éducation journalier par enfant (MGA)</label>
+                            <input type="number" class="form-control" @bind="_p.CoutEducationJournalierParEnfant" min="0" step="500" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Part formelle des dépenses d'éducation</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_formelPC" min="0" max="100" step="5" /><span class="input-group-text">%</span></div>
+                            <div class="form-text">~80% formel (écolage, fournitures en librairie), 20% informel</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 d-flex gap-2">
+                <button class="btn btn-primary px-4" @onclick="Sauvegarder" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> } 💾 Sauvegarder
+                </button>
+                @if (_ok) { <div class="alert alert-success py-2 mb-0">✅ Sauvegardé.</div> }
+            </div>
+        </div>
+    }
+</ParamModuleLayout>
+
+@code {
+    [Parameter] public int ScenarioId { get; set; }
+    private ParamEducationEntity? _p;
+    private bool _saving, _ok;
+    private double _scolarisesPC { get => _p!.PartEnfantsScolarises * 100; set => _p!.PartEnfantsScolarises = value / 100; }
+    private double _formelPC { get => _p!.PartFormelleDepenseEducation * 100; set => _p!.PartFormelleDepenseEducation = value / 100; }
+    protected override async Task OnParametersSetAsync()
+    {
+        _p = await Repo.GetParamEducationAsync(ScenarioId) ?? new ParamEducationEntity { ScenarioId = ScenarioId };
+        _ok = false;
+    }
+    private async Task Sauvegarder()
+    {
+        _saving = true; _ok = false; _p!.ScenarioId = ScenarioId;
+        await Repo.UpsertParamEducationAsync(_p); _saving = false; _ok = true;
+    }
+}

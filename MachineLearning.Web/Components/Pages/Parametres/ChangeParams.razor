@@ -1,0 +1,104 @@
+@page "/parametres/{ScenarioId:int}/change"
+@using Simulation.Infrastructure; @using Simulation.Infrastructure.Entities
+@inject IScenarioRepository Repo
+@rendermode InteractiveServer
+
+<PageTitle>Taux de Change — Paramètres</PageTitle>
+
+<ParamModuleLayout ScenarioId="ScenarioId" TitreModule="Taux de Change MGA/USD" IconeModule="💱" ModuleActif="change">
+    @if (_p == null) { <div class="d-flex justify-content-center py-4"><div class="spinner-border text-primary"></div></div> }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-12">
+                <div class="alert @(_p.TauxChangeDynamiqueActive ? "alert-info" : "alert-warning")">
+                    <input type="checkbox" class="form-check-input me-2" @bind="_p.TauxChangeDynamiqueActive" />
+                    <strong>Taux de change dynamique activé</strong>
+                    @if (!_p.TauxChangeDynamiqueActive) { <span> — Le taux est fixe à @_p.TauxChangeMGAParUSD.ToString("N0") MGA/USD.</span> }
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">💵 Valeurs Initiales</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Taux de change MGA/USD initial</label>
+                            <input type="number" class="form-control" @bind="_p.TauxChangeMGAParUSD" min="1000" max="10000" step="50" />
+                            <div class="form-text">BCM 2025 : ~4 600 MGA/USD</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Réserves BCM (USD millions)</label>
+                            <input type="number" class="form-control" @bind="_p.ReservesBCMUSD" min="0" step="10" />
+                            <div class="form-text">BCM 2025 : ~1 950 M USD (~3.5 mois imports)</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Réserves minimales (mois d'imports)</label>
+                            <input type="number" class="form-control" @bind="_p.ReservesMinimalesMoisImports" min="1" max="12" step="0.5" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Dépréciation structurelle annuelle</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_depreciationPC" min="0" max="30" step="0.5" /><span class="input-group-text">%</span></div>
+                            <div class="form-text">MGA perd ~7–9%/an vs USD historiquement</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Inflation étrangère (USD zone)</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_inflEtrPC" min="0" max="20" step="0.5" /><span class="input-group-text">%</span></div>
+                            <div class="form-text">FED target : ~2%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-warning">⚖️ Élasticités</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Élasticité balance commerciale → change</label>
+                            <input type="range" class="form-range" @bind="_p.ElasticiteChangeBalanceCommerciale" min="-1" max="1" step="0.05" />
+                            <div class="form-text text-center">@_p.ElasticiteChangeBalanceCommerciale.ToString("F2") (négatif = déficit déprécie)</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Poids Parité de Pouvoir d'Achat</label>
+                            <input type="range" class="form-range" @bind="_p.PoidsChangePPA" min="0" max="1" step="0.05" />
+                            <div class="d-flex justify-content-between"><small>0 — marché libre</small><strong>@_p.PoidsChangePPA.ToString("P0")</strong><small>1 — PPA pure</small></div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Intensité intervention BCM</label>
+                            <input type="range" class="form-range" @bind="_p.IntensiteInterventionBCM" min="0" max="1" step="0.05" />
+                            <div class="form-text text-center">@(_p.IntensiteInterventionBCM.ToString("P0")) d'intervention</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Élasticité remittances → change</label>
+                            <input type="range" class="form-range" @bind="_p.ElasticiteRemittancesChange" min="0" max="1" step="0.05" />
+                            <div class="form-text text-center">@_p.ElasticiteRemittancesChange.ToString("F2")</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 d-flex gap-2">
+                <button class="btn btn-primary px-4" @onclick="Sauvegarder" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> } 💾 Sauvegarder
+                </button>
+                @if (_ok) { <div class="alert alert-success py-2 mb-0">✅ Sauvegardé.</div> }
+            </div>
+        </div>
+    }
+</ParamModuleLayout>
+
+@code {
+    [Parameter] public int ScenarioId { get; set; }
+    private ParamTauxChangeEntity? _p;
+    private bool _saving, _ok;
+    private double _depreciationPC { get => _p!.DepreciationStructurelleAnnuelle * 100; set => _p!.DepreciationStructurelleAnnuelle = value / 100; }
+    private double _inflEtrPC { get => _p!.InflationEtrangere * 100; set => _p!.InflationEtrangere = value / 100; }
+    protected override async Task OnParametersSetAsync()
+    {
+        _p = await Repo.GetParamTauxChangeAsync(ScenarioId) ?? new ParamTauxChangeEntity { ScenarioId = ScenarioId };
+        _ok = false;
+    }
+    private async Task Sauvegarder()
+    {
+        _saving = true; _ok = false; _p!.ScenarioId = ScenarioId;
+        await Repo.UpsertParamTauxChangeAsync(_p); _saving = false; _ok = true;
+    }
+}

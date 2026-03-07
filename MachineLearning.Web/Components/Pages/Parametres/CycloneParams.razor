@@ -1,0 +1,104 @@
+@page "/parametres/{ScenarioId:int}/cyclone"
+@using Simulation.Infrastructure; @using Simulation.Infrastructure.Entities
+@inject IScenarioRepository Repo
+@rendermode InteractiveServer
+
+<PageTitle>Cyclone — Paramètres</PageTitle>
+
+<ParamModuleLayout ScenarioId="ScenarioId" TitreModule="Risque Cyclonique" IconeModule="🌀" ModuleActif="cyclone">
+    @if (_p == null) { <div class="d-flex justify-content-center py-4"><div class="spinner-border text-primary"></div></div> }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-danger text-white">🌊 Probabilités</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Probabilité cyclone (saison, par jour)</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_probSaisonPC" min="0" max="5" step="0.05" /><span class="input-group-text">%</span></div>
+                            <div class="form-text">Saison cyclonique : nov–avril (~4 cyclones/an ÷ 180 jours)</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Probabilité cyclone (hors saison, par jour)</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_probHsPC" min="0" max="1" step="0.01" /><span class="input-group-text">%</span></div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Délai minimum entre deux cyclones (jours)</label>
+                            <input type="number" class="form-control" @bind="_p.DelaiMinEntreDeuxCyclones" min="7" max="90" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-warning">⏱️ Durée & Impact</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Durée cyclone (jours)</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="number" class="form-control" @bind="_p.DureeCycloneJoursMin" min="1" max="10" placeholder="Min" />
+                                <span>–</span>
+                                <input type="number" class="form-control" @bind="_p.DureeCycloneJoursMax" min="1" max="20" placeholder="Max" />
+                            </div>
+                            <div class="form-text">Passage direct : 1–3 j ; effets secondaires jusqu'à 7 j</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Part ménages affectés</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="input-group"><input type="number" class="form-control" @bind="_affecteMinPC" min="0" max="100" step="5" /><span class="input-group-text">%</span></div>
+                                <span>–</span>
+                                <div class="input-group"><input type="number" class="form-control" @bind="_affecteMaxPC" min="0" max="100" step="5" /><span class="input-group-text">%</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-info text-white">🏗️ Reconstruction</div>
+                    <div class="card-body row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Budget reconstruction base (MGA)</label>
+                            <input type="number" class="form-control" @bind="_p.BudgetTotalReconstructionBase" min="0" step="1000000000" />
+                            <div class="form-text">Exemple : Cyclone Batsirai 2022 → ~2 500 Mds MGA</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Durée reconstruction (jours)</label>
+                            <div class="d-flex gap-2">
+                                <input type="number" class="form-control" @bind="_p.DureeReconstructionJoursMin" min="30" placeholder="Min" />
+                                <input type="number" class="form-control" @bind="_p.DureeReconstructionJoursMax" min="60" placeholder="Max" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 d-flex gap-2">
+                <button class="btn btn-primary px-4" @onclick="Sauvegarder" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> } 💾 Sauvegarder
+                </button>
+                @if (_ok) { <div class="alert alert-success py-2 mb-0">✅ Sauvegardé.</div> }
+            </div>
+        </div>
+    }
+</ParamModuleLayout>
+
+@code {
+    [Parameter] public int ScenarioId { get; set; }
+    private ParamCycloneEntity? _p;
+    private bool _saving, _ok;
+    private double _probSaisonPC { get => _p!.ProbabiliteCycloneJourSaison * 100; set => _p!.ProbabiliteCycloneJourSaison = value / 100; }
+    private double _probHsPC { get => _p!.ProbabiliteCycloneJourHorsSaison * 100; set => _p!.ProbabiliteCycloneJourHorsSaison = value / 100; }
+    private double _affecteMinPC { get => _p!.PartMenagesAffectesMin * 100; set => _p!.PartMenagesAffectesMin = value / 100; }
+    private double _affecteMaxPC { get => _p!.PartMenagesAffectesMax * 100; set => _p!.PartMenagesAffectesMax = value / 100; }
+    protected override async Task OnParametersSetAsync()
+    {
+        _p = await Repo.GetParamCycloneAsync(ScenarioId) ?? new ParamCycloneEntity { ScenarioId = ScenarioId };
+        _ok = false;
+    }
+    private async Task Sauvegarder()
+    {
+        _saving = true; _ok = false; _p!.ScenarioId = ScenarioId;
+        await Repo.UpsertParamCycloneAsync(_p); _saving = false; _ok = true;
+    }
+}

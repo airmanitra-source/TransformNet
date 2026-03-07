@@ -16,7 +16,9 @@ using Simulation.Module.Models;
 using Economic.Risk.Module;
 using Agriculture.Module;
 using Simulation.Infrastructure;
+using Simulation.Infrastructure.Providers;
 using Simulation.Module.Services;
+using Simulation.Infrastructure.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add service defaults & Aspire client integrations.
@@ -48,21 +50,20 @@ builder.Services.AddScoped<IInputOutputModule, InputOutputModule>(); // Company.
 builder.Services.AddScoped<IInvestmentModule, InvestmentModule>(); // Company.Module — FBCF
 
 builder.Services.AddScoped<ISimulationModule, SimulationModule>();
-builder.Services.AddScoped<IHistoricalDataLoader, HistoricalDataLoader>();
 builder.Services.AddHttpClient<IMacroeconomicDataScraperService, MacroeconomicDataScraperService>(client =>
 {
     client.BaseAddress = new Uri("https://api.worldbank.org");
 });
 builder.Services.AddHttpClient<IInstatTbeScraperService, InstatTbeScraperService>();
 builder.Services.AddOutputCache();
-/*
-builder.Services.AddHttpClient<WeatherApiClient>(client =>
-    {
-        // This URL uses "https+http://" to indicate HTTPS is preferred over HTTP.
-        // Learn more about service discovery scheme resolution at https://aka.ms/dotnet/sdschemes.
-        client.BaseAddress = new("https+http://apiservice");
-    });
-*/
+
+// ── Persistance BD (Dapper + SQL Server) ──────────────────────────────────
+var connectionString = builder.Configuration.GetConnectionString("SimulateurDb")
+    ?? "Server=(localdb)\\mssqllocaldb;Database=SimulateurEconomique;Trusted_Connection=True;";
+builder.Services.AddSingleton<IDbConnectionFactory>(
+    new SqlConnectionFactory(connectionString));
+builder.Services.AddScoped<IScenarioRepository, ScenarioRepository>();
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())

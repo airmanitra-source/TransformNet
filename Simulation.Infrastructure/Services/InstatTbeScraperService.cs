@@ -162,8 +162,10 @@ public partial class InstatTbeScraperService : IInstatTbeScraperService
         if (tableauPages.TryGetValue(33, out int pageImports))
             ParserTableau33Imports(doc, pageImports, moisDict, result);
 
-        if (tableauPages.TryGetValue(34, out int pageTourisme))
-            ParserTableau34Tourisme(doc, pageTourisme, moisDict, result);
+        // ── TABLEAU 34 : Tourisme ──
+        // Le TOC pointe souvent vers un graphique, pas le tableau de données.
+        // → Scanner TOUTES les pages de la 2ème moitié du PDF pour trouver les données.
+        ParserTourismeScanComplet(doc, moisDict, result);
 
         // Trier par date décroissante
         result.Mois = [.. moisDict.Values.OrderByDescending(m => m.Annee * 100 + m.Mois)];
@@ -211,6 +213,21 @@ public partial class InstatTbeScraperService : IInstatTbeScraperService
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Recherche une page PDF contenant TOUS les mots-clés spécifiés (insensible à la casse).
+    /// Ignore les 5 premières pages (table des matières) pour éviter les faux positifs.
+    /// </summary>
+    private static int? TrouverPageParMotsCles(PdfDocument doc, string[] motsCles)
+    {
+        for (int p = 6; p <= doc.NumberOfPages; p++)
+        {
+            var text = doc.GetPage(p).Text;
+            if (motsCles.All(mot => text.Contains(mot, StringComparison.OrdinalIgnoreCase)))
+                return p;
+        }
+        return null;
     }
 
     /// <summary>
@@ -578,39 +595,122 @@ public partial class InstatTbeScraperService : IInstatTbeScraperService
     }
 
     // ════════════════════════════════════════════════════════════
-    //  TABLEAU 34 : Tourisme
+    //  TABLEAU 34 : Tourisme (arrivées + devises DTS)
+    //
+    //  Le TOC du TBE pointe souvent vers une page de GRAPHIQUE tourisme,
+    //  pas vers le tableau de données chiffrées. Solution : scanner
+    //  TOUTES les pages du PDF et extraire les lignes qui matchent
+    //  le pattern "période + entier + décimal".
     // ════════════════════════════════════════════════════════════
 
-    private void ParserTableau34Tourisme(PdfDocument doc, int pageNum, Dictionary<string, InstatTbeMensuel> moisDict, InstatTbeData result)
+    /// <summary>
+    /// Scanne toutes les pages du PDF pour extraire les données du Tableau 34 (tourisme).
+    ///
+    /// Caractéristique unique du Tableau 34 : la PÉRIODE est au DÉBUT de chaque ligne
+    /// (contrairement aux tableaux 26/32/33 où elle est à la FIN).
+    /// Format de chaque ligne de données :
+    ///   "oct 23\t29 944\t51,19"  →  période[début] + arrivées(entier) + devises(décimal virgule)
+    ///
+    /// Validation : les deux valeurs doivent être présentes et dans les plages Madagascar :
+    ///   arrivées  : 5 000 – 200 000 (visiteurs/mois)
+    ///   devises   : 5 – 200 (millions DTS/mois)
+    /// </summary>
+    private void ParserTourismeScanComplet(PdfDocument doc, Dictionary<string, InstatTbeMensuel> moisDict, InstatTbeData result)
     {
         try
         {
-            var lines = ExtraireLines(doc, pageNum);
+            int totalExtracted = 0;
+            int startPage = Math.Max(1, doc.NumberOfPages / 2);
 
-            // Le tableau tourisme a le format :
-            // "oct 23 29 944 51,19"  → période, arrivées, devises DTS
-            foreach (var line in lines)
+            for (int p = startPage; p <= doc.NumberOfPages && totalExtracted < 5; p++)
             {
-                var periodeMatch = PeriodeMoisDebutRegex().Match(line);
-                if (!periodeMatch.Success) continue;
-                if (line.Contains("Cumul", StringComparison.OrdinalIgnoreCase)) continue;
-                if (line.Contains("Variation", StringComparison.OrdinalIgnoreCase)) continue;
+                var lines = ExtraireLines(doc, p);
 
-                var (annee, mois, label) = ParsePeriodeMois(periodeMatch.Value);
-                if (annee == 0) continue;
+                foreach (var line in lines)
+                {
+                    var normalizedLine = NormalizePdfText(line);
 
-                var restOfLine = line[periodeMatch.Length..].Trim();
-                var numbers = ExtractDecimalNumbers(restOfLine);
-                if (numbers.Count == 0) continue;
+                    // ── 1. La période DOIT être au DÉBUT de la ligne ────────────
+                    // (distingue Tableau 34 des autres tableaux où elle est à la fin)
+                    var periodeMatch = PeriodeMoisDebutRegex().Match(normalizedLine);
+                    if (!periodeMatch.Success) continue;
 
-                var key = $"{annee:D4}-{mois:D2}";
-                var entry = GetOrCreateMois(moisDict, key, annee, mois, label);
+                    // Ignorer en-têtes et lignes de synthèse
+                    if (normalizedLine.Contains("Cumul",      StringComparison.OrdinalIgnoreCase)) continue;
+                    if (normalizedLine.Contains("Variation",  StringComparison.OrdinalIgnoreCase)) continue;
+                    if (normalizedLine.Contains("Tableau",    StringComparison.OrdinalIgnoreCase)) continue;
+                    if (normalizedLine.Contains("Période",    StringComparison.OrdinalIgnoreCase)) continue;
+                    if (normalizedLine.Contains("Indicateur", StringComparison.OrdinalIgnoreCase)) continue;
 
-                // Premier nombre = arrivées (entier), deuxième = devises DTS (décimal)
-                entry.ArriveesTouristes = (int)numbers[0];
-                if (numbers.Count >= 2 && numbers[1] < 1000) // les devises DTS sont < 1000 millions
-                    entry.DevisesTourismeMillionsDTS = numbers[1];
+                    var (annee, mois, label) = ParsePeriodeMois(periodeMatch.Value);
+                    if (annee == 0) continue;
+
+                    // ── 2. Partie données = tout après la période ───────────────
+                    var dataPart = normalizedLine[periodeMatch.Length..].Trim();
+
+                    // "nd" dans les données = mois non disponible.
+                    // Ne PAS arrêter : le tableau est trié du plus récent au plus ancien,
+                    // donc des mois plus anciens valides se trouvent plus bas.
+                    if (dataPart.Contains("nd", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    // Normaliser : remplacer \t par espace pour éviter les captures cross-colonne
+                    var data = dataPart.Replace('\t', ' ');
+
+                    // ── 3. Extraire devises DTS : XX,XX ou XX.XX (décimal virgule) ──
+                    // Ex: "51,19" → 51.19,  "62,84" → 62.84
+                    // Plage réaliste Madagascar : 5–200 millions DTS/mois
+                    double? devises = null;
+                    var mDts = Regex.Match(data, @"(?<!\d)(\d{1,3})[,.](\d{2})(?!\d)");
+                    if (mDts.Success)
+                    {
+                        string s = mDts.Groups[1].Value + "." + mDts.Groups[2].Value;
+                        if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out double d)
+                            && d >= 5 && d <= 200)
+                            devises = d;
+                    }
+
+                    // ── 4. Extraire arrivées : entier avec séparateur espace ────────
+                    // Ex: "29 944" → 29944,  "15 582" → 15582
+                    // Plage réaliste Madagascar : 5 000–200 000 visiteurs/mois
+                    int? arrivees = null;
+                    var mArr = Regex.Match(data, @"(?<!\d)(\d{2,3})[ ](\d{3})(?!\d)");
+                    if (mArr.Success)
+                    {
+                        string s = mArr.Groups[1].Value + mArr.Groups[2].Value;
+                        if (int.TryParse(s, out int a) && a >= 5_000 && a <= 200_000)
+                            arrivees = a;
+                    }
+                    // Fallback : entier sans séparateur (ex: "29944")
+                    if (!arrivees.HasValue)
+                    {
+                        var mArrNoSep = Regex.Match(data, @"(?<!\d)(\d{5,6})(?!\d)");
+                        if (mArrNoSep.Success
+                            && int.TryParse(mArrNoSep.Groups[1].Value, out int a2)
+                            && a2 >= 5_000 && a2 <= 200_000)
+                            arrivees = a2;
+                    }
+
+                    // ── 5. Valider : les deux valeurs doivent être présentes ────────
+                    // (évite les faux positifs sur d'autres tableaux)
+                    if (!devises.HasValue || !arrivees.HasValue) continue;
+
+                    // ── 6. Stocker ───────────────────────────────────────────────
+                    var key = $"{annee:D4}-{mois:D2}";
+                    var entry = GetOrCreateMois(moisDict, key, annee, mois, label);
+
+                    if (!entry.ArriveesTouristes.HasValue)
+                        entry.ArriveesTouristes = arrivees.Value;
+                    if (!entry.DevisesTourismeMillionsDTS.HasValue)
+                        entry.DevisesTourismeMillionsDTS = devises.Value;
+
+                    totalExtracted++;
+                }
             }
+
+            if (totalExtracted == 0)
+                result.Erreurs.Add("Tableau 34 (Tourisme) : aucune donnée trouvée. " +
+                    "Vérifier que le tableau de données (pas le graphique) est présent dans le PDF.");
         }
         catch (Exception ex)
         {
@@ -667,14 +767,12 @@ public partial class InstatTbeScraperService : IInstatTbeScraperService
                 cible.ImportationsCIFCumuleesCible = cumulImports;
             }
 
-            // Tourisme : convertir millions DTS → MGA
-            // 1 DTS ≈ 6000 MGA (approximation basée sur les parités TBE)
-            if (tbeMois.DevisesTourismeMillionsDTS.HasValue)
+            // Tourisme : convertir millions DTS → USD → MGA
+            // Chaîne : millions_DTS × 1.33 (DTS→USD) × 1e6 × MGA/USD = MGA
+            if (tbeMois.DevisesTourismeMillionsUSD.HasValue)
             {
-                double tauxDtsMga = tbeMois.TauxChangeMgaUsd.HasValue
-                    ? tbeMois.TauxChangeMgaUsd.Value * 1.33 // DTS ≈ 1.33 USD
-                    : 6_000;
-                cible.DevisesTourismeCible = tbeMois.DevisesTourismeMillionsDTS.Value * 1_000_000 * tauxDtsMga;
+                double tauxMgaParUsd = tbeMois.TauxChangeMgaUsd ?? 4_800;
+                cible.DevisesTourismeCible = tbeMois.DevisesTourismeMillionsUSD.Value * 1_000_000 * tauxMgaParUsd;
             }
 
             // CNAPS
@@ -695,7 +793,7 @@ public partial class InstatTbeScraperService : IInstatTbeScraperService
     /// </summary>
     private static (int annee, int mois, string label) ParsePeriodeMois(string text)
     {
-        text = text.Trim();
+        text = NormalizePdfText(text).Trim();
         var match = Regex.Match(text, @"([a-zéèêûô]+)[\s\-]+(\d{2,4})", RegexOptions.IgnoreCase);
         if (!match.Success) return (0, 0, text);
 
@@ -716,6 +814,7 @@ public partial class InstatTbeScraperService : IInstatTbeScraperService
     /// </summary>
     private static List<(int annee, int mois, string label)> ExtrairePeriodesEnTete(string line)
     {
+        line = NormalizePdfText(line);
         var result = new List<(int, int, string)>();
         var matches = Regex.Matches(line, @"([a-zéèêûô]+)[\s\-]+(\d{2,4})", RegexOptions.IgnoreCase);
 
@@ -789,6 +888,25 @@ public partial class InstatTbeScraperService : IInstatTbeScraperService
             dict[key] = entry;
         }
         return entry;
+    }
+
+    /// <summary>
+    /// Normalise les chaînes extraites du PDF quand PdfPig produit du texte mojibake
+    /// (ex: "f├®vr" au lieu de "févr").
+    /// </summary>
+    private static string NormalizePdfText(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return text;
+
+        return text
+            .Replace("f├®vr", "févr", StringComparison.OrdinalIgnoreCase)
+            .Replace("fe├üvr", "févr", StringComparison.OrdinalIgnoreCase)
+            .Replace("ao├╗t", "août", StringComparison.OrdinalIgnoreCase)
+            .Replace("d├®c", "déc", StringComparison.OrdinalIgnoreCase)
+            .Replace("P├®riode", "Période", StringComparison.OrdinalIgnoreCase)
+            .Replace("non-r├®sidents", "non-résidents", StringComparison.OrdinalIgnoreCase)
+            .Replace("Arriv├®es", "Arrivées", StringComparison.OrdinalIgnoreCase)
+            .Replace("fronti├¿res", "frontières", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>Regex pour détecter une période mois en fin de ligne (ex: "janv 25", "sept 24").</summary>

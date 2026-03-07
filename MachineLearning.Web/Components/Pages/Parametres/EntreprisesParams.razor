@@ -1,0 +1,147 @@
+@page "/parametres/{ScenarioId:int}/entreprises"
+@using Simulation.Infrastructure; @using Simulation.Infrastructure.Entities
+@inject IScenarioRepository Repo
+@rendermode InteractiveServer
+
+<PageTitle>Entreprises — Paramètres</PageTitle>
+
+<ParamModuleLayout ScenarioId="ScenarioId" TitreModule="Entreprises & Secteurs d'Activité" IconeModule="🏭" ModuleActif="entreprises">
+    @if (_p == null) { <div class="d-flex justify-content-center py-4"><div class="spinner-border text-primary"></div></div> }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">🏢 Paramètres Globaux</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Marge bénéficiaire moyenne</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_margePC" min="0" max="50" step="1" /><span class="input-group-text">%</span></div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Productivité par employé (MGA/jour)</label>
+                            <input type="number" class="form-control" @bind="_p.ProductiviteParEmployeJourDefaut" min="0" step="1000" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Part ventes inter-entreprises (B2B)</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_b2bPC" min="0" max="100" step="5" /><span class="input-group-text">%</span></div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Salaire moyen défaut (MGA/mois)</label>
+                            <input type="number" class="form-control" @bind="_p.SalaireMoyenMensuelDefaut" min="0" step="10000" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-warning">🏗️ Secteurs Spéciaux & Seuils</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Part entreprises agricoles</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_agricPC" min="0" max="100" step="1" /><span class="input-group-text">%</span></div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Part entreprises BTP (construction)</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_btpPC" min="0" max="50" step="1" /><span class="input-group-text">%</span></div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Part hôtellerie & tourisme</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_hotPC" min="0" max="30" step="1" /><span class="input-group-text">%</span></div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Facteur productivité informel</label>
+                            <div class="d-flex gap-2 align-items-center">
+                                <input type="number" class="form-control" @bind="_p.FacteurProductiviteInformelMin" min="0" max="1" step="0.05" placeholder="Min" />
+                                <span>–</span>
+                                <input type="number" class="form-control" @bind="_p.FacteurProductiviteInformelMax" min="0" max="1" step="0.05" placeholder="Max" />
+                            </div>
+                            <div class="form-text">0.3–0.6 = informel produit 30–60% du formel</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Seuil stress trésorerie (jours)</label>
+                            <input type="number" class="form-control" @bind="_p.SeuilJoursStressTresorerie" min="1" max="90" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Seuil demande excédentaire (jours)</label>
+                            <input type="number" class="form-control" @bind="_p.SeuilJoursDemandeExcedentaire" min="1" max="90" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-info text-white">🏭 Paramètres par Secteur d'Activité</div>
+                    <div class="card-body">
+                        @if (!_secteurs.Any())
+                        {
+                            <div class="alert alert-info">Aucun secteur configuré pour ce scénario.</div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover align-middle">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Secteur</th>
+                                            <th>Productivité moy. (MGA/j)</th>
+                                            <th>Productivité basse (MGA/j)</th>
+                                            <th>Trésorerie initiale (MGA)</th>
+                                            <th>Nb employés défaut</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var s in _secteurs)
+                                        {
+                                            <tr>
+                                                <td><span class="badge bg-secondary">@s.SecteurLibelle</span></td>
+                                                <td><input type="number" class="form-control form-control-sm" @bind="s.ProductiviteJourMoyenne" min="0" step="1000" /></td>
+                                                <td><input type="number" class="form-control form-control-sm" @bind="s.ProductiviteJourBasse" min="0" step="1000" /></td>
+                                                <td><input type="number" class="form-control form-control-sm" @bind="s.TresorerieInitiale" min="0" step="100000" /></td>
+                                                <td><input type="number" class="form-control form-control-sm" @bind="s.NombreEmployesDefaut" min="0" /></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 d-flex gap-2">
+                <button class="btn btn-primary px-4" @onclick="Sauvegarder" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> } 💾 Sauvegarder
+                </button>
+                @if (_ok) { <div class="alert alert-success py-2 mb-0">✅ Sauvegardé.</div> }
+            </div>
+        </div>
+    }
+</ParamModuleLayout>
+
+@code {
+    [Parameter] public int ScenarioId { get; set; }
+    private ParamEntreprisesEntity? _p;
+    private List<ParamSecteurActiviteEntity> _secteurs = [];
+    private bool _saving, _ok;
+    private double _margePC { get => _p!.MargeBeneficiaireEntreprise * 100; set => _p!.MargeBeneficiaireEntreprise = value / 100; }
+    private double _b2bPC { get => _p!.PartB2B * 100; set => _p!.PartB2B = value / 100; }
+    private double _agricPC { get => _p!.PartEntreprisesAgricoles * 100; set => _p!.PartEntreprisesAgricoles = value / 100; }
+    private double _btpPC { get => _p!.PartEntreprisesConstruction * 100; set => _p!.PartEntreprisesConstruction = value / 100; }
+    private double _hotPC { get => _p!.PartEntreprisesHotellerieTourisme * 100; set => _p!.PartEntreprisesHotellerieTourisme = value / 100; }
+    protected override async Task OnParametersSetAsync()
+    {
+        _p = await Repo.GetParamEntreprisesAsync(ScenarioId) ?? new ParamEntreprisesEntity { ScenarioId = ScenarioId };
+        _secteurs = (await Repo.GetParamSecteursActiviteAsync(ScenarioId)).ToList();
+        _ok = false;
+    }
+    private async Task Sauvegarder()
+    {
+        _saving = true; _ok = false;
+        _p!.ScenarioId = ScenarioId;
+        await Repo.UpsertParamEntreprisesAsync(_p);
+        foreach (var s in _secteurs) { s.ScenarioId = ScenarioId; await Repo.UpsertParamSecteurActiviteAsync(s); }
+        _saving = false; _ok = true;
+    }
+}

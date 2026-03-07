@@ -2,7 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Simulation.Module.Config;
 using Simulation.Module.Models;
 
-namespace Simulation.Infrastructure;
+namespace Simulation.Infrastructure.Services;
 
 /// <summary>
 /// Résultat d'une analyse de sensibilité pour un paramètre.
@@ -174,7 +174,7 @@ public class SensitivityAnalysisService : ISensitivityAnalysisService
     private double ExecuterSimulationRapide(ScenarioConfig config, int dureeJours)
     {
         using var scope = _serviceProvider.CreateScope();
-        var simulation = scope.ServiceProvider.GetRequiredService<Simulation.Module.ISimulationModule>();
+        var simulation = scope.ServiceProvider.GetRequiredService<Module.ISimulationModule>();
         var validation = scope.ServiceProvider.GetRequiredService<IMacroValidationModule>();
 
         config.DureeJours = dureeJours;

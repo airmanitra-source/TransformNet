@@ -86,8 +86,23 @@ public class InstatTbeMensuel
     /// <summary>Arrivées de visiteurs non-résidents aux frontières. Source: MTA via TBE Tableau 34.</summary>
     public int? ArriveesTouristes { get; set; }
 
-    /// <summary>Apport en devises des visiteurs (millions DTS). Source: MTA via TBE Tableau 34.</summary>
+    /// <summary>
+    /// Apport en devises des visiteurs (millions DTS). Source: MTA via TBE Tableau 34.
+    /// Le TBE publie cette donnée en DTS (Droits de Tirage Spéciaux du FMI).
+    /// Conversion : 1 DTS ≈ 1.33 USD (panier FMI 2024).
+    /// </summary>
     public double? DevisesTourismeMillionsDTS { get; set; }
+
+    /// <summary>
+    /// Apport en devises des visiteurs converti en millions USD.
+    /// Calculé : DevisesTourismeMillionsDTS × 1.33 (taux DTS/USD FMI).
+    /// </summary>
+    public double? DevisesTourismeMillionsUSD => DevisesTourismeMillionsDTS.HasValue
+        ? DevisesTourismeMillionsDTS.Value * TauxDtsParUsd
+        : null;
+
+    /// <summary>Taux de conversion DTS → USD (panier FMI, ~stable). 1 DTS ≈ 1.33 USD.</summary>
+    public const double TauxDtsParUsd = 1.33;
 
     // ── Emploi formel (Tableau 26) ──────────────────────────
 

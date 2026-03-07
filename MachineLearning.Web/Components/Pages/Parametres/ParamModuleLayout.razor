@@ -1,0 +1,75 @@
+@* Layout partagé pour toutes les pages de paramètres d'un scénario *@
+@using Simulation.Infrastructure
+@using Simulation.Infrastructure.Entities
+@inject IScenarioRepository Repo
+
+@if (_scenario != null)
+{
+    <div class="container-fluid py-3">
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="parametres">Scénarios</a></li>
+                <li class="breadcrumb-item active">@_scenario.Nom — @TitreModule</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex align-items-center mb-4 gap-3">
+            <div>
+                <h2 class="h4 mb-0">@IconeModule @TitreModule</h2>
+                <small class="text-muted">Scénario : <strong>@_scenario.Nom</strong> (v@(_scenario.Version))</small>
+            </div>
+        </div>
+
+        @ChildContent
+
+        <div class="mt-4 d-flex gap-2 flex-wrap">
+            @foreach (var lien in _liensModules)
+            {
+                <a class="btn btn-sm @(lien.Href.EndsWith(ModuleActif) ? "btn-primary" : "btn-outline-secondary")"
+                   href="@lien.Href">@lien.Label</a>
+            }
+        </div>
+    </div>
+}
+else
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+
+@code {
+    [Parameter] public int ScenarioId { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string TitreModule { get; set; } = string.Empty;
+    [Parameter] public string IconeModule { get; set; } = "⚙️";
+    [Parameter] public string ModuleActif { get; set; } = string.Empty;
+
+    private ScenarioEntity? _scenario;
+    private List<(string Href, string Label)> _liensModules = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _scenario = await Repo.GetScenarioByIdAsync(ScenarioId);
+        _liensModules =
+        [
+            ($"parametres/{ScenarioId}/macro",        "🌍 Macro"),
+            ($"parametres/{ScenarioId}/fiscalite",    "🏛️ Fiscalité"),
+            ($"parametres/{ScenarioId}/salaires",     "💰 Salaires"),
+            ($"parametres/{ScenarioId}/banque",       "🏦 Banque"),
+            ($"parametres/{ScenarioId}/prix",         "⛽ Prix"),
+            ($"parametres/{ScenarioId}/inflation",    "📈 Inflation"),
+            ($"parametres/{ScenarioId}/change",       "💱 Change"),
+            ($"parametres/{ScenarioId}/agriculture",  "🌾 Agriculture"),
+            ($"parametres/{ScenarioId}/cyclone",      "🌀 Cyclone"),
+            ($"parametres/{ScenarioId}/transport",    "🚌 Transport"),
+            ($"parametres/{ScenarioId}/sante",        "🏥 Santé"),
+            ($"parametres/{ScenarioId}/education",    "🎓 Éducation"),
+            ($"parametres/{ScenarioId}/loisirs",      "🎭 Loisirs"),
+            ($"parametres/{ScenarioId}/entreprises",  "🏭 Entreprises"),
+            ($"parametres/{ScenarioId}/jirama",       "⚡ Jirama"),
+            ($"parametres/{ScenarioId}/commerce",     "🚢 Commerce"),
+            ($"parametres/{ScenarioId}/immobilier",   "🏠 Immobilier"),
+        ];
+    }
+}

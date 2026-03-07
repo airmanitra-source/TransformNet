@@ -1,0 +1,102 @@
+@page "/parametres/{ScenarioId:int}/jirama"
+@using Simulation.Infrastructure; @using Simulation.Infrastructure.Entities
+@inject IScenarioRepository Repo
+@rendermode InteractiveServer
+
+<PageTitle>Jirama — Paramètres</PageTitle>
+
+<ParamModuleLayout ScenarioId="ScenarioId" TitreModule="JIRAMA — Électricité & Eau" IconeModule="⚡" ModuleActif="jirama">
+    @if (_p == null) { <div class="d-flex justify-content-center py-4"><div class="spinner-border text-primary"></div></div> }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-warning">⚡ Électricité</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Prix électricité (Ar/kWh)</label>
+                            <input type="number" class="form-control" @bind="_p.PrixElectriciteArKWh" min="0" step="10" />
+                            <div class="form-text">JIRAMA 2025 : ~730 Ar/kWh (tarif résidentiel T1)</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Consommation ménage (kWh/jour)</label>
+                            <input type="number" class="form-control" @bind="_p.ConsommationElecMenageKWhJour" min="0" max="50" step="0.1" />
+                            <div class="form-text">~3 kWh/jour pour un ménage urbain moyen</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Consommation par employé entreprise (kWh/jour)</label>
+                            <input type="number" class="form-control" @bind="_p.ConsommationElecParEmployeKWhJour" min="0" max="50" step="0.1" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Consommation État (kWh/jour)</label>
+                            <input type="number" class="form-control" @bind="_p.ConsommationElecEtatKWhJour" min="0" step="1000" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Part production hydraulique</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_hydroPC" min="0" max="100" step="5" /><span class="input-group-text">%</span></div>
+                            <div class="form-text">~55% hydraulique, 45% thermique (source JIRAMA 2023)</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Taux pertes de distribution</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_pertesPC" min="0" max="50" step="1" /><span class="input-group-text">%</span></div>
+                            <div class="form-text">~25–30% de pertes techniques + commerciales (JIRAMA)</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Part consommation élec des ménages</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_partMenPC" min="0" max="100" step="5" /><span class="input-group-text">%</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-info text-white">💧 Eau & Accès</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Tarif eau JIRAMA (Ar/ménage/jour)</label>
+                            <input type="number" class="form-control" @bind="_p.TarifEauJourMenage" min="0" step="100" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Taux d'accès à l'eau courante</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_eauPC" min="0" max="100" step="5" /><span class="input-group-text">%</span></div>
+                            <div class="form-text">~47% urbain, ~22% rural (WASH Madagascar 2023)</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Taux d'accès à l'électricité</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_elecPC" min="0" max="100" step="5" /><span class="input-group-text">%</span></div>
+                            <div class="form-text">~35% accès réseau (15% rural, 72% urbain) — AFD 2024</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 d-flex gap-2">
+                <button class="btn btn-primary px-4" @onclick="Sauvegarder" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> } 💾 Sauvegarder
+                </button>
+                @if (_ok) { <div class="alert alert-success py-2 mb-0">✅ Sauvegardé.</div> }
+            </div>
+        </div>
+    }
+</ParamModuleLayout>
+
+@code {
+    [Parameter] public int ScenarioId { get; set; }
+    private ParamJiramaEntity? _p;
+    private bool _saving, _ok;
+    private double _hydroPC { get => _p!.PartProductionHydraulique * 100; set => _p!.PartProductionHydraulique = value / 100; }
+    private double _pertesPC { get => _p!.TauxPertesDistribution * 100; set => _p!.TauxPertesDistribution = value / 100; }
+    private double _partMenPC { get => _p!.PartConsommationElecMenages * 100; set => _p!.PartConsommationElecMenages = value / 100; }
+    private double _eauPC { get => _p!.TauxAccesEau * 100; set => _p!.TauxAccesEau = value / 100; }
+    private double _elecPC { get => _p!.TauxAccesElectricite * 100; set => _p!.TauxAccesElectricite = value / 100; }
+    protected override async Task OnParametersSetAsync()
+    {
+        _p = await Repo.GetParamJiramaAsync(ScenarioId) ?? new ParamJiramaEntity { ScenarioId = ScenarioId };
+        _ok = false;
+    }
+    private async Task Sauvegarder()
+    {
+        _saving = true; _ok = false; _p!.ScenarioId = ScenarioId;
+        await Repo.UpsertParamJiramaAsync(_p); _saving = false; _ok = true;
+    }
+}

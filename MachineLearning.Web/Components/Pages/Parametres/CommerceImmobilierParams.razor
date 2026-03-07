@@ -1,0 +1,118 @@
+@page "/parametres/{ScenarioId:int}/commerce"
+@using Simulation.Infrastructure; @using Simulation.Infrastructure.Entities
+@inject IScenarioRepository Repo
+@rendermode InteractiveServer
+
+<PageTitle>Commerce & Immobilier — Paramètres</PageTitle>
+
+<ParamModuleLayout ScenarioId="ScenarioId" TitreModule="Commerce Extérieur" IconeModule="🚢" ModuleActif="commerce">
+    @if (_pc == null || _pi == null) { <div class="d-flex justify-content-center py-4"><div class="spinner-border text-primary"></div></div> }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">🚢 Commerce Extérieur & Remittances</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Remittances (MGA/jour)</label>
+                            <input type="number" class="form-control" @bind="_pc.RemittancesJour" min="0" step="1000000" />
+                            <div class="form-text">~1.2 Mds USD/an (Banque Mondiale 2023)</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Consommation riz annuelle (kg/personne/an)</label>
+                            <input type="number" class="form-control" @bind="_pc.ConsommationRizAnnuelleKgParPersonne" min="0" max="200" step="5" />
+                            <div class="form-text">Madagascar : ~130 kg/personne/an (FAO)</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Prix riz local (MGA/kg)</label>
+                            <input type="number" class="form-control" @bind="_pc.PrixRizLocalKg" min="0" step="100" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Prix riz importé (MGA/kg)</label>
+                            <input type="number" class="form-control" @bind="_pc.PrixRizImporteKg" min="0" step="100" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Part riz importé</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_rizImpPC" min="0" max="100" step="5" /><span class="input-group-text">%</span></div>
+                            <div class="form-text">~15–25% de la consommation nationale</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-success text-white">🏠 Immobilier</div>
+                    <div class="card-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Taux ménages propriétaires</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_proprioPC" min="0" max="100" step="5" /><span class="input-group-text">%</span></div>
+                            <div class="form-text">~65% propriétaires (RGPH 2018)</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Loyer imputé propriétaires (MGA/j/ménage)</label>
+                            <input type="number" class="form-control" @bind="_pi.LoyerImputeJourParMenage" min="0" step="500" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Loyer locataires (MGA/j)</label>
+                            <input type="number" class="form-control" @bind="_pi.LoyerJourLocataire" min="0" step="1000" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Prob. construction maison locataire</label>
+                            <div class="input-group"><input type="number" class="form-control" @bind="_construitPC" min="0" max="20" step="0.5" /><span class="input-group-text">%/an</span></div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Durée construction (jours)</label>
+                            <input type="number" class="form-control" @bind="_pi.DureeConstructionMaisonJours" min="30" max="1000" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Budget construction (MGA/jour pendant travaux)</label>
+                            <input type="number" class="form-control" @bind="_pi.BudgetConstructionMaisonJour" min="0" step="10000" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small">Ventilation budget : BTP</label>
+                            <div class="input-group input-group-sm"><input type="number" class="form-control" @bind="_btpPC" min="0" max="100" step="5" /><span class="input-group-text">%</span></div>
+                            <label class="form-label small mt-1">Quincaillerie</label>
+                            <div class="input-group input-group-sm"><input type="number" class="form-control" @bind="_quincPC" min="0" max="100" step="5" /><span class="input-group-text">%</span></div>
+                            <label class="form-label small mt-1">Transport informel</label>
+                            <div class="input-group input-group-sm"><input type="number" class="form-control" @bind="_trnsInfPC" min="0" max="100" step="5" /><span class="input-group-text">%</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 d-flex gap-2">
+                <button class="btn btn-primary px-4" @onclick="Sauvegarder" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> } 💾 Sauvegarder
+                </button>
+                @if (_ok) { <div class="alert alert-success py-2 mb-0">✅ Sauvegardé.</div> }
+            </div>
+        </div>
+    }
+</ParamModuleLayout>
+
+@code {
+    [Parameter] public int ScenarioId { get; set; }
+    private ParamCommerceEntity? _pc;
+    private ParamImmobilierEntity? _pi;
+    private bool _saving, _ok;
+    private double _rizImpPC { get => _pc!.PartRizImporte * 100; set => _pc!.PartRizImporte = value / 100; }
+    private double _proprioPC { get => _pi!.TauxMenagesProprietaires * 100; set => _pi!.TauxMenagesProprietaires = value / 100; }
+    private double _construitPC { get => _pi!.ProbabiliteConstructionMaisonLocataire * 100; set => _pi!.ProbabiliteConstructionMaisonLocataire = value / 100; }
+    private double _btpPC { get => _pi!.PartBudgetConstructionBTP * 100; set => _pi!.PartBudgetConstructionBTP = value / 100; }
+    private double _quincPC { get => _pi!.PartBudgetConstructionQuincaillerie * 100; set => _pi!.PartBudgetConstructionQuincaillerie = value / 100; }
+    private double _trnsInfPC { get => _pi!.PartBudgetConstructionTransportInformel * 100; set => _pi!.PartBudgetConstructionTransportInformel = value / 100; }
+    protected override async Task OnParametersSetAsync()
+    {
+        _pc = await Repo.GetParamCommerceAsync(ScenarioId) ?? new ParamCommerceEntity { ScenarioId = ScenarioId };
+        _pi = await Repo.GetParamImmobilierAsync(ScenarioId) ?? new ParamImmobilierEntity { ScenarioId = ScenarioId };
+        _ok = false;
+    }
+    private async Task Sauvegarder()
+    {
+        _saving = true; _ok = false;
+        _pc!.ScenarioId = ScenarioId; _pi!.ScenarioId = ScenarioId;
+        await Repo.UpsertParamCommerceAsync(_pc);
+        await Repo.UpsertParamImmobilierAsync(_pi);
+        _saving = false; _ok = true;
+    }
+}

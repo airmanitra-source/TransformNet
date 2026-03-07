@@ -1,0 +1,110 @@
+@page "/parametres/{ScenarioId:int}/loisirs"
+@using Simulation.Infrastructure; @using Simulation.Infrastructure.Entities
+@inject IScenarioRepository Repo
+@rendermode InteractiveServer
+
+<PageTitle>Loisirs — Paramètres</PageTitle>
+
+<ParamModuleLayout ScenarioId="ScenarioId" TitreModule="Loisirs & Vacances par Classe" IconeModule="🎭" ModuleActif="loisirs">
+    @if (_loisirs == null) { <div class="d-flex justify-content-center py-4"><div class="spinner-border text-primary"></div></div> }
+    else
+    {
+        <div class="row g-4">
+            @foreach (var g in _loisirs)
+            {
+                <div class="col-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-secondary text-white d-flex justify-content-between">
+                            <span>🎭 @g.ClasseLibelle</span>
+                            <span class="badge bg-light text-dark">Classe @g.Classe</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-semibold">Sorties weekend (MGA)</label>
+                                    <div class="d-flex gap-1">
+                                        <input type="number" class="form-control form-control-sm" @bind="g.BudgetSortieWeekendMin" min="0" step="500" placeholder="Min" />
+                                        <input type="number" class="form-control form-control-sm" @bind="g.BudgetSortieWeekendMax" min="0" step="500" placeholder="Max" />
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-semibold">Vacances (MGA)</label>
+                                    <div class="d-flex gap-1">
+                                        <input type="number" class="form-control form-control-sm" @bind="g.BudgetVacancesMin" min="0" step="5000" placeholder="Min" />
+                                        <input type="number" class="form-control form-control-sm" @bind="g.BudgetVacancesMax" min="0" step="5000" placeholder="Max" />
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-semibold">Prob. sortie/sem (%)</label>
+                                    <div class="d-flex gap-1">
+                                        <input type="number" class="form-control form-control-sm"
+                                               value="@(Math.Round(g.ProbabiliteSortieWeekendMin * 100, 0))"
+                                               @onchange="e => g.ProbabiliteSortieWeekendMin = Convert.ToDouble(e.Value) / 100"
+                                               min="0" max="100" step="5" />
+                                        <input type="number" class="form-control form-control-sm"
+                                               value="@(Math.Round(g.ProbabiliteSortieWeekendMax * 100, 0))"
+                                               @onchange="e => g.ProbabiliteSortieWeekendMax = Convert.ToDouble(e.Value) / 100"
+                                               min="0" max="100" step="5" />
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-semibold">Fréq. vacances (jours/an)</label>
+                                    <input type="number" class="form-control form-control-sm" @bind="g.FrequenceVacancesJours" min="30" max="730" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-semibold">Durée vacances (jours)</label>
+                                    <div class="d-flex gap-1">
+                                        <input type="number" class="form-control form-control-sm" @bind="g.DureeVacancesJoursMin" min="1" max="60" placeholder="Min" />
+                                        <input type="number" class="form-control form-control-sm" @bind="g.DureeVacancesJoursMax" min="1" max="90" placeholder="Max" />
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-semibold">Sensibilité inflation (0–1)</label>
+                                    <input type="range" class="form-range" @bind="g.SensibiliteInflation" min="0" max="1" step="0.05" />
+                                    <div class="form-text text-end">@g.SensibiliteInflation.ToString("F2")</div>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-semibold">Seuil inflation réaction</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" class="form-control"
+                                               value="@(Math.Round(g.SeuilInflationReaction * 100, 1))"
+                                               @onchange="e => g.SeuilInflationReaction = Convert.ToDouble(e.Value) / 100"
+                                               min="0" max="50" step="1" />
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            <div class="col-12 d-flex gap-2">
+                <button class="btn btn-primary px-4" @onclick="Sauvegarder" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> } 💾 Sauvegarder
+                </button>
+                @if (_ok) { <div class="alert alert-success py-2 mb-0">✅ Sauvegardé.</div> }
+            </div>
+        </div>
+    }
+</ParamModuleLayout>
+
+@code {
+    [Parameter] public int ScenarioId { get; set; }
+    private List<ParamLoisirsEntity>? _loisirs;
+    private bool _saving, _ok;
+    protected override async Task OnParametersSetAsync()
+    {
+        _loisirs = (await Repo.GetParamLoisirsAsync(ScenarioId)).ToList();
+        _ok = false;
+    }
+    private async Task Sauvegarder()
+    {
+        _saving = true; _ok = false;
+        foreach (var g in _loisirs!)
+        {
+            g.ScenarioId = ScenarioId;
+            await Repo.UpsertParamLoisirsAsync(g);
+        }
+        _saving = false; _ok = true;
+    }
+}
