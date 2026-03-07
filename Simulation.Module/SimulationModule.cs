@@ -17,6 +17,7 @@ using Price.Module;
 using Bank.Module;
 using Transportation.Module;
 using Simulation.Module.Models;
+using Agriculture.Module;
 
 namespace Simulation.Module;
 
@@ -31,6 +32,7 @@ public class SimulationModule : ISimulationModule
     private readonly IHouseholdRemittanceModule _householdRemittanceModule;
     private readonly IBankModule _bankModule;
     private readonly ITransportationModule _transportationModule;
+    private readonly IAgricultureModule _agricultureModule;
     private readonly List<AgentHousehold> _menages = [];
     private readonly List<AgentCompany> _entreprises = [];
     private readonly List<AgentImporter> _importateurs = [];
@@ -63,7 +65,8 @@ public class SimulationModule : ISimulationModule
         IHouseholdLeisureSpendingModule householdLeisureSpendingModule,
         IHouseholdRemittanceModule householdRemittanceModule,
         IBankModule bankModule,
-        ITransportationModule transportationModule)
+        ITransportationModule transportationModule,
+        IAgricultureModule agricultureModule)
     {
         _governmentModule = governmentModule;
         _householdModule  = householdModule;
@@ -74,6 +77,7 @@ public class SimulationModule : ISimulationModule
         _householdRemittanceModule = householdRemittanceModule;
         _bankModule = bankModule;
         _transportationModule = transportationModule;
+        _agricultureModule = agricultureModule;
     }
 
     /// <summary>
@@ -91,6 +95,7 @@ public class SimulationModule : ISimulationModule
 
         AgentHousehold.ResetIdCounter();
         AgentCompany.ResetIdCounter();
+        _agricultureModule.Reinitialiser();
 
         _householdSalaryDistributionModule.ConfigurerDistributionSalariale(
             _config.SalaireMedian,
@@ -135,7 +140,12 @@ public class SimulationModule : ISimulationModule
         _banque = new Bank.Module.Models.Bank 
         {
             TauxReserveObligatoire = _config.TauxReserveObligatoire,
-            TotalCreditsAccordes = 0
+            TotalCreditsAccordes = 0,
+            TauxInteretDepots = _config.TauxInteretDepots,
+            TauxInteretCredits = _config.TauxInteretCredits,
+            AvoirsExtérieursNets = _config.AvoirsExterieursNetsInitiaux * _facteurEchelle,
+            CreancesNettesEtat = _config.CreancesNettesEtatInitiales * _facteurEchelle,
+            SoldeEnCompteBanques = _config.SCBInitial * _facteurEchelle
         };
 
         // Créer les entreprises (normales, importateurs, exportateurs)
@@ -287,14 +297,27 @@ public class SimulationModule : ISimulationModule
         int fonctionnairesAffectes = 0;
 
         for (int i = 0; i < _config.NombreMenages; i++)
-        {
-            bool estHomme = random.NextDouble() > 0.5;
+            {
+                bool estHomme = random.NextDouble() > 0.5;
 
-            // Déterminer si ce ménage sera fonctionnaire
-            // Les fonctionnaires sont affectés en premier, avec le salaire TOFE
-            bool estFonctionnaire = fonctionnairesAffectes < nbFonctionnairesSimulation;
+                // Déterminer la zone de résidence (urbain ~30%, rural ~70%)
+                bool estUrbain = random.NextDouble() < _config.PartMenagesUrbains;
+                var zone = estUrbain
+                    ? Household.Module.Models.ZoneResidence.Urbain
+                    : Household.Module.Models.ZoneResidence.Rural;
+
+                // Multiplicateurs par zone
+                double multSalaire = estUrbain ? _config.MultiplicateurSalaireUrbain : _config.MultiplicateurSalaireRural;
+                double multPrix = estUrbain ? _config.MultiplicateurPrixUrbain : _config.MultiplicateurPrixRural;
+                double tauxAccesEauZone = estUrbain ? _config.TauxAccesEauUrbain : _config.TauxAccesEauRural;
+                double tauxAccesElecZone = estUrbain ? _config.TauxAccesElectriciteUrbain : _config.TauxAccesElectriciteRural;
+
+                // Déterminer si ce ménage sera fonctionnaire
+                // Les fonctionnaires sont affectés en premier, avec le salaire TOFE
+                bool estFonctionnaire = fonctionnairesAffectes < nbFonctionnairesSimulation;
 
             // Tirer un salaire de la distribution log-normale (ou TOFE pour fonctionnaires)
+            // Ajusté par le multiplicateur de zone (urbain = +40%, rural = -25%)
             double salaire;
             if (estFonctionnaire)
             {
@@ -304,7 +327,7 @@ public class SimulationModule : ISimulationModule
             }
             else
             {
-                salaire = _householdSalaryDistributionModule.TirerSalaire(random);
+                salaire = _householdSalaryDistributionModule.TirerSalaire(random) * multSalaire;
             }
             salairesGeneres[i] = salaire;
 
@@ -329,9 +352,9 @@ public class SimulationModule : ISimulationModule
                 entrepriseIndex = (entrepriseIndex + 1) % toutesEntreprises.Count;
             }
 
-            // Accès eau et électricité Jirama (probabilité selon config)
-            bool accesEau = random.NextDouble() < _config.TauxAccesEau;
-            bool accesElec = random.NextDouble() < _config.TauxAccesElectricite;
+            // Accès eau et électricité Jirama (probabilité selon zone urbain/rural)
+            bool accesEau = random.NextDouble() < tauxAccesEauZone;
+            bool accesElec = random.NextDouble() < tauxAccesElecZone;
             if (accesEau) nbAbonnesEau++;
             if (accesElec) nbAbonnesElectricite++;
 
@@ -350,21 +373,42 @@ public class SimulationModule : ISimulationModule
                 ? _config.ConsommationElecMenageKWhJour * facteurConsoElec
                 : 0;
 
+            // Autoconsommation agricole (ménages ruraux principalement)
+            bool pratiqueAutoconso = !estUrbain
+                && random.NextDouble() < _config.PartMenagesRurauxAutoconsommation;
+            double autoconsoJour = pratiqueAutoconso
+                ? _config.ValeurAutoconsommationJourBase * (0.7 + random.NextDouble() * 0.6)
+                : 0;
+
+            // Type de crédit (segmentation du marché financier)
+            double tirageCred = random.NextDouble();
+            var typeCredit = Household.Module.Models.TypeCredit.Aucun;
+            if (tirageCred < _config.PartMenagesCreditBancaire && (classe == ClasseSocioEconomique.Cadre || classe == ClasseSocioEconomique.FormelQualifie))
+                typeCredit = Household.Module.Models.TypeCredit.BancaireFormel;
+            else if (tirageCred < _config.PartMenagesCreditBancaire + _config.PartMenagesCreditMicrofinance)
+                typeCredit = Household.Module.Models.TypeCredit.Microfinance;
+            else if (tirageCred < _config.PartMenagesCreditBancaire + _config.PartMenagesCreditMicrofinance + _config.PartMenagesTontine)
+                typeCredit = Household.Module.Models.TypeCredit.TontineInformelle;
+
             var menage = new AgentHousehold
             {
                 SalaireMensuel = salaire,
                 Classe = classe,
+                Zone = zone,
+                PratiqueAutoconsommation = pratiqueAutoconso,
+                AutoconsommationJour = autoconsoJour,
+                AccesCredit = typeCredit,
                 TauxEpargne = comportement.TauxEpargne,
                 PropensionConsommation = comportement.PropensionConsommation,
                 Epargne = comportement.EpargneInitiale,
                 EstEmploye = estEmploye,
                 EstFonctionnaire = estFonctionnaire,
                 EmployeurId = employeurId,
-                DepensesAlimentairesJour = comportement.DepensesAlimentairesJour,
-                DepensesDiversJour = comportement.DepensesDiversJour,
+                DepensesAlimentairesJour = comportement.DepensesAlimentairesJour * multPrix,
+                DepensesDiversJour = comportement.DepensesDiversJour * multPrix,
                 Transport = comportement.Transport,
                 DistanceDomicileTravailKm = comportement.DistanceDomicileTravailKm,
-                DepensesRizJour = depensesRizJourParMenage,
+                DepensesRizJour = depensesRizJourParMenage * multPrix,
                 AccesEau = accesEau,
                 AccesElectricite = accesElec,
                 DepensesEauJour = accesEau ? _config.TarifEauJourMenage : 0,
@@ -523,6 +567,13 @@ public class SimulationModule : ISimulationModule
         _jourCourant++;
         bool jourOuvrable = EstJourOuvrable(_jourCourant);
 
+        // ── Croissance démographique ────────────────────────────────────────────
+        // Ajouter de nouveaux ménages périodiquement (+2.7%/an ≈ +0.0074%/jour)
+        if (_config.CroissanceDemographiqueActivee && _jourCourant % 30 == 0)
+        {
+            AjouterNouveauxMenagesDemographiques();
+        }
+
         // 1. Les ménages consomment tous les jours, mais ne travaillent que les jours ouvrables
         // Exception : les employés du commerce travaillent 7j/7
         var resultsMenages = new List<DailyHouseholdResult>();
@@ -532,6 +583,86 @@ public class SimulationModule : ISimulationModule
         double totalTransportInformel = 0;
         double totalTransportFormel = 0;
         double totalTransportCarburant = 0;
+
+        // ── Module Agriculture : Sécheresse Grand Sud (kere) ────────────────
+        // Évaluer le choc de sécheresse AVANT la boucle ménages pour avoir les facteurs
+        int jourCalendaireAgri = ((_config.JourCalendaireDebutSimulation - 1 + _jourCourant - 1) % 365) + 1;
+        int moisCalendaireAgri = jourCalendaireAgri switch
+        {
+            <= 31 => 1, <= 59 => 2, <= 90 => 3, <= 120 => 4, <= 151 => 5,
+            <= 181 => 6, <= 212 => 7, <= 243 => 8, <= 273 => 9, <= 304 => 10,
+            <= 334 => 11, _ => 12
+        };
+        int nbMenagesRuraux = _menages.Count(m => m.Zone == Household.Module.Models.ZoneResidence.Rural);
+        Agriculture.Module.Models.SecheresseShockResult? secheresseResult = null;
+        double facteurSecheresse = 1.0;
+
+        if (_config.ChocsSecheresseActives)
+        {
+            secheresseResult = _agricultureModule.EvaluerSecheresse(
+                _jourCourant,
+                moisCalendaireAgri,
+                nbMenagesRuraux,
+                _random,
+                _config.ProbabiliteSecheresseJourSaison,
+                _config.PartMenagesAffectesSecheresse,
+                _config.DureeSecheresseJours,
+                _config.ReductionProductionAgricoleSecheresse,
+                _config.AideAlimentaireSecheresseJourParMenage,
+                _config.ProbabiliteMigrationSecheresse);
+
+            if (secheresseResult.SecheresseActive)
+            {
+                facteurSecheresse = secheresseResult.FacteurProductionAgricole;
+
+                // Appliquer la sécheresse aux ménages ruraux affectés
+                int nbAffectes = (int)(_menages.Count * secheresseResult.PartMenagesAffectes);
+                int affecteCount = 0;
+                foreach (var m in _menages)
+                {
+                    if (m.Zone == Household.Module.Models.ZoneResidence.Rural && !m.EstAffecteSecheresse && affecteCount < nbAffectes)
+                    {
+                        m.EstAffecteSecheresse = true;
+                        m.JoursSecheresseRestants = secheresseResult.DureeSecheresseJours;
+                        affecteCount++;
+                    }
+
+                    // Aide alimentaire pour les ménages déjà affectés
+                    if (m.EstAffecteSecheresse && m.JoursSecheresseRestants > 0)
+                    {
+                        double aide = _config.AideAlimentaireSecheresseJourParMenage;
+                        m.Epargne += aide;
+                        m.TotalAideAlimentaireSecheresse += aide;
+                        m.JoursSecheresseRestants--;
+                        if (m.JoursSecheresseRestants <= 0)
+                            m.EstAffecteSecheresse = false;
+                    }
+                }
+
+                // Migration interne (rural → urbain)
+                if (secheresseResult.NbMenagesMigrants > 0)
+                {
+                    int migres = 0;
+                    foreach (var m in _menages)
+                    {
+                        if (migres >= secheresseResult.NbMenagesMigrants) break;
+                        if (m.Zone == Household.Module.Models.ZoneResidence.Rural
+                            && m.EstAffecteSecheresse
+                            && !m.AMigreDepuisSud)
+                        {
+                            m.Zone = Household.Module.Models.ZoneResidence.Urbain;
+                            m.AMigreDepuisSud = true;
+                            m.PratiqueAutoconsommation = false;
+                            m.AutoconsommationJour = 0;
+                            migres++;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Accumulateur autoconsommation pour le PIB
+        double totalAutoconsommationImputee = 0;
 
         // Reset des compteurs Jirama pour ce jour
         _jirama.DebutJournee();
@@ -643,6 +774,23 @@ public class SimulationModule : ISimulationModule
             r.DepensesAlimentairesInformel = achat.CoutInformel;
             r.DepensesAlimentairesFormel   = achat.CoutFormel;
             r.ReductionQuantiteAlimentaire = achat.QuantiteReduite;
+            // ─────────────────────────────────────────────────────────────────────────
+
+            // ── Autoconsommation agricole (ménages ruraux) ───────────────────────────
+            // Les ménages ruraux consomment ~40% de leur production sans transaction
+            // monétaire → réduit leurs dépenses alimentaires effectives, mais doit
+            // être imputée au PIB (SCN 2008).
+            if (menage.PratiqueAutoconsommation)
+            {
+                var autoconso = _agricultureModule.CalculerAutoconsommation(
+                    menage,
+                    _config.ValeurAutoconsommationJourBase,
+                    facteurSaisonnier: 1.0,
+                    facteurSecheresse: facteurSecheresse);
+                r.DepensesAlimentaires -= autoconso.ReductionDepensesAlimentaires;
+                r.DepensesAlimentaires = Math.Max(0, r.DepensesAlimentaires);
+                totalAutoconsommationImputee += autoconso.ValeurAjouteeImputeePIB;
+            }
             // ─────────────────────────────────────────────────────────────────────────
 
             // ── Loisirs et vacances ──────────────────────────────────────────────────
@@ -1002,9 +1150,47 @@ public class SimulationModule : ISimulationModule
             menage.Epargne += transfertParMenage;
         }
 
-        // --- NOUVEAU: MODULE BANCAIRE ---
-        _bankModule.CalculerBilansBancaires(_banque, _menages, _entreprises);
-        _bankModule.SimulerOctroiCredit(_banque, _entreprises, _menages, _config.CroissanceCreditJour, _random);
+        // --- MODULE BANCAIRE (agrégats monétaires, crédit, intérêts, NPL) ---
+        _bankModule.CalculerBilansBancaires(
+            _banque, _menages, _entreprises,
+            _config.PartDepotsAVue,
+            _config.PartMonnaieCirculationDansM1,
+            _config.RatioM3SurM2,
+            _config.ReservesBCMUSD,
+            _config.TauxChangeMGAParUSD,
+            _etat.DettePublique);
+        _bankModule.CalculerLiquiditeBancaire(
+            _banque,
+            resultEtat.BalanceCommerciale,
+            _config.RemittancesJour * _facteurEchelle,
+            _config.TauxChangeMGAParUSD,
+            _config.IntensiteInterventionBFM,
+            _config.RatioExcedentSCBCible,
+            _random);
+        _bankModule.SimulerOctroiCredit(
+            _banque, _entreprises, _menages,
+            _config.CroissanceCreditJour,
+            _config.PartCreditEntreprises,
+            _random);
+        _bankModule.CalculerInterets(
+            _banque, _menages,
+            _config.TauxInteretDepots,
+            _config.TauxInteretCredits);
+        _bankModule.SimulerNPL(
+            _banque,
+            _config.ProbabiliteDefautCreditJour,
+            _config.TauxRecouvrementNPLJour,
+            _random);
+
+        // --- CRÉDIT SEGMENTÉ (microfinance IMF + tontines informelles) ---
+        _bankModule.SimulerCreditSegmente(
+            _banque,
+            _menages,
+            _config.TauxInteretMicrofinanceAnnuel,
+            _config.PlafondCreditMicrofinance,
+            _config.PlafondTontine,
+            _config.ProbabiliteOctroiMicrofinanceJour,
+            _random);
 
         // 5. Créer le snapshot
         // Calculer les métriques de distribution des épargnes
@@ -1176,6 +1362,49 @@ public class SimulationModule : ISimulationModule
             MasseMonetaireM3 = _banque.MasseMonetaireM3,
             TotalDepotsBancaires = _banque.TotalDepotsMenages + _banque.TotalDepotsEntreprises,
             TotalCreditsAccordes = _banque.TotalCreditsAccordes,
+
+            // Agrégats monétaires BCM (M0/M1/M2/M3)
+            BaseMonetaireM0 = _banque.BaseMonetaireM0,
+            MasseMonetaireM1 = _banque.MasseMonetaireM1,
+            MasseMonetaireM2 = _banque.MasseMonetaireM2,
+            MonnaieCirculation = _banque.MonnaieCirculation,
+            MultiplicateurMonetaire = _banque.MultiplicateurMonetaire,
+            DepotsAVue = _banque.DepotsAVue,
+            DepotsATerme = _banque.DepotsATerme,
+
+            // Contreparties de la masse monétaire
+            AvoirsExterieursNets = _banque.AvoirsExtérieursNets,
+            CreditInterieurNet = _banque.CreditInterieurNet,
+            CreancesNettesEtat = _banque.CreancesNettesEtat,
+            EncoursCreditEconomie = _banque.EncoursCreditEconomie,
+
+            // Taux d'intérêt et marge bancaire
+            TauxInteretDepots = _banque.TauxInteretDepots,
+            TauxInteretCredits = _banque.TauxInteretCredits,
+            InteretsDepotJour = _banque.InteretsDepotJour,
+            InteretsCreditJour = _banque.InteretsCreditJour,
+            MargeNetteInteretJour = _banque.MargeNetteInteretJour,
+            InteretsDepotsCumules = _banque.InteretsDepotsCumules,
+            InteretsCreditsCumules = _banque.InteretsCreditsCumules,
+
+            // Non-Performing Loans (NPL)
+            EncoursNPL = _banque.EncoursNPL,
+            RatioNPL = _banque.RatioNPL,
+            NouveauxNPLJour = _banque.NouveauxNPLJour,
+            NPLRecuperesJour = _banque.NPLRecuperesJour,
+            ProvisionsCumulees = _banque.ProvisionsCumulees,
+            CreditsEntreprisesJour = _banque.CreditsEntreprisesJour,
+            CreditsMenagesJour = _banque.CreditsMenagesJour,
+
+            // Solde en Compte des Banques (SCB) — BFM
+            SoldeEnCompteBanques = _banque.SoldeEnCompteBanques,
+            EcartMoyenSCB_RO = _banque.EcartMoyenSCB_RO,
+            FluxFAJour = _banque.FluxFAJour,
+            InterventionNetteBFMJour = _banque.InterventionNetteBFMJour,
+            FluxSCBJour = _banque.FluxSCBJour,
+            EncoursInterventionsBFM = _banque.EncoursInterventionsBFM,
+            LiquiditeAvantIntervention = _banque.LiquiditeAvantIntervention,
+            LiquiditeApresIntervention = _banque.LiquiditeApresIntervention,
 
             // Achat alimentaire journalier (IHouseholdModule.AcheteProduitsAlimentaires)
             DepensesAlimentairesTotales       = resultsMenages.Sum(r => r.DepensesAlimentaires),
@@ -1406,6 +1635,82 @@ public class SimulationModule : ISimulationModule
         foreach (var m in _menages)
         {
             m.PropensionConsommation = config.GetPropensionParClasse(m.Classe);
+        }
+    }
+
+    /// <summary>
+    /// Ajoute de nouveaux ménages pour simuler la croissance démographique.
+    /// Appelé mensuellement. +2.7%/an ≈ +0.22%/mois.
+    /// Sans cela, une simulation 5 ans est structurellement biaisée.
+    /// </summary>
+    private void AjouterNouveauxMenagesDemographiques()
+    {
+        double tauxMensuel = _config.TauxCroissanceDemographiqueAnnuel / 12.0;
+        int nbNouveaux = Math.Max(1, (int)(_menages.Count * tauxMensuel));
+
+        var toutesEntreprises = new List<AgentCompany>();
+        toutesEntreprises.AddRange(_entreprises);
+        toutesEntreprises.AddRange(_importateurs);
+        toutesEntreprises.AddRange(_exportateurs);
+
+        for (int i = 0; i < nbNouveaux; i++)
+        {
+            bool estUrbain = _random.NextDouble() < _config.PartMenagesUrbains;
+            var zone = estUrbain
+                ? Household.Module.Models.ZoneResidence.Urbain
+                : Household.Module.Models.ZoneResidence.Rural;
+            double multSalaire = estUrbain ? _config.MultiplicateurSalaireUrbain : _config.MultiplicateurSalaireRural;
+            double multPrix = estUrbain ? _config.MultiplicateurPrixUrbain : _config.MultiplicateurPrixRural;
+
+            double salaire = _householdSalaryDistributionModule.TirerSalaire(_random) * multSalaire;
+            var classe = _householdSalaryDistributionModule.DeterminerClasse(salaire);
+            var comportement = _householdSalaryDistributionModule.GetComportementParClasse(classe, _random);
+            bool estEmploye = _random.NextDouble() < comportement.ProbabiliteEmploi;
+
+            int? employeurId = null;
+            if (estEmploye && toutesEntreprises.Count > 0)
+            {
+                var employeur = toutesEntreprises[_random.Next(toutesEntreprises.Count)];
+                employeurId = employeur.Id;
+            }
+
+            double tauxAccesEauZone = estUrbain ? _config.TauxAccesEauUrbain : _config.TauxAccesEauRural;
+            double tauxAccesElecZone = estUrbain ? _config.TauxAccesElectriciteUrbain : _config.TauxAccesElectriciteRural;
+            bool accesEau = _random.NextDouble() < tauxAccesEauZone;
+            bool accesElec = _random.NextDouble() < tauxAccesElecZone;
+
+            bool pratiqueAutoconso = !estUrbain
+                && _random.NextDouble() < _config.PartMenagesRurauxAutoconsommation;
+
+            var menage = new AgentHousehold
+            {
+                SalaireMensuel = salaire,
+                Classe = classe,
+                Zone = zone,
+                PratiqueAutoconsommation = pratiqueAutoconso,
+                AutoconsommationJour = pratiqueAutoconso
+                    ? _config.ValeurAutoconsommationJourBase * (0.7 + _random.NextDouble() * 0.6) : 0,
+                TauxEpargne = comportement.TauxEpargne,
+                PropensionConsommation = comportement.PropensionConsommation,
+                Epargne = comportement.EpargneInitiale * 0.5, // nouveaux ménages = moins d'épargne
+                EstEmploye = estEmploye,
+                EmployeurId = employeurId,
+                DepensesAlimentairesJour = comportement.DepensesAlimentairesJour * multPrix,
+                DepensesDiversJour = comportement.DepensesDiversJour * multPrix,
+                Transport = comportement.Transport,
+                DistanceDomicileTravailKm = comportement.DistanceDomicileTravailKm,
+                AccesEau = accesEau,
+                AccesElectricite = accesElec,
+                DepensesEauJour = accesEau ? _config.TarifEauJourMenage : 0,
+                EstProprietaire = _random.NextDouble() < (_config.TauxMenagesProprietaires * 0.5), // moins de propriétaires chez les jeunes
+                BudgetSortieWeekend = comportement.BudgetSortieWeekend,
+                BudgetVacances = comportement.BudgetVacances,
+                ProbabiliteSortieWeekend = comportement.ProbabiliteSortieWeekend,
+                FrequenceVacancesJours = comportement.FrequenceVacancesJours,
+                ProbabiliteVacances = comportement.ProbabiliteVacances,
+                DureeVacancesJours = comportement.DureeVacancesJours
+            };
+            _menages.Add(menage);
         }
     }
 

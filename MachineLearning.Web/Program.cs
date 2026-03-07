@@ -14,6 +14,7 @@ using Transportation.Module;
 using Simulation.Module;
 using Simulation.Module.Models;
 using Economic.Risk.Module;
+using Agriculture.Module;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add service defaults & Aspire client integrations.
@@ -40,6 +41,7 @@ builder.Services.AddScoped<IExchangeRateModule, ExchangeRateModule>();
 builder.Services.AddScoped<ISeasonalityModule, SeasonalityModule>();
 builder.Services.AddScoped<IMacroValidationModule, MacroValidationModule>();
 builder.Services.AddScoped<ICycloneModule, CycloneModule>(); // Economic.Risk.Module
+builder.Services.AddScoped<IAgricultureModule, AgricultureModule>(); // Agriculture.Module
 
 builder.Services.AddScoped<ISimulationModule, SimulationModule>();
 builder.Services.AddOutputCache();

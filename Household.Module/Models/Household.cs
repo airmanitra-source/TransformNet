@@ -14,6 +14,32 @@ public class Household
 
     public int Id { get; } = _nextId++;
 
+    // --- Zone de résidence (dualité urbain/rural) ---
+    /// <summary>
+    /// Zone de résidence du ménage (Urbain ~30%, Rural ~70%).
+    /// Détermine les comportements de consommation, prix, accès aux services.
+    /// Source : INSTAT RGPH 2018.
+    /// </summary>
+    public ZoneResidence Zone { get; set; } = ZoneResidence.Urbain;
+
+    /// <summary>
+    /// Indique si le ménage pratique l'autoconsommation agricole.
+    /// Concerne principalement les ménages ruraux (~80% des ruraux).
+    /// ~40% de la production agricole rurale est autoconsommée.
+    /// Source : INSTAT EPM — comptes des ménages ruraux.
+    /// </summary>
+    public bool PratiqueAutoconsommation { get; set; }
+
+    /// <summary>
+    /// Valeur monétaire imputée de l'autoconsommation journalière (MGA).
+    /// Cette production est consommée sans transaction monétaire.
+    /// Non comptée dans le PIB marchand mais dans le PIB total (SCN 2008).
+    /// </summary>
+    public double AutoconsommationJour { get; set; }
+
+    /// <summary>Total cumulé de l'autoconsommation imputée depuis le début.</summary>
+    public double TotalAutoconsommation { get; set; }
+
     // --- Revenus (en Ariary - MGA) ---
     /// <summary>Salaire mensuel brut (SMIG Madagascar ≈ 200 000 MGA)</summary>
     public double SalaireMensuel { get; set; } = 200_000;
@@ -242,6 +268,48 @@ public class Household
 
     /// <summary>Total des dépenses de reconstruction cyclone cumulées depuis le début.</summary>
     public double TotalDepensesReconstructionCyclone { get; set; }
+
+    // ═══════════════════════════════════════════
+    //  SÉCHERESSE GRAND SUD (KERE)
+    // ═══════════════════════════════════════════
+
+    /// <summary>
+    /// Indique si le ménage est affecté par la sécheresse (kere) du Grand Sud.
+    /// Contrairement aux cyclones : pas de reconstruction BTP, mais aide alimentaire
+    /// et migration interne vers les villes.
+    /// </summary>
+    public bool EstAffecteSecheresse { get; set; }
+
+    /// <summary>
+    /// Nombre de jours restants sous l'effet de la sécheresse.
+    /// Pendant cette période : production agricole réduite, dépendance aide alimentaire.
+    /// </summary>
+    public int JoursSecheresseRestants { get; set; }
+
+    /// <summary>
+    /// Indique si le ménage a migré depuis le Grand Sud vers une zone urbaine
+    /// suite à la sécheresse (migration interne climatique).
+    /// </summary>
+    public bool AMigreDepuisSud { get; set; }
+
+    /// <summary>Total de l'aide alimentaire reçue pendant la sécheresse (MGA).</summary>
+    public double TotalAideAlimentaireSecheresse { get; set; }
+
+    // ═══════════════════════════════════════════
+    //  MICROFINANCE / CRÉDIT SEGMENTÉ
+    // ═══════════════════════════════════════════
+
+    /// <summary>
+    /// Type de crédit auquel le ménage a accès.
+    /// Bancaire formel (~10%), Microfinance IMF (~25%), Tontine informelle (~30%), Aucun (~35%).
+    /// </summary>
+    public TypeCredit AccesCredit { get; set; } = TypeCredit.Aucun;
+
+    /// <summary>Encours de crédit du ménage (toutes sources confondues, MGA).</summary>
+    public double EncoursCreditMenage { get; set; }
+
+    /// <summary>Total des intérêts payés sur les crédits (MGA).</summary>
+    public double TotalInteretsCredit { get; set; }
 
 }
 

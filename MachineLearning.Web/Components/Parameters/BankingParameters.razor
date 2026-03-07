@@ -2,10 +2,12 @@
 
 <div>
     <hr />
-    <h6>3E6 Secteur Bancaire & M3</h6>
+    <h6>🏦 Secteur Bancaire, Monétaire & NPL</h6>
     <div class="alert alert-info py-1 px-2 mb-2">
-        <small>Ajustez ces curseurs pour calibrer M3 et le crédit bancaire.</small>
+        <small>Calibré sur les rapports conjoncturels trimestriels de la BCM. Agrégats M0/M1/M2/M3, multiplicateur de crédit, taux d'intérêt et risque de défaut (NPL).</small>
     </div>
+
+    <h6 class="text-muted mt-2">Réserves & Crédit</h6>
     <div class="mb-2">
         <label class="form-label">Taux réserve oblig. : <strong>@(Config.TauxReserveObligatoire * 100)%</strong></label>
         <input type="range" class="form-range" min="0.05" max="0.25" step="0.01"
@@ -15,7 +17,83 @@
         <label class="form-label">Création Crédit/jour : <strong>@((Config.CroissanceCreditJour * 100).ToString("F4"))%</strong></label>
         <input type="range" class="form-range" min="0.0000" max="0.0020" step="0.0001"
                @bind="Config.CroissanceCreditJour" @bind:event="oninput" disabled="@Disabled" />
-        <small class="text-muted">Impacte l'évolution de M3</small>
+        <small class="text-muted">Impacte l'évolution de M3 via le multiplicateur</small>
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Part crédit entreprises : <strong>@((Config.PartCreditEntreprises * 100).ToString("F0"))%</strong></label>
+        <input type="range" class="form-range" min="0.50" max="0.95" step="0.05"
+               @bind="Config.PartCreditEntreprises" @bind:event="oninput" disabled="@Disabled" />
+        <small class="text-muted">BCM : ~75% du crédit privé va aux entreprises</small>
+    </div>
+
+    <h6 class="text-muted mt-3">Agrégats monétaires</h6>
+    <div class="mb-2">
+        <label class="form-label">Part dépôts à vue : <strong>@((Config.PartDepotsAVue * 100).ToString("F0"))%</strong></label>
+        <input type="range" class="form-range" min="0.30" max="0.80" step="0.05"
+               @bind="Config.PartDepotsAVue" @bind:event="oninput" disabled="@Disabled" />
+        <small class="text-muted">BCM : ~55% des dépôts sont à vue</small>
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Part fiduciaire dans M1 : <strong>@((Config.PartMonnaieCirculationDansM1 * 100).ToString("F0"))%</strong></label>
+        <input type="range" class="form-range" min="0.20" max="0.70" step="0.05"
+               @bind="Config.PartMonnaieCirculationDansM1" @bind:event="oninput" disabled="@Disabled" />
+        <small class="text-muted">Billets et pièces en circulation / M1</small>
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Ratio M3/M2 : <strong>@(Config.RatioM3SurM2.ToString("F2"))</strong></label>
+        <input type="range" class="form-range" min="1.00" max="1.30" step="0.02"
+               @bind="Config.RatioM3SurM2" @bind:event="oninput" disabled="@Disabled" />
+        <small class="text-muted">Titres négociables, placements</small>
+    </div>
+
+    <h6 class="text-muted mt-3">Taux d'intérêt</h6>
+    <div class="mb-2">
+        <label class="form-label">Taux intérêt dépôts : <strong>@((Config.TauxInteretDepots * 100).ToString("F1"))%</strong>/an</label>
+        <input type="range" class="form-range" min="0.01" max="0.10" step="0.005"
+               @bind="Config.TauxInteretDepots" @bind:event="oninput" disabled="@Disabled" />
+        <small class="text-muted">BCM : taux créditeur moyen ~4-5%</small>
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Taux intérêt crédits : <strong>@((Config.TauxInteretCredits * 100).ToString("F1"))%</strong>/an</label>
+        <input type="range" class="form-range" min="0.08" max="0.30" step="0.01"
+               @bind="Config.TauxInteretCredits" @bind:event="oninput" disabled="@Disabled" />
+        <small class="text-muted">BCM : taux débiteur moyen ~14-18%</small>
+    </div>
+
+    <h6 class="text-muted mt-3">💧 Liquidité bancaire (SCB — BFM)</h6>
+    <div class="alert alert-secondary py-1 px-2 mb-2">
+        <small>SCB = Solde en Compte des Banques à la BFM. L'excédent SCB-RO détermine la capacité réelle de prêt. Source : BFM rapport conjoncturel.</small>
+    </div>
+    <div class="mb-2">
+        <label class="form-label">SCB initial : <strong>@FormatMGA(Config.SCBInitial)</strong></label>
+        <input type="range" class="form-range" min="500000000000" max="5000000000000" step="100000000000"
+               @bind="Config.SCBInitial" @bind:event="oninput" disabled="@Disabled" />
+        <small class="text-muted">BFM Sept. 2025 : 2 430 Mds MGA</small>
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Intensité intervention BFM : <strong>@((Config.IntensiteInterventionBFM * 100).ToString("F0"))%</strong></label>
+        <input type="range" class="form-range" min="0.0" max="1.0" step="0.05"
+               @bind="Config.IntensiteInterventionBFM" @bind:event="oninput" disabled="@Disabled" />
+        <small class="text-muted">0% = pas d'intervention, 100% = stérilisation totale</small>
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Ratio excédent SCB-RO cible : <strong>@((Config.RatioExcedentSCBCible * 100).ToString("F1"))%</strong></label>
+        <input type="range" class="form-range" min="0.01" max="0.15" step="0.005"
+               @bind="Config.RatioExcedentSCBCible" @bind:event="oninput" disabled="@Disabled" />
+        <small class="text-muted">BFM T3 2025 : ~5.5% des RO</small>
+    </div>
+
+    <h6 class="text-muted mt-3">Risque de défaut (NPL)</h6>
+    <div class="mb-2">
+        <label class="form-label">Proba. défaut/jour : <strong>@((Config.ProbabiliteDefautCreditJour * 10000).ToString("F1"))‱</strong></label>
+        <input type="range" class="form-range" min="0.0001" max="0.0010" step="0.0001"
+               @bind="Config.ProbabiliteDefautCreditJour" @bind:event="oninput" disabled="@Disabled" />
+        <small class="text-muted">BCM : ratio NPL cible ~7-9%</small>
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Taux recouvrement NPL/jour : <strong>@((Config.TauxRecouvrementNPLJour * 100).ToString("F2"))%</strong></label>
+        <input type="range" class="form-range" min="0.001" max="0.010" step="0.001"
+               @bind="Config.TauxRecouvrementNPLJour" @bind:event="oninput" disabled="@Disabled" />
     </div>
 </div>
 
@@ -25,4 +103,12 @@
 
     [Parameter]
     public bool Disabled { get; set; }
+
+    private string FormatMGA(double value)
+    {
+        if (Math.Abs(value) >= 1_000_000_000_000) return (value / 1_000_000_000_000).ToString("F1") + " T MGA";
+        if (Math.Abs(value) >= 1_000_000_000) return (value / 1_000_000_000).ToString("F1") + " Mds MGA";
+        if (Math.Abs(value) >= 1_000_000) return (value / 1_000_000).ToString("F1") + " M MGA";
+        return value.ToString("N0") + " MGA";
+    }
 }

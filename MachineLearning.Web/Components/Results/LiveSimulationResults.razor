@@ -5,315 +5,239 @@
 @if (Simulator.Result.Snapshots.Count > 0)
 {
     var last = Simulator.Result.Snapshots[^1];
+    var first = Simulator.Result.Snapshots[0];
+
+    @* ═══════════════════════════════════════════════════════════════════
+       TABLEAU DE BORD DÉCISIONNEL — KPI clés pour le policy-maker
+       ═══════════════════════════════════════════════════════════════════ *@
     <div class="row mb-3">
-        <div class="col-md-3">
-            <div class="card text-center border-info kpi-card">
-                <div class="card-body">
-                    <h6 class="card-title text-muted">💰 Épargne ménages</h6>
-                    <h4 class="text-info">@FormatMGA(last.EpargneTotaleMenages)</h4>
-                    <small>Moy: @FormatMGA(last.EpargneMoyenneMenages)</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-center border-success kpi-card">
-                <div class="card-body">
-                    <h6 class="card-title text-muted">🏛️ Recettes fiscales</h6>
-                    <h4 class="text-success">@FormatMGA(last.RecettesFiscalesTotales)</h4>
-                    <small>IR: @FormatMGA(last.RecettesIR)/j</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
             <div class="card text-center border-warning kpi-card">
-                <div class="card-body">
-                    <h6 class="card-title text-muted">📊 PIB par revenus</h6>
-                    <h4 class="text-warning">@FormatMGA(last.PIBParRevenus)</h4>
-                    <small>Salaires + Profits + Impôts</small>
+                <div class="card-body py-2">
+                    <small class="text-muted">📊 PIB/jour</small>
+                    <h5 class="text-warning mb-0">@FormatMGA(last.PIBProxy)</h5>
+                    <small class="@CssVariation(last.PIBProxy, first.PIBProxy)">@FormatDelta(last.PIBProxy, first.PIBProxy)</small>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card text-center border-danger kpi-card">
-                <div class="card-body">
-                    <h6 class="card-title text-muted">📉 Dette publique</h6>
-                    <h4 class="text-danger">@FormatMGA(last.DettePublique)</h4>
-                    <small>Solde: @FormatMGA(last.SoldeBudgetaire)</small>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Secteur Bancaire et M3 -->
-    <div class="row mb-3">
-        <div class="col-md-4">
-            <div class="card text-center border-primary kpi-card">
-                <div class="card-body">
-                    <h6 class="card-title text-muted">🏦 Masse Monétaire M3</h6>
-                    <h4 class="text-primary">@FormatMGA(last.MasseMonetaireM3)</h4>
-                    <small>Base crédit monétaire de la simulation</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card text-center border-info kpi-card">
-                <div class="card-body">
-                    <h6 class="card-title text-muted">💼 Dépôts Bancaires</h6>
-                    <h4 class="text-info">@FormatMGA(last.TotalDepotsBancaires)</h4>
-                    <small>Ménages + Entreprises</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
+        <div class="col-md-2">
             <div class="card text-center border-success kpi-card">
-                <div class="card-body">
-                    <h6 class="card-title text-muted">💳 Crédits Accordés (cumul)</h6>
-                    <h4 class="text-success">@FormatMGA(last.TotalCreditsAccordes)</h4>
-                    <small>Nouvelle monnaie créée</small>
+                <div class="card-body py-2">
+                    <small class="text-muted">🏛️ Recettes fisc./j</small>
+                    <h5 class="text-success mb-0">@FormatMGA(last.RecettesIR + last.RecettesIS + last.RecettesTVA + last.RecettesDouanieres)</h5>
+                    <small>IR+IS+TVA+Douanes</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center border-info kpi-card">
+                <div class="card-body py-2">
+                    <small class="text-muted">👷 Emploi</small>
+                    <h5 class="text-info mb-0">@((last.TauxEmploi * 100).ToString("F1"))%</h5>
+                    <small>@last.TotalEmployesEntreprises.ToString("N0") salariés</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center kpi-card @(last.TauxInflationEndogene > 0.10 ? "border-danger" : "border-primary")">
+                <div class="card-body py-2">
+                    <small class="text-muted">📈 Inflation</small>
+                    <h5 class="@(last.TauxInflationEndogene > 0.10 ? "text-danger" : "text-primary") mb-0">@((last.TauxInflationEndogene * 100).ToString("F1"))%</h5>
+                    <small>annualisée</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center kpi-card @(last.SoldeBudgetaire >= 0 ? "border-success" : "border-danger")">
+                <div class="card-body py-2">
+                    <small class="text-muted">💰 Solde budgétaire</small>
+                    <h5 class="@(last.SoldeBudgetaire >= 0 ? "text-success" : "text-danger") mb-0">@FormatMGA(last.SoldeBudgetaire)</h5>
+                    <small>cumulé</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center border-secondary kpi-card">
+                <div class="card-body py-2">
+                    <small class="text-muted">📉 Gini</small>
+                    <h5 class="@(last.Gini > 0.5 ? "text-danger" : last.Gini > 0.4 ? "text-warning" : "text-success") mb-0">@last.Gini.ToString("F3")</h5>
+                    <small class="@CssVariation(first.Gini, last.Gini)">@FormatDelta(first.Gini, last.Gini, true)</small>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 3 estimations du PIB pour validation croisée -->
+    @* ═══════════════════════════════════════════════════════════════════
+       IMPACT MACRO — Synthèse des effets de la politique simulée
+       ═══════════════════════════════════════════════════════════════════ *@
     <div class="row mb-3">
         <div class="col-md-12">
-            <div class="card border-warning">
-                <div class="card-header bg-warning text-dark">
-                    <strong>📊 PIB - Validation croisée des 3 méthodes de calcul</strong>
-                </div>
-                <div class="card-body">
-                    <div class="row text-center">
-                        <div class="col-md-4">
-                            <div class="p-3 border rounded bg-light">
-                                <small class="text-muted">1️⃣ PIB par la demande</small><br />
-                                <strong class="fs-4 text-primary">@FormatMGA(last.PIBProxy)</strong>
-                                <br /><small class="text-muted">C + I(FBCF+ΔS) + G + (X - M)</small>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="p-3 border rounded bg-light">
-                                <small class="text-muted">2️⃣ PIB par la valeur ajoutée</small><br />
-                                <strong class="fs-4 text-success">@FormatMGA(last.PIBParValeurAjoutee)</strong>
-                                <br /><small class="text-muted">Σ(VA entreprises + JIRAMA + Admin + Loyers)</small>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="p-3 border rounded bg-light">
-                                <small class="text-muted">3️⃣ PIB par les revenus</small><br />
-                                <strong class="fs-4 text-warning">@FormatMGA(last.PIBParRevenus)</strong>
-                                <br /><small class="text-muted">Salaires + EBE + Impôts prod.</small>
-                            </div>
-                        </div>
-                    </div>
-                    <hr class="my-2" />
-                    <div class="text-center">
-                        <small class="text-muted">
-                            💡 En théorie, les 3 méthodes devraient converger vers la même valeur.
-                            Écarts: 
-                            <strong>Demande ↔ VA: @CalculerEcart(last.PIBProxy, last.PIBParValeurAjoutee)%</strong> | 
-                            <strong>VA ↔ Revenus: @CalculerEcart(last.PIBParValeurAjoutee, last.PIBParRevenus)%</strong>
-                        </small>
-                    </div>
-                    <hr class="my-2" />
-                    <div class="row">
-                        <div class="col-md-4">
-                            <small class="text-muted"><strong>Demande :</strong></small><br />
-                            <small>C ménages : @FormatMGA(last.ConsommationTotaleMenages)</small><br />
-                            <small>FBCF : @FormatMGA(last.FBCF)</small><br />
-                            <small>ΔStocks : @FormatMGA(last.VariationStocksImportateurs)</small><br />
-                            <small>G (conso. État) : @FormatMGA(last.DepensesPubliques - last.SubventionsJirama)</small><br />
-                            <small>X - M : @FormatMGA(last.BalanceCommerciale)</small><br />
-                            <small>Loyers imputés : @FormatMGA(last.LoyersImputesTotaux)</small>
-                        </div>
-                        <div class="col-md-4">
-                            <small class="text-muted"><strong>Valeur ajoutée :</strong></small><br />
-                            <small>VA entreprises : @FormatMGA(last.ChiffreAffairesTotalEntreprises - last.VentesB2BTotales)</small><br />
-                            <small>VA JIRAMA : @FormatMGA(last.ValeurAjouteeJirama)</small><br />
-                            <small>VA Admin publique : @FormatMGA(last.ValeurAjouteeAdminPublique)</small><br />
-                            <small>Loyers imputés : @FormatMGA(last.LoyersImputesTotaux)</small>
-                        </div>
-                        <div class="col-md-4">
-                            <small class="text-muted"><strong>Revenus :</strong></small><br />
-                            <small>Salaires entreprises : @FormatMGA(last.ChargesSalarialesTotalesEntreprises)</small><br />
-                            <small>CNaPS patronales : @FormatMGA(last.CotisationsCNaPSPatronalesTotales)</small><br />
-                            <small>Sal. fonctionnaires : @FormatMGA(last.SalairesFonctionnaires)</small><br />
-                            <small>EBE (profits) : @FormatMGA(last.ExcedentBrutExploitation)</small><br />
-                            <small>Impôts production : @FormatMGA(last.RecettesTVA + last.RecettesDouanieres)</small><br />
-                            <small>Loyers imputés : @FormatMGA(last.LoyersImputesTotaux)</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Commerce extérieur -->
-    <div class="row mb-3">
-
-    @* ── Alerte cyclone en temps réel ── *@
-    @if (last.CycloneActif)
-    {
-        <div class="col-md-12 mb-2">
-            <div class="alert alert-danger d-flex align-items-center py-2 mb-0" role="alert">
-                <span class="fs-3 me-2">🌀</span>
-                <div>
-                    <strong>CYCLONE @last.CycloneNom EN COURS</strong> — Jour @last.CycloneJourDans |
-                    Intensité : <strong>@((last.CycloneIntensite * 100).ToString("F0"))%</strong> |
-                    Productivité : <span class="text-danger fw-bold">@((last.CycloneFacteurProductivite * 100).ToString("F0"))%</span> |
-                    Prix alimentaires : <span class="text-warning fw-bold">×@(last.CycloneFacteurPrixAlimentaire.ToString("F2"))</span>
-                </div>
-            </div>
-        </div>
-    }
-    else if (last.CyclonePhaseReconstruction)
-    {
-        <div class="col-md-12 mb-2">
-            <div class="alert alert-warning d-flex align-items-center py-2 mb-0" role="alert">
-                <span class="fs-3 me-2">🏗️</span>
-                <div>
-                    <strong>RECONSTRUCTION POST-@last.CycloneNom</strong> — Jour @last.CycloneJourReconstruction |
-                    Ménages en reconstruction : <strong>@last.NbMenagesEnReconstructionCyclone.ToString("N0")</strong> |
-                    Boost BTP : <span class="text-success fw-bold">×@(last.CycloneFacteurDemandeBTP.ToString("F2"))</span> |
-                    Boost quincaillerie : <span class="text-success fw-bold">×@(last.CycloneFacteurDemandeQuincaillerie.ToString("F2"))</span>
-                    @if (last.DepensesReconstructionCycloneJour > 0)
-                    {
-                        <span>| Dépenses reconstruction/j : <strong>@FormatMGA(last.DepensesReconstructionCycloneJour)</strong>
-                            <span class="text-muted">(BTP: @FormatMGA(last.DepensesReconstructionBTPJour) | Quincaillerie: @FormatMGA(last.DepensesReconstructionQuincaillerieJour) | Transport: @FormatMGA(last.DepensesReconstructionTransportJour))</span>
-                        </span>
-                    }
-                </div>
-            </div>
-        </div>
-    }
-    @* ── Fin alerte cyclone ── *@
-
-        <div class="col-md-4">
-            <div class="card text-center border-primary kpi-card">
-                <div class="card-body">
-                    <h6 class="card-title text-muted">🚢 Imports CIF/j</h6>
-                    <h4 class="text-primary">@FormatMGA(last.ImportationsCIF)</h4>
-                    <small>@last.NbImportateurs importateurs</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card text-center border-success kpi-card">
-                <div class="card-body">
-                    <h6 class="card-title text-muted">📦 Exports FOB/j</h6>
-                    <h4 class="text-success">@FormatMGA(last.ExportationsFOB)</h4>
-                    <small>@last.NbExportateurs exportateurs</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card text-center kpi-card @(last.BalanceCommerciale >= 0 ? "border-success" : "border-danger")">
-                <div class="card-body">
-                    <h6 class="card-title text-muted">⚖️ Balance commerciale</h6>
-                    <h4 class="@(last.BalanceCommerciale >= 0 ? "text-success" : "text-danger")">@FormatMGA(last.BalanceCommerciale)</h4>
-                    <small>Douanes: @FormatMGA(last.RecettesDouanieres)/j</small>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Riz & JIRAMA -->
-    <div class="row mb-3">
-        <div class="col-md-3">
-            <div class="card text-center border-warning kpi-card">
-                <div class="card-body">
-                    <h6 class="card-title text-muted">🍚 Dépenses riz/j</h6>
-                    <h4 class="text-warning">@FormatMGA(last.DepensesRizTotales)</h4>
-                    <small>Tous ménages confondus</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-center border-info kpi-card">
-                <div class="card-body">
-                    <h6 class="card-title text-muted">💧⚡ JIRAMA recettes/j</h6>
-                    <h4 class="text-info">@FormatMGA(last.RecettesTotalesJirama)</h4>
-                    <small>Eau: @FormatMGA(last.RecettesEauJirama) | Élec: @FormatMGA(last.RecettesElectriciteJirama)</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-center border-secondary kpi-card">
-                <div class="card-body">
-                    <h6 class="card-title text-muted">⚡ Conso. élec. ménages</h6>
-                    <h4 class="text-secondary">@last.ConsommationMenagesKWh.ToString("N0") KWh</h4>
-                    <small>Prod. estimée: @last.ProductionElecKWh.ToString("N0") KWh</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-center border-primary kpi-card">
-                <div class="card-body">
-                    <h6 class="card-title text-muted">🔌 Abonnés & facture</h6>
-                    <h4 class="text-primary">@FormatMGA(last.FactureElecMoyenneParMenage)/j</h4>
-                    <small>💧 @last.NbAbonnesEau.ToString("N0") | ⚡ @last.NbAbonnesElectricite.ToString("N0") abonnés</small>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Distribution salariale & inégalités -->
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <div class="card border-purple">
+            <div class="card border-dark">
                 <div class="card-header bg-dark text-white">
-                    📊 Distribution salariale initiale (log-normale)
+                    <strong>🎯 Impact macro — Effets de la politique simulée</strong>
                 </div>
                 <div class="card-body">
                     <div class="row text-center">
                         <div class="col">
-                            <small class="text-muted">Médiane</small><br />
-                            <strong>@FormatMGA(Simulator.StatsInitiales.Mediane)</strong>
+                            <small class="text-muted">PIB/jour</small><br />
+                            <strong class="@CssVariation(last.PIBProxy, first.PIBProxy)">@FormatDelta(last.PIBProxy, first.PIBProxy)</strong>
                         </div>
                         <div class="col">
-                            <small class="text-muted">Moyenne</small><br />
-                            <strong>@FormatMGA(Simulator.StatsInitiales.Moyenne)</strong>
+                            <small class="text-muted">Recettes fiscales/j</small><br />
+                            @{ var recFirst = first.RecettesIR + first.RecettesIS + first.RecettesTVA + first.RecettesDouanieres;
+                               var recLast = last.RecettesIR + last.RecettesIS + last.RecettesTVA + last.RecettesDouanieres; }
+                            <strong class="@CssVariation(recLast, recFirst)">@FormatDelta(recLast, recFirst)</strong>
                         </div>
                         <div class="col">
-                            <small class="text-muted">Gini initial</small><br />
-                            <strong>@Simulator.StatsInitiales.Gini.ToString("F3")</strong>
+                            <small class="text-muted">Emploi total</small><br />
+                            <strong class="@CssVariation(last.TotalEmployesEntreprises, first.TotalEmployesEntreprises)">
+                                @FormatDeltaInt(last.TotalEmployesEntreprises, first.TotalEmployesEntreprises)
+                            </strong>
                         </div>
                         <div class="col">
-                            <small class="text-muted">D9/D1</small><br />
-                            <strong>@Simulator.StatsInitiales.RatioD9D1.ToString("F1")</strong>
+                            <small class="text-muted">Inflation</small><br />
+                            <strong class="@CssVariation(first.TauxInflationEndogene, last.TauxInflationEndogene)">
+                                @(((last.TauxInflationEndogene - first.TauxInflationEndogene) * 100).ToString("+0.0;-0.0;0.0")) pts
+                            </strong>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">Consommation/j</small><br />
+                            <strong class="@CssVariation(last.ConsommationTotaleMenages, first.ConsommationTotaleMenages)">@FormatDelta(last.ConsommationTotaleMenages, first.ConsommationTotaleMenages)</strong>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">Épargne ménages</small><br />
+                            <strong class="@CssVariation(last.EpargneTotaleMenages, first.EpargneTotaleMenages)">@FormatDelta(last.EpargneTotaleMenages, first.EpargneTotaleMenages)</strong>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">Gini</small><br />
+                            <strong class="@CssVariation(first.Gini, last.Gini)">
+                                @((last.Gini - first.Gini).ToString("+0.000;-0.000;0.000"))
+                            </strong>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">Balance comm.</small><br />
+                            <strong class="@CssVariation(last.BalanceCommerciale, first.BalanceCommerciale)">@FormatDelta(last.BalanceCommerciale, first.BalanceCommerciale)</strong>
                         </div>
                     </div>
                     <hr class="my-2" />
-                    <small class="fw-bold">Quintiles (salaire mensuel) :</small>
-                    <div class="d-flex justify-content-between mt-1">
-                        <span class="badge bg-danger">Q1: @FormatMGA(Simulator.StatsInitiales.Q1Moyenne)</span>
-                        <span class="badge bg-warning text-dark">Q2: @FormatMGA(Simulator.StatsInitiales.Q2Moyenne)</span>
-                        <span class="badge bg-info">Q3: @FormatMGA(Simulator.StatsInitiales.Q3Moyenne)</span>
-                        <span class="badge bg-primary">Q4: @FormatMGA(Simulator.StatsInitiales.Q4Moyenne)</span>
-                        <span class="badge bg-success">Q5: @FormatMGA(Simulator.StatsInitiales.Q5Moyenne)</span>
+                    <div class="row text-center">
+                        <div class="col">
+                            <small class="text-muted">Taux change MGA/USD</small><br />
+                            <strong>@last.TauxChangeMGAParUSD.ToString("N0")</strong>
+                            <small class="@CssVariation(first.TauxChangeMGAParUSD, last.TauxChangeMGAParUSD)">
+                                (@FormatDelta(last.TauxChangeMGAParUSD, first.TauxChangeMGAParUSD))
+                            </small>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">Réserves BCM</small><br />
+                            <strong>@((last.ReservesBCMUSD / 1_000_000).ToString("N0")) M USD</strong>
+                            <small>(@last.ReservesMoisImports.ToString("F1") mois imports)</small>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">Taux directeur</small><br />
+                            <strong>@((last.TauxDirecteurEffectif * 100).ToString("F2"))%</strong>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">Part informel PIB</small><br />
+                            <strong>@((last.PartInformelDansPIB * 100).ToString("F1"))%</strong>
+                            <small class="@CssVariation(first.PartInformelDansPIB, last.PartInformelDansPIB)">
+                                (@(((last.PartInformelDansPIB - first.PartInformelDansPIB) * 100).ToString("+0.0;-0.0;0.0")) pts)
+                            </small>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">Crédit économie</small><br />
+                            <strong>@FormatMGA(last.EncoursCreditEconomie)</strong>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">NPL</small><br />
+                            <strong class="@(last.RatioNPL > 0.10 ? "text-danger" : "")">@((last.RatioNPL * 100).ToString("F1"))%</strong>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">SCB (liquidité)</small><br />
+                            <strong>@FormatMGA(last.SoldeEnCompteBanques)</strong>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">Dette publique</small><br />
+                            <strong>@FormatMGA(last.DettePublique)</strong>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
+    </div>
+
+    @* ═══════════════════════════════════════════════════════════════════
+       RECETTES FISCALES DÉTAILLÉES (question clé pour la formalisation)
+       ═══════════════════════════════════════════════════════════════════ *@
+    <div class="row mb-3">
         <div class="col-md-6">
-            <div class="card">
-                <div class="card-header bg-dark text-white">
-                    📈 Inégalités en temps réel
+            <div class="card border-success">
+                <div class="card-header bg-success text-white">
+                    <strong>🏛️ Recettes fiscales — Décomposition</strong>
                 </div>
                 <div class="card-body">
                     <div class="row text-center mb-2">
                         <div class="col">
-                            <small class="text-muted">Gini (épargne)</small><br />
-                            <h5 class="@(last.Gini > 0.5 ? "text-danger" : last.Gini > 0.4 ? "text-warning" : "text-success")">
-                                @last.Gini.ToString("F3")
-                            </h5>
+                            <small class="text-muted">IR (salaires)</small><br />
+                            <strong>@FormatMGA(last.RecettesIR)</strong>/j
                         </div>
                         <div class="col">
-                            <small class="text-muted">Ratio D9/D1</small><br />
-                            <h5>@last.RatioD9D1.ToString("F1")x</h5>
+                            <small class="text-muted">IS (entreprises)</small><br />
+                            <strong>@FormatMGA(last.RecettesIS)</strong>/j
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">TVA</small><br />
+                            <strong>@FormatMGA(last.RecettesTVA)</strong>/j
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">Douanes</small><br />
+                            <strong>@FormatMGA(last.RecettesDouanieres)</strong>/j
                         </div>
                     </div>
-                    <small class="fw-bold">Épargne moy. par quintile :</small>
+                    <hr class="my-1" />
+                    <div class="row text-center">
+                        <div class="col">
+                            <small class="text-muted">Cumul</small><br />
+                            <strong class="fs-5 text-success">@FormatMGA(last.RecettesFiscalesTotales)</strong>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">Pression fiscale</small><br />
+                            @{ var pressionFiscale = last.PIBProxy > 0 ? (last.RecettesIR + last.RecettesIS + last.RecettesTVA + last.RecettesDouanieres) / last.PIBProxy * 100 : 0; }
+                            <strong class="fs-5">@pressionFiscale.ToString("F1")%</strong>
+                            <br /><small class="text-muted">Cible FMI : 12-15%</small>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">Assujetties TVA</small><br />
+                            <strong class="fs-5">@last.NbEntreprisesAssujettiesTVA</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ── Ménages & Pouvoir d'achat ── *@
+        <div class="col-md-6">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <strong>🏠 Ménages — Pouvoir d'achat & Inégalités</strong>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center mb-2">
+                        <div class="col">
+                            <small class="text-muted">Épargne moy.</small><br />
+                            <strong>@FormatMGA(last.EpargneMoyenneMenages)</strong>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">Consommation/j</small><br />
+                            <strong>@FormatMGA(last.ConsommationTotaleMenages)</strong>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">Privation alim.</small><br />
+                            <strong class="@(last.FacteurReductionAlimentaireMoyen < 0.8 ? "text-danger" : "")">@((last.FacteurReductionAlimentaireMoyen * 100).ToString("F0"))%</strong>
+                        </div>
+                    </div>
+                    <hr class="my-1" />
+                    <small class="fw-bold">Épargne par quintile :</small>
                     <div class="d-flex justify-content-between mt-1">
                         <span class="badge bg-danger">Q1: @FormatMGA(last.EpargneQ1)</span>
                         <span class="badge bg-warning text-dark">Q2: @FormatMGA(last.EpargneQ2)</span>
@@ -321,68 +245,184 @@
                         <span class="badge bg-primary">Q4: @FormatMGA(last.EpargneQ4)</span>
                         <span class="badge bg-success">Q5: @FormatMGA(last.EpargneQ5)</span>
                     </div>
-                    <hr class="my-2" />
-                    <small class="fw-bold">Répartition des classes :</small>
                     <div class="d-flex justify-content-between mt-1">
-                        <span class="badge bg-secondary">Subsist. @last.NbSubsistance</span>
-                        <span class="badge bg-secondary">Inf.bas @last.NbInformelBas</span>
-                        <span class="badge bg-secondary">Form.bas @last.NbFormelBas</span>
-                        <span class="badge bg-secondary">Qualifié @last.NbFormelQualifie</span>
-                        <span class="badge bg-secondary">Cadre @last.NbCadre</span>
+                        <small>Gini: <strong>@last.Gini.ToString("F3")</strong></small>
+                        <small>D9/D1: <strong>@last.RatioD9D1.ToString("F1")x</strong></small>
+                        <small>Informels: <strong>@last.NbMenagesInformels.ToString("N0")</strong></small>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Validation cohérence CA par secteur -->
+    @* ═══════════════════════════════════════════════════════════════════
+       PIB — 3 méthodes de validation croisée
+       ═══════════════════════════════════════════════════════════════════ *@
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <strong>📊 PIB — 3 méthodes de calcul</strong>
+                    <small class="ms-2">Écarts: Demande↔VA @CalculerEcart(last.PIBProxy, last.PIBParValeurAjoutee)% | VA↔Revenus @CalculerEcart(last.PIBParValeurAjoutee, last.PIBParRevenus)%</small>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <div class="p-2 border rounded bg-light">
+                                <small class="text-muted">Demande (C+I+G+X-M)</small><br />
+                                <strong class="fs-5 text-primary">@FormatMGA(last.PIBProxy)</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-2 border rounded bg-light">
+                                <small class="text-muted">Valeur ajoutée (ΣVA)</small><br />
+                                <strong class="fs-5 text-success">@FormatMGA(last.PIBParValeurAjoutee)</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-2 border rounded bg-light">
+                                <small class="text-muted">Revenus (W+EBE+T)</small><br />
+                                <strong class="fs-5 text-warning">@FormatMGA(last.PIBParRevenus)</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <hr class="my-2" />
+                    <div class="row">
+                        <div class="col-md-4">
+                            <small>C: @FormatMGA(last.ConsommationTotaleMenages) | FBCF: @FormatMGA(last.FBCF) | G: @FormatMGA(last.DepensesPubliques - last.SubventionsJirama) | X-M: @FormatMGA(last.BalanceCommerciale)</small>
+                        </div>
+                        <div class="col-md-4">
+                            <small>VA entr.: @FormatMGA(last.ChiffreAffairesTotalEntreprises - last.VentesB2BTotales) | Jirama: @FormatMGA(last.ValeurAjouteeJirama) | Admin: @FormatMGA(last.ValeurAjouteeAdminPublique)</small>
+                        </div>
+                        <div class="col-md-4">
+                            <small>Salaires: @FormatMGA(last.ChargesSalarialesTotalesEntreprises) | EBE: @FormatMGA(last.ExcedentBrutExploitation) | T: @FormatMGA(last.RecettesTVA + last.RecettesDouanieres)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ── Alerte cyclone ── *@
+    @if (last.CycloneActif)
+    {
+        <div class="alert alert-danger d-flex align-items-center py-2 mb-3" role="alert">
+            <span class="fs-3 me-2">🌀</span>
+            <div>
+                <strong>CYCLONE @last.CycloneNom</strong> — Jour @last.CycloneJourDans |
+                Intensité: <strong>@((last.CycloneIntensite * 100).ToString("F0"))%</strong> |
+                Productivité: <span class="text-danger fw-bold">@((last.CycloneFacteurProductivite * 100).ToString("F0"))%</span> |
+                Prix alim.: <span class="text-warning fw-bold">×@(last.CycloneFacteurPrixAlimentaire.ToString("F2"))</span>
+            </div>
+        </div>
+    }
+    else if (last.CyclonePhaseReconstruction)
+    {
+        <div class="alert alert-warning d-flex align-items-center py-2 mb-3" role="alert">
+            <span class="fs-3 me-2">🏗️</span>
+            <div>
+                <strong>RECONSTRUCTION POST-@last.CycloneNom</strong> — Jour @last.CycloneJourReconstruction |
+                Ménages: <strong>@last.NbMenagesEnReconstructionCyclone.ToString("N0")</strong> |
+                BTP: ×@(last.CycloneFacteurDemandeBTP.ToString("F2")) |
+                Dépenses/j: <strong>@FormatMGA(last.DepensesReconstructionCycloneJour)</strong>
+            </div>
+        </div>
+    }
+
+    @* ═══════════════════════════════════════════════════════════════════
+       COMMERCE EXTÉRIEUR & SECTEUR BANCAIRE
+       ═══════════════════════════════════════════════════════════════════ *@
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <div class="card text-center border-primary kpi-card">
+                <div class="card-body py-2">
+                    <small class="text-muted">🚢 Imports CIF/j</small>
+                    <h5 class="text-primary mb-0">@FormatMGA(last.ImportationsCIF)</h5>
+                    <small>@last.NbImportateurs importateurs</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center border-success kpi-card">
+                <div class="card-body py-2">
+                    <small class="text-muted">📦 Exports FOB/j</small>
+                    <h5 class="text-success mb-0">@FormatMGA(last.ExportationsFOB)</h5>
+                    <small>@last.NbExportateurs exportateurs</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center kpi-card @(last.BalanceCommerciale >= 0 ? "border-success" : "border-danger")">
+                <div class="card-body py-2">
+                    <small class="text-muted">⚖️ Balance commerciale</small>
+                    <h5 class="@(last.BalanceCommerciale >= 0 ? "text-success" : "text-danger") mb-0">@FormatMGA(last.BalanceCommerciale)</h5>
+                    <small>Douanes: @FormatMGA(last.RecettesDouanieres)/j</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ═══════════════════════════════════════════════════════════════════
+       SECTEUR BANCAIRE (SCB + Crédit + NPL)
+       ═══════════════════════════════════════════════════════════════════ *@
     <div class="row mb-3">
         <div class="col-md-12">
             <div class="card border-primary">
                 <div class="card-header bg-primary text-white">
-                    ✅ Validation : Cohérence CA par employé et secteur
+                    <strong>🏦 Secteur bancaire — Crédit, Liquidité & Agrégats monétaires</strong>
                 </div>
                 <div class="card-body">
-                    <div class="row text-center mb-3">
-                        <div class="col-md-3">
-                            <small class="text-muted">Entreprises assujetties TVA</small><br />
-                            <strong class="fs-5 text-success">@last.NbEntreprisesAssujettiesTVA</strong>
-                            <br /><small class="text-muted">(CA > 400M MGA/an)</small>
+                    <div class="row text-center mb-2">
+                        <div class="col">
+                            <small class="text-muted">M0 (base)</small><br />
+                            <strong>@FormatMGA(last.BaseMonetaireM0)</strong>
                         </div>
-                        <div class="col-md-3">
-                            <small class="text-muted">Cohérence globale</small><br />
-                            <strong class="fs-5 @(last.PourcentageCoherenceCA >= 70 ? "text-success" : "text-warning")">
-                                @last.PourcentageCoherenceCA.ToString("F1")%
-                            </strong>
-                            <br /><small class="text-muted">(ratio 0.5-2.0)</small>
+                        <div class="col">
+                            <small class="text-muted">M3 (large)</small><br />
+                            <strong>@FormatMGA(last.MasseMonetaireM3)</strong>
                         </div>
-                        <div class="col-md-6">
-                            <small class="text-muted">CA moyen/employé/jour</small><br />
-                            <strong class="fs-5">@FormatMGA(last.CAMoyenParEmploye)</strong>
+                        <div class="col">
+                            <small class="text-muted">Multiplicateur</small><br />
+                            <strong>×@(last.MultiplicateurMonetaire.ToString("F2"))</strong>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">Encours crédit</small><br />
+                            <strong>@FormatMGA(last.EncoursCreditEconomie)</strong>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">Crédit/j</small><br />
+                            <strong>@FormatMGA(last.CreditsEntreprisesJour + last.CreditsMenagesJour)</strong>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">NPL</small><br />
+                            <strong class="@(last.RatioNPL > 0.10 ? "text-danger fw-bold" : "")">@((last.RatioNPL * 100).ToString("F1"))%</strong>
                         </div>
                     </div>
-                    <hr />
+                    <hr class="my-1" />
                     <div class="row text-center">
-                        <div class="col-md-4">
-                            <div class="p-2 border rounded">
-                                <small class="fw-bold text-primary">🧵 Textile Export</small><br />
-                                <strong>@FormatMGA(last.CAMoyenParEmployeTextile)</strong>/j
-                                <br /><small class="text-muted">Attendu: 27-55k MGA</small>
-                            </div>
+                        <div class="col">
+                            <small class="text-muted">💧 SCB</small><br />
+                            <strong>@FormatMGA(last.SoldeEnCompteBanques)</strong>
                         </div>
-                        <div class="col-md-4">
-                            <div class="p-2 border rounded">
-                                <small class="fw-bold text-success">🏪 Commerce/Services</small><br />
-                                <strong>@FormatMGA(last.CAMoyenParEmployeCommerce)</strong>/j
-                                <br /><small class="text-muted">Attendu: 73-110k MGA</small>
-                            </div>
+                        <div class="col">
+                            <small class="text-muted">Excédent SCB-RO</small><br />
+                            <strong class="@(last.EcartMoyenSCB_RO > 0 ? "text-success" : "text-danger")">@FormatMGA(last.EcartMoyenSCB_RO)</strong>
                         </div>
-                        <div class="col-md-4">
-                            <div class="p-2 border rounded">
-                                <small class="fw-bold text-warning">⛏️ Secteur Minier</small><br />
-                                <strong>@FormatMGA(last.CAMoyenParEmployeMinier)</strong>/j
-                                <br /><small class="text-muted">Attendu: 200-274k MGA</small>
-                            </div>
+                        <div class="col">
+                            <small class="text-muted">Intervention BFM/j</small><br />
+                            <strong>@FormatMGA(last.InterventionNetteBFMJour)</strong>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">Marge nette/j</small><br />
+                            <strong>@FormatMGA(last.MargeNetteInteretJour)</strong>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">Taux dépôts</small><br />
+                            <strong>@((last.TauxInteretDepots * 100).ToString("F1"))%</strong>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">Taux crédits</small><br />
+                            <strong>@((last.TauxInteretCredits * 100).ToString("F1"))%</strong>
                         </div>
                     </div>
                 </div>
@@ -390,124 +430,53 @@
         </div>
     </div>
 
-    <!-- Secteur Informel — Dualité structurelle -->
+    @* ═══════════════════════════════════════════════════════════════════
+       FORMEL vs INFORMEL — Dualité structurelle
+       ═══════════════════════════════════════════════════════════════════ *@
     <div class="row mb-3">
         <div class="col-md-12">
             <div class="card border-secondary">
                 <div class="card-header bg-dark text-white">
-                    <strong>🏪 Secteur Informel — Dualité structurelle (INSTAT ENEMPSI)</strong>
+                    <strong>🏪 Formel vs Informel — Dualité structurelle</strong>
                 </div>
                 <div class="card-body">
-                    <!-- KPI principaux -->
-                    <div class="row text-center mb-3">
+                    <div class="row text-center mb-2">
                         <div class="col-md-3">
-                            <div class="p-3 border rounded bg-light">
-                                <small class="text-muted">Part informel dans PIB</small><br />
-                                <strong class="fs-4 @(last.PartInformelDansPIB > 0.35 ? "text-warning" : "text-success")">
-                                    @((last.PartInformelDansPIB * 100).ToString("F1"))%
-                                </strong>
-                                <br /><small class="text-muted">Cible INSTAT : 40-55%</small>
-                            </div>
+                            <small class="text-muted">Part informel PIB</small><br />
+                            <strong class="fs-5 @(last.PartInformelDansPIB > 0.50 ? "text-danger" : "text-warning")">@((last.PartInformelDansPIB * 100).ToString("F1"))%</strong>
                         </div>
                         <div class="col-md-3">
-                            <div class="p-3 border rounded bg-light">
-                                <small class="text-muted">Taux emploi informel</small><br />
-                                <strong class="fs-4 text-warning">
-                                    @((last.TauxEmploiInformel * 100).ToString("F1"))%
-                                </strong>
-                                <br /><small class="text-muted">Cible INSTAT : ~85%</small>
-                            </div>
+                            <small class="text-muted">Emploi informel</small><br />
+                            <strong class="fs-5">@((last.TauxEmploiInformel * 100).ToString("F1"))%</strong>
                         </div>
                         <div class="col-md-3">
-                            <div class="p-3 border rounded bg-light">
-                                <small class="text-muted">Entreprises informelles</small><br />
-                                <strong class="fs-4 text-secondary">
-                                    @last.NbEntreprisesInformelles.ToString("N0")
-                                </strong>
-                                <br /><small class="text-muted">sur total entreprises</small>
-                            </div>
+                            <small class="text-muted">Écart revenu inf./form.</small><br />
+                            <strong class="fs-5">@(last.RevenuMoyenMenagesFormels > 0 ? (last.RevenuMoyenMenagesInformels / last.RevenuMoyenMenagesFormels * 100).ToString("F0") : "—")%</strong>
                         </div>
                         <div class="col-md-3">
-                            <div class="p-3 border rounded bg-light">
-                                <small class="text-muted">Ménages informels</small><br />
-                                <strong class="fs-4 text-secondary">
-                                    @last.NbMenagesInformels.ToString("N0")
-                                </strong>
-                                <br /><small class="text-muted">dont @last.NbMenagesAutoEmploi.ToString("N0") auto-employés</small>
-                            </div>
+                            <small class="text-muted">Écart productivité</small><br />
+                            <strong class="fs-5">@(last.ProductiviteMoyenneFormel > 0 ? (last.ProductiviteMoyenneInformel / last.ProductiviteMoyenneFormel * 100).ToString("F0") : "—")%</strong>
                         </div>
                     </div>
-
-                    <!-- Comparaison formel vs informel -->
-                    <hr class="my-2" />
+                    <hr class="my-1" />
                     <div class="row">
                         <div class="col-md-6">
-                            <h6 class="text-center text-muted mb-2">🏪 Secteur Informel</h6>
                             <table class="table table-sm table-bordered mb-0">
+                                <thead><tr><th colspan="2" class="text-center">🏪 Informel</th></tr></thead>
                                 <tbody>
-                                    <tr>
-                                        <td>CA / jour</td>
-                                        <td class="text-end"><strong>@FormatMGA(last.ChiffreAffairesInformel)</strong></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Valeur ajoutée / jour</td>
-                                        <td class="text-end"><strong>@FormatMGA(last.ValeurAjouteeInformel)</strong></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Productivité moy. / employé</td>
-                                        <td class="text-end"><strong>@FormatMGA(last.ProductiviteMoyenneInformel)</strong>/j</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Trésorerie moyenne</td>
-                                        <td class="text-end"><strong>@FormatMGA(last.TresorerieMoyenneInformel)</strong></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Revenu moy. ménage / jour</td>
-                                        <td class="text-end"><strong>@FormatMGA(last.RevenuMoyenMenagesInformels)</strong></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Emplois</td>
-                                        <td class="text-end"><strong>@last.NbEmployesSecteurInformel.ToString("N0")</strong></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Revenus annexes / jour</td>
-                                        <td class="text-end"><strong>@FormatMGA(last.RevenusInformelsAnnexesJour)</strong></td>
-                                    </tr>
+                                    <tr><td>VA/jour</td><td class="text-end"><strong>@FormatMGA(last.ValeurAjouteeInformel)</strong></td></tr>
+                                    <tr><td>Revenu moy. ménage/j</td><td class="text-end"><strong>@FormatMGA(last.RevenuMoyenMenagesInformels)</strong></td></tr>
+                                    <tr><td>Emplois</td><td class="text-end"><strong>@last.NbEmployesSecteurInformel.ToString("N0")</strong></td></tr>
                                 </tbody>
                             </table>
                         </div>
                         <div class="col-md-6">
-                            <h6 class="text-center text-muted mb-2">🏢 Secteur Formel</h6>
                             <table class="table table-sm table-bordered mb-0">
+                                <thead><tr><th colspan="2" class="text-center">🏢 Formel</th></tr></thead>
                                 <tbody>
-                                    <tr>
-                                        <td>CA / jour</td>
-                                        <td class="text-end"><strong>@FormatMGA(last.ChiffreAffairesFormel)</strong></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Valeur ajoutée / jour</td>
-                                        <td class="text-end"><strong>@FormatMGA(last.ValeurAjouteeFormel)</strong></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Productivité moy. / employé</td>
-                                        <td class="text-end"><strong>@FormatMGA(last.ProductiviteMoyenneFormel)</strong>/j</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Trésorerie moyenne</td>
-                                        <td class="text-end"><strong>@FormatMGA(last.TresorerieMoyenneFormel)</strong></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Revenu moy. ménage / jour</td>
-                                        <td class="text-end"><strong>@FormatMGA(last.RevenuMoyenMenagesFormels)</strong></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Emplois</td>
-                                        <td class="text-end"><strong>@last.NbSalariesSecteurFormel.ToString("N0")</strong></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Ratio productivité inf./form.</td>
-                                        <td class="text-end"><strong>@(last.ProductiviteMoyenneFormel > 0 ? (last.ProductiviteMoyenneInformel / last.ProductiviteMoyenneFormel * 100).ToString("F0") : "—")%</strong></td>
-                                    </tr>
+                                    <tr><td>VA/jour</td><td class="text-end"><strong>@FormatMGA(last.ValeurAjouteeFormel)</strong></td></tr>
+                                    <tr><td>Revenu moy. ménage/j</td><td class="text-end"><strong>@FormatMGA(last.RevenuMoyenMenagesFormels)</strong></td></tr>
+                                    <tr><td>Emplois</td><td class="text-end"><strong>@last.NbSalariesSecteurFormel.ToString("N0")</strong></td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -517,159 +486,28 @@
         </div>
     </div>
 
-    <!-- Évolution secteur informel -->
+    @* ═══════════════════════════════════════════════════════════════════
+       ÉVOLUTION TEMPORELLE — Tableau d'indicateurs clés
+       ═══════════════════════════════════════════════════════════════════ *@
     <div class="row mb-3">
         <div class="col-md-12">
-            <div class="card mb-3">
+            <div class="card">
                 <div class="card-header bg-secondary text-white">
-                    📈 Évolution du secteur informel
+                    📈 Évolution temporelle des indicateurs clés
                 </div>
                 <div class="card-body card-body-scroll">
                     <table class="table table-sm table-striped">
                         <thead class="table-dark">
                             <tr>
                                 <th>Jour</th>
-                                <th>Part PIB inf.</th>
-                                <th>Taux emploi inf.</th>
-                                <th>VA informel</th>
-                                <th>VA formel</th>
-                                <th>Revenu moy. inf.</th>
-                                <th>Revenu moy. form.</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var snap in GetSampledSnapshots())
-                            {
-                                <tr>
-                                    <td>@snap.Jour</td>
-                                    <td class="@(snap.PartInformelDansPIB > 0.55 ? "text-danger" : snap.PartInformelDansPIB > 0.40 ? "text-warning" : "text-success")">
-                                        @((snap.PartInformelDansPIB * 100).ToString("F1"))%
-                                    </td>
-                                    <td>@((snap.TauxEmploiInformel * 100).ToString("F1"))%</td>
-                                    <td>@FormatMGA(snap.ValeurAjouteeInformel)</td>
-                                    <td>@FormatMGA(snap.ValeurAjouteeFormel)</td>
-                                    <td>@FormatMGA(snap.RevenuMoyenMenagesInformels)</td>
-                                    <td>@FormatMGA(snap.RevenuMoyenMenagesFormels)</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tableaux de données -->
-    <div class="row">
-        <div class="col-md-6">
-            <div class="card mb-3">
-                <div class="card-header bg-info text-white">
-                    🏠 Évolution des ménages
-                </div>
-                <div class="card-body card-body-scroll">
-                    <table class="table table-sm table-striped">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>Jour</th>
-                                <th>Épargne totale</th>
-                                <th>Consommation</th>
+                                <th>PIB/j</th>
+                                <th>Recettes fisc./j</th>
                                 <th>Emploi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var snap in GetSampledSnapshots())
-                            {
-                                <tr>
-                                    <td>@snap.Jour</td>
-                                    <td>@FormatMGA(snap.EpargneTotaleMenages)</td>
-                                    <td>@FormatMGA(snap.ConsommationTotaleMenages)</td>
-                                    <td>@((snap.TauxEmploi * 100).ToString("F0"))%</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card mb-3">
-                <div class="card-header bg-success text-white">
-                    🏢 Évolution des entreprises
-                </div>
-                <div class="card-body card-body-scroll">
-                    <table class="table table-sm table-striped">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>Jour</th>
-                                <th>CA total</th>
-                                <th>Trésorerie moy.</th>
-                                <th>Bénéfice</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var snap in GetSampledSnapshots())
-                            {
-                                <tr>
-                                    <td>@snap.Jour</td>
-                                    <td>@FormatMGA(snap.ChiffreAffairesTotalEntreprises)</td>
-                                    <td>@FormatMGA(snap.TresorerieMoyenneEntreprises)</td>
-                                    <td>@FormatMGA(snap.BeneficeTotalEntreprises)</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
-        <div class="col-md-6">
-            <div class="card mb-3">
-                <div class="card-header bg-warning">
-                    🏛️ Finances publiques
-                </div>
-                <div class="card-body card-body-scroll">
-                    <table class="table table-sm table-striped">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>Jour</th>
-                                <th>Recettes cumulées</th>
-                                <th>Solde budgétaire</th>
-                                <th>Dette</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var snap in GetSampledSnapshots())
-                            {
-                                <tr>
-                                    <td>@snap.Jour</td>
-                                    <td>@FormatMGA(snap.RecettesFiscalesTotales)</td>
-                                    <td class="@(snap.SoldeBudgetaire >= 0 ? "text-success" : "text-danger")">
-                                        @FormatMGA(snap.SoldeBudgetaire)
-                                    </td>
-                                    <td>@FormatMGA(snap.DettePublique)</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card mb-3">
-                <div class="card-header bg-secondary text-white">
-                    📊 Indicateurs macro & Commerce
-                </div>
-                <div class="card-body card-body-scroll">
-                    <table class="table table-sm table-striped">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>Jour</th>
-                                <th>PIB proxy</th>
-                                <th>Imports</th>
-                                <th>Exports</th>
-                                <th>Balance</th>
+                                <th>Inflation</th>
+                                <th>Gini</th>
+                                <th>Balance comm.</th>
+                                <th>M3</th>
+                                <th>Solde budg.</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -678,11 +516,13 @@
                                 <tr>
                                     <td>@snap.Jour</td>
                                     <td>@FormatMGA(snap.PIBProxy)</td>
-                                    <td>@FormatMGA(snap.ImportationsCIF)</td>
-                                    <td>@FormatMGA(snap.ExportationsFOB)</td>
-                                    <td class="@(snap.BalanceCommerciale >= 0 ? "text-success" : "text-danger")">
-                                        @FormatMGA(snap.BalanceCommerciale)
-                                    </td>
+                                    <td>@FormatMGA(snap.RecettesIR + snap.RecettesIS + snap.RecettesTVA + snap.RecettesDouanieres)</td>
+                                    <td>@((snap.TauxEmploi * 100).ToString("F0"))%</td>
+                                    <td class="@(snap.TauxInflationEndogene > 0.10 ? "text-danger" : "")">@((snap.TauxInflationEndogene * 100).ToString("F1"))%</td>
+                                    <td>@snap.Gini.ToString("F3")</td>
+                                    <td class="@(snap.BalanceCommerciale >= 0 ? "text-success" : "text-danger")">@FormatMGA(snap.BalanceCommerciale)</td>
+                                    <td>@FormatMGA(snap.MasseMonetaireM3)</td>
+                                    <td class="@(snap.SoldeBudgetaire >= 0 ? "text-success" : "text-danger")">@FormatMGA(snap.SoldeBudgetaire)</td>
                                 </tr>
                             }
                         </tbody>
@@ -692,91 +532,98 @@
         </div>
     </div>
 
-    <!-- Résumé final -->
+    @* ═══════════════════════════════════════════════════════════════════
+       BILAN DE SIMULATION — Résumé orienté aide à la décision
+       ═══════════════════════════════════════════════════════════════════ *@
     @if (Simulator.Result.EstTerminee)
     {
-        var first = Simulator.Result.Snapshots[0];
         <div class="card border-dark mt-3">
             <div class="card-header bg-dark text-white">
-                📋 Bilan de simulation - @Config.Name (@FormatTemps(Config.DureeJours))
+                📋 Bilan — @Config.Name (@FormatTemps(Config.DureeJours))
             </div>
             <div class="card-body">
+                <h6 class="mb-3">🎯 Réponse à la question de politique économique :</h6>
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="card text-center @(last.PIBProxy > first.PIBProxy ? "border-success" : "border-danger")">
+                            <div class="card-body py-2">
+                                <small class="text-muted">PIB/jour</small>
+                                <h5 class="@CssVariation(last.PIBProxy, first.PIBProxy)">@FormatDelta(last.PIBProxy, first.PIBProxy)</h5>
+                                <small>@FormatMGA(first.PIBProxy) → @FormatMGA(last.PIBProxy)</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center @(recLast > recFirst ? "border-success" : "border-danger")">
+                            <div class="card-body py-2">
+                                <small class="text-muted">Recettes fiscales/j</small>
+                                <h5 class="@CssVariation(recLast, recFirst)">@FormatDelta(recLast, recFirst)</h5>
+                                <small>Cumul : @FormatMGA(last.RecettesFiscalesTotales)</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center @(last.TotalEmployesEntreprises > first.TotalEmployesEntreprises ? "border-success" : "border-danger")">
+                            <div class="card-body py-2">
+                                <small class="text-muted">Emploi total</small>
+                                <h5 class="@CssVariation(last.TotalEmployesEntreprises, first.TotalEmployesEntreprises)">
+                                    @FormatDeltaInt(last.TotalEmployesEntreprises, first.TotalEmployesEntreprises)
+                                </h5>
+                                <small>@first.TotalEmployesEntreprises.ToString("N0") → @last.TotalEmployesEntreprises.ToString("N0")</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center @(last.Gini < first.Gini ? "border-success" : "border-danger")">
+                            <div class="card-body py-2">
+                                <small class="text-muted">Inégalités (Gini)</small>
+                                <h5 class="@CssVariation(first.Gini, last.Gini)">@((last.Gini - first.Gini).ToString("+0.000;-0.000;0.000"))</h5>
+                                <small>@first.Gini.ToString("F3") → @last.Gini.ToString("F3")</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="row">
                     <div class="col-md-4">
                         <h6>🏠 Ménages</h6>
                         <ul class="list-unstyled summary-table">
-                            <li>Épargne initiale → finale : @FormatMGA(first.EpargneTotaleMenages) → <strong>@FormatMGA(last.EpargneTotaleMenages)</strong></li>
-                            <li>Variation : <span class="@(last.EpargneTotaleMenages >= first.EpargneTotaleMenages ? "text-success" : "text-danger")">
-                                @FormatPourcent(last.EpargneTotaleMenages, first.EpargneTotaleMenages)
-                            </span></li>
-                            <li>Taux d'emploi final : @((last.TauxEmploi * 100).ToString("F1"))%</li>
+                            <li>Épargne : <span class="@CssVariation(last.EpargneTotaleMenages, first.EpargneTotaleMenages)">@FormatPourcent(last.EpargneTotaleMenages, first.EpargneTotaleMenages)</span></li>
+                            <li>Consommation : <span class="@CssVariation(last.ConsommationTotaleMenages, first.ConsommationTotaleMenages)">@FormatPourcent(last.ConsommationTotaleMenages, first.ConsommationTotaleMenages)</span></li>
+                            <li>Privation alimentaire : @((last.FacteurReductionAlimentaireMoyen * 100).ToString("F0"))%</li>
+                            <li>Q1 (pauvres) : @FormatMGA(last.EpargneQ1)</li>
                         </ul>
                     </div>
                     <div class="col-md-4">
-                        <h6>🏢 Entreprises</h6>
+                        <h6>🏢 Entreprises & Secteurs</h6>
                         <ul class="list-unstyled summary-table">
-                            <li>Trésorerie moy. : @FormatMGA(first.TresorerieMoyenneEntreprises) → <strong>@FormatMGA(last.TresorerieMoyenneEntreprises)</strong></li>
-                            <li>Variation : <span class="@(last.TresorerieMoyenneEntreprises >= first.TresorerieMoyenneEntreprises ? "text-success" : "text-danger")">
-                                @FormatPourcent(last.TresorerieMoyenneEntreprises, first.TresorerieMoyenneEntreprises)
-                            </span></li>
+                            <li>CA total : <span class="@CssVariation(last.ChiffreAffairesTotalEntreprises, first.ChiffreAffairesTotalEntreprises)">@FormatPourcent(last.ChiffreAffairesTotalEntreprises, first.ChiffreAffairesTotalEntreprises)</span></li>
+                            <li>Part informel : @((last.PartInformelDansPIB * 100).ToString("F1"))%</li>
+                            <li>Crédit économie : @FormatMGA(last.EncoursCreditEconomie)</li>
+                            <li>NPL : @((last.RatioNPL * 100).ToString("F1"))%</li>
                         </ul>
                     </div>
                     <div class="col-md-4">
-                        <h6>🏛️ État</h6>
+                        <h6>🏛️ État & Macro</h6>
                         <ul class="list-unstyled summary-table">
-                            <li>Recettes fiscales totales : <strong>@FormatMGA(last.RecettesFiscalesTotales)</strong></li>
                             <li>Solde budgétaire : <span class="@(last.SoldeBudgetaire >= 0 ? "text-success fw-bold" : "text-danger fw-bold")">@FormatMGA(last.SoldeBudgetaire)</span></li>
-                            <li>Dette publique : <strong>@FormatMGA(last.DettePublique)</strong></li>
+                            <li>Dette : @FormatMGA(last.DettePublique)</li>
+                            <li>Inflation : @((last.TauxInflationEndogene * 100).ToString("F1"))%</li>
+                            <li>Taux change : @last.TauxChangeMGAParUSD.ToString("N0") MGA/USD</li>
                         </ul>
-                    </div>
-                </div>
-                <hr />
-                <div class="row">
-                    <div class="col-md-12">
-                        <h6>🏪 Secteur Informel — Bilan</h6>
-                        <div class="row text-center">
-                            <div class="col-md-2">
-                                <small class="text-muted">Part PIB init.</small><br />
-                                <strong>@((first.PartInformelDansPIB * 100).ToString("F1"))%</strong>
-                            </div>
-                            <div class="col-md-2">
-                                <small class="text-muted">Part PIB finale</small><br />
-                                <strong class="@(last.PartInformelDansPIB > 0.55 ? "text-danger" : "text-warning")">
-                                    @((last.PartInformelDansPIB * 100).ToString("F1"))%
-                                </strong>
-                            </div>
-                            <div class="col-md-2">
-                                <small class="text-muted">Emploi informel</small><br />
-                                <strong>@((last.TauxEmploiInformel * 100).ToString("F1"))%</strong>
-                            </div>
-                            <div class="col-md-2">
-                                <small class="text-muted">Écart revenu</small><br />
-                                <strong>@(last.RevenuMoyenMenagesFormels > 0 ? (last.RevenuMoyenMenagesInformels / last.RevenuMoyenMenagesFormels * 100).ToString("F0") : "—")%</strong>
-                                <br /><small class="text-muted">inf. / form.</small>
-                            </div>
-                            <div class="col-md-2">
-                                <small class="text-muted">Écart productivité</small><br />
-                                <strong>@(last.ProductiviteMoyenneFormel > 0 ? (last.ProductiviteMoyenneInformel / last.ProductiviteMoyenneFormel * 100).ToString("F0") : "—")%</strong>
-                                <br /><small class="text-muted">inf. / form.</small>
-                            </div>
-                            <div class="col-md-2">
-                                <small class="text-muted">Auto-employés</small><br />
-                                <strong>@last.NbMenagesAutoEmploi.ToString("N0")</strong>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        @* ── Journal de recalibration mensuelle ── *@
+        @* ── Recalibrations mensuelles ── *@
         @if (Simulator.Result.CalibrationEvents.Count > 0)
         {
             <div class="card border-warning mt-3">
                 <div class="card-header bg-warning text-dark">
                     🔄 Recalibrations mensuelles (@Simulator.Result.CalibrationEvents.Count événements)
                 </div>
-                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                <div class="card-body" style="max-height: 300px; overflow-y: auto;">
                     @foreach (var evt in Simulator.Result.CalibrationEvents)
                     {
                         <div class="card mb-2">
@@ -787,13 +634,7 @@
                             <div class="card-body p-2">
                                 <table class="table table-sm table-bordered mb-0">
                                     <thead>
-                                        <tr>
-                                            <th>Paramètre</th>
-                                            <th>Simulé</th>
-                                            <th>Cible</th>
-                                            <th>Écart</th>
-                                            <th>Correction</th>
-                                        </tr>
+                                        <tr><th>Paramètre</th><th>Simulé</th><th>Cible</th><th>Écart</th><th>Correction</th></tr>
                                     </thead>
                                     <tbody>
                                         @foreach (var adj in evt.Ajustements)
@@ -805,9 +646,7 @@
                                                 <td class="@(Math.Abs(adj.EcartPourcent) < 5 ? "text-success" : Math.Abs(adj.EcartPourcent) < 20 ? "text-warning" : "text-danger")">
                                                     @(adj.EcartPourcent >= 0 ? "+" : "")@adj.EcartPourcent.ToString("F1")%
                                                 </td>
-                                                <td>
-                                                    <small>@FormatSmallNumber(adj.AncienneValeur) → <strong>@FormatSmallNumber(adj.NouvelleValeur)</strong></small>
-                                                </td>
+                                                <td><small>@FormatSmallNumber(adj.AncienneValeur) → <strong>@FormatSmallNumber(adj.NouvelleValeur)</strong></small></td>
                                             </tr>
                                         }
                                     </tbody>
@@ -819,19 +658,16 @@
             </div>
         }
 
-        @* ── Bouton intégration AIDS ── *@
+        @* ── Lien AIDS ── *@
         <div class="card border-info mt-3">
             <div class="card-body d-flex align-items-center justify-content-between">
                 <div>
                     <strong>🧮 Analyser avec le modèle AIDS</strong>
                     <p class="mb-0 small text-muted">
-                        Exportez les parts budgétaires observées vers le modèle AIDS pour estimer les paramètres
-                        d'élasticité et définir un objectif de croissance M3.
+                        Exportez les parts budgétaires observées vers le modèle AIDS pour estimer les élasticités.
                     </p>
                 </div>
-                <a href="/aids-croissance" class="btn btn-info btn-lg">
-                    📊 Ouvrir AIDS →
-                </a>
+                <a href="/aids-croissance" class="btn btn-info btn-lg">📊 Ouvrir AIDS →</a>
             </div>
         </div>
     }
@@ -841,36 +677,53 @@ else if (!Simulator.EnCours)
     <div class="alert alert-info">
         <h5>📌 Comment utiliser le simulateur</h5>
         <ol>
-            <li>Choisissez un <strong>scénario prédéfini</strong> ou ajustez les paramètres manuellement</li>
-            <li>Sélectionnez l'<strong>horizon temporel</strong> (court, moyen ou long terme)</li>
-            <li>Lancez la simulation en <strong>temps réel</strong> (1s = 1 jour) ou en <strong>mode rapide</strong></li>
-            <li>Observez les impacts sur l'épargne des ménages, les recettes fiscales, la dette publique, etc.</li>
+            <li>Choisissez un <strong>scénario de politique économique</strong> (ex: appui ménages, crédit PME, formalisation...)</li>
+            <li>Sélectionnez l'<strong>horizon temporel</strong> (3 mois, 1 an, 5 ans)</li>
+            <li>Lancez la simulation en <strong>temps réel</strong> ou en <strong>mode rapide</strong></li>
+            <li>Analysez les <strong>impacts macro</strong> : PIB, recettes fiscales, emploi, inflation, inégalités</li>
         </ol>
         <hr />
-        <p class="mb-0"><strong>Hypothèses :</strong> Salaires log-normale (médiane ~170k MGA, Gini ~0.43).
-            IRSA progressif par tranches. Commerce extérieur : importateurs (DD 0-20%, accise 0-60%, TVA import 20%)
-            et exportateurs (vanille, nickel, textile). PIB = C + I + G + (X - M).
-            Transport : public 1 200 MGA/j, moto/voiture selon carburant (~5 500 MGA/L).</p>
-        <hr />
-        <p class="mb-0"><strong>🍚 Riz :</strong> Consommation ~130 kg/pers/an (source FAO/INSTAT, 1er consommateur d'Afrique).
-            Taille moyenne ménage ~4,5 personnes. Prix riz local ~2 400 MGA/kg, importé ~2 800 MGA/kg.
-            Part importée ~18% (300-500 kt/an sur ~4 Mt consommées). Le coût quotidien du riz est une dépense
-            incompressible déduite avant la consommation discrétionnaire.</p>
-        <p class="mb-0"><strong>💧⚡ JIRAMA :</strong> Monopole public (Jiro sy Rano Malagasy) — seul fournisseur d'eau et d'électricité.
-            <em>Source : Tableau 21 JIRAMA/ORE — Évolution mensuelle production & consommation d'électricité (juil. 2023 – juin 2025).</em></p>
-        <ul class="mb-0 small">
-            <li><strong>Production :</strong> ~986 023 MWh / semestre (jan-juin 2025). Part hydraulique ~51,6%, thermique ~48,4%.
-                Tendance : production hydraulique -12,7% en 2025 vs 2024 (sécheresse), thermique +12,8%.</li>
-            <li><strong>Prix moyen :</strong> 653 Ar/KWh (cumul jan-juin 2025), contre 624 Ar/KWh en 2024 (+4,7%).
-                Historique : 610 Ar/KWh (juil. 2023) → 672 Ar/KWh (janv. 2025) → 646 Ar/KWh (mai 2025).</li>
-            <li><strong>Consommation :</strong> 701 336 MWh / semestre. Ménages 47,4% (332 284 MWh), Industries 51,9% (363 763 MWh),
-                Éclairage public 0,75% (5 290 MWh). Tendance ménages +0,4%, industrie -7,0%.</li>
-            <li><strong>Par ménage connecté :</strong> ~30,8 KWh/mois (~1,03 KWh/jour). Facture moy. ~20 100 MGA/mois (~670 MGA/jour).
-                Consommation différenciée par classe socio-éco (subsistance ×0.5 → cadre ×2.5).</li>
-            <li><strong>Pertes de distribution :</strong> ~28,9% (norme internationale 8-12%). Reflète la vétusté du réseau.</li>
-            <li><strong>Accès :</strong> électricité ~30% des ménages (65% urbain, 10% rural), eau ~25% (55% urbain, 10% rural).</li>
-            <li><strong>Eau :</strong> facture moy. ~15 000 MGA/mois (~500 MGA/jour).</li>
-        </ul>
+        <h6>🎯 Questions auxquelles ce simulateur répond :</h6>
+        <div class="row">
+            <div class="col-md-4">
+                <small><strong>Politique sociale :</strong></small>
+                <ul class="small mb-2">
+                    <li>Impact des transferts sociaux aux pauvres sur le PIB et la consommation ?</li>
+                    <li>Effet d'une hausse du SMIG sur l'emploi et l'inflation ?</li>
+                </ul>
+                <small><strong>Crédit & Secteur privé :</strong></small>
+                <ul class="small mb-2">
+                    <li>Facilités de crédit TPE/PME → investissement, emploi, M3 ?</li>
+                    <li>Politique monétaire expansive vs restrictive ?</li>
+                </ul>
+            </div>
+            <div class="col-md-4">
+                <small><strong>Formalisation :</strong></small>
+                <ul class="small mb-2">
+                    <li>Formalisation de 10-20% de l'informel → recettes fiscales ?</li>
+                    <li>Impact sur la productivité et les inégalités ?</li>
+                </ul>
+                <small><strong>Politique fiscale :</strong></small>
+                <ul class="small mb-2">
+                    <li>Hausse/baisse TVA → consommation, recettes, effet Laffer ?</li>
+                    <li>Hausse IS → investissement, compétitivité ?</li>
+                    <li>Réduction droits de douane → prix, balance commerciale ?</li>
+                </ul>
+            </div>
+            <div class="col-md-4">
+                <small><strong>Subventions sectorielles :</strong></small>
+                <ul class="small mb-2">
+                    <li>Subvention énergie Jirama → factures, compétitivité, déficit ?</li>
+                    <li>Investissement agricole → prix alimentaires, sécurité alimentaire ?</li>
+                    <li>Développement tourisme → devises, emploi régional ?</li>
+                </ul>
+                <small><strong>Chocs exogènes :</strong></small>
+                <ul class="small mb-2">
+                    <li>Choc carburant/importations → inflation, pouvoir d'achat ?</li>
+                    <li>Cyclone → reconstruction, résilience macro ?</li>
+                </ul>
+            </div>
+        </div>
     </div>
 }
 
@@ -886,14 +739,12 @@ else if (!Simulator.EnCours)
         var snapshots = Simulator.Result.Snapshots;
         if (snapshots.Count <= 30) return snapshots;
 
-        // Échantillonner pour garder ~30 lignes
         int step = snapshots.Count / 30;
         var sampled = new List<DailySnapshot>();
         for (int i = 0; i < snapshots.Count; i += step)
         {
             sampled.Add(snapshots[i]);
         }
-        // Toujours inclure le dernier
         if (sampled[^1] != snapshots[^1])
             sampled.Add(snapshots[^1]);
         return sampled;
@@ -940,6 +791,43 @@ else if (!Simulator.EnCours)
         double variation = (finale - initiale) / Math.Abs(initiale) * 100;
         string signe = variation >= 0 ? "+" : "";
         return $"{signe}{variation:F1}%";
+    }
+
+    private static string FormatDelta(double finale, double initiale)
+    {
+        if (initiale == 0) return "N/A";
+        double variation = (finale - initiale) / Math.Abs(initiale) * 100;
+        string signe = variation >= 0 ? "+" : "";
+        return $"{signe}{variation:F1}%";
+    }
+
+    private static string FormatDelta(double finale, double initiale, bool inversed)
+    {
+        if (initiale == 0) return "N/A";
+        double variation = (finale - initiale) / Math.Abs(initiale) * 100;
+        string signe = variation >= 0 ? "+" : "";
+        return $"{signe}{variation:F1}%";
+    }
+
+    private static string FormatDeltaInt(int finale, int initiale)
+    {
+        int diff = finale - initiale;
+        string signe = diff >= 0 ? "+" : "";
+        return $"{signe}{diff:N0}";
+    }
+
+    private static string CssVariation(double finale, double initiale)
+    {
+        if (finale > initiale) return "text-success";
+        if (finale < initiale) return "text-danger";
+        return "";
+    }
+
+    private static string CssVariation(int finale, int initiale)
+    {
+        if (finale > initiale) return "text-success";
+        if (finale < initiale) return "text-danger";
+        return "";
     }
 
     private static string CalculerEcart(double pib1, double pib2)

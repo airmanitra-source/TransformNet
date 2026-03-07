@@ -143,6 +143,115 @@ public class DailySnapshot
     public double TotalDepotsBancaires { get; set; }
     public double TotalCreditsAccordes { get; set; }
 
+    // --- Agrégats monétaires BCM (M0/M1/M2/M3) ---
+
+    /// <summary>M0 — Base monétaire (billets en circulation + réserves banques à BCM, MGA).</summary>
+    public double BaseMonetaireM0 { get; set; }
+
+    /// <summary>M1 — Monnaie au sens étroit (fiduciaire + dépôts à vue, MGA).</summary>
+    public double MasseMonetaireM1 { get; set; }
+
+    /// <summary>M2 — Monnaie au sens large intermédiaire (M1 + dépôts à terme, MGA).</summary>
+    public double MasseMonetaireM2 { get; set; }
+
+    /// <summary>Monnaie fiduciaire en circulation (billets + pièces hors banques, MGA).</summary>
+    public double MonnaieCirculation { get; set; }
+
+    /// <summary>Multiplicateur monétaire effectif = M3 / M0.</summary>
+    public double MultiplicateurMonetaire { get; set; }
+
+    /// <summary>Dépôts à vue (comptes courants, MGA).</summary>
+    public double DepotsAVue { get; set; }
+
+    /// <summary>Dépôts à terme (comptes d'épargne, MGA).</summary>
+    public double DepotsATerme { get; set; }
+
+    // --- Contreparties de la masse monétaire ---
+
+    /// <summary>Avoirs extérieurs nets (FA, MGA). BCM rapport conjoncturel.</summary>
+    public double AvoirsExterieursNets { get; set; }
+
+    /// <summary>Crédit intérieur net (crédits à l'économie + créances sur l'État, MGA).</summary>
+    public double CreditInterieurNet { get; set; }
+
+    /// <summary>Créances nettes sur l'État (avances BCM au Trésor, MGA).</summary>
+    public double CreancesNettesEtat { get; set; }
+
+    /// <summary>Encours total de crédits à l'économie (MGA).</summary>
+    public double EncoursCreditEconomie { get; set; }
+
+    // --- Taux d'intérêt et marge bancaire ---
+
+    /// <summary>Taux d'intérêt sur les dépôts (annuel, ex: 0.045 = 4.5%).</summary>
+    public double TauxInteretDepots { get; set; }
+
+    /// <summary>Taux d'intérêt sur les crédits (annuel, ex: 0.16 = 16%).</summary>
+    public double TauxInteretCredits { get; set; }
+
+    /// <summary>Intérêts versés aux déposants ce jour (MGA).</summary>
+    public double InteretsDepotJour { get; set; }
+
+    /// <summary>Intérêts perçus sur les crédits ce jour (MGA).</summary>
+    public double InteretsCreditJour { get; set; }
+
+    /// <summary>Marge nette d'intérêt du jour (MGA).</summary>
+    public double MargeNetteInteretJour { get; set; }
+
+    /// <summary>Intérêts cumulés versés aux déposants (MGA).</summary>
+    public double InteretsDepotsCumules { get; set; }
+
+    /// <summary>Intérêts cumulés perçus sur les crédits (MGA).</summary>
+    public double InteretsCreditsCumules { get; set; }
+
+    // --- Non-Performing Loans (NPL) ---
+
+    /// <summary>Encours de crédits non-performants (NPL, MGA).</summary>
+    public double EncoursNPL { get; set; }
+
+    /// <summary>Ratio NPL = NPL / Encours crédits (0-1). BCM 2024 : 7-9%.</summary>
+    public double RatioNPL { get; set; }
+
+    /// <summary>Nouveaux NPL du jour (MGA).</summary>
+    public double NouveauxNPLJour { get; set; }
+
+    /// <summary>NPL récupérés/provisionnés ce jour (MGA).</summary>
+    public double NPLRecuperesJour { get; set; }
+
+    /// <summary>Provisions cumulées pour créances douteuses (MGA).</summary>
+    public double ProvisionsCumulees { get; set; }
+
+    /// <summary>Crédits accordés aux entreprises ce jour (MGA).</summary>
+    public double CreditsEntreprisesJour { get; set; }
+
+    /// <summary>Crédits accordés aux ménages ce jour (MGA).</summary>
+    public double CreditsMenagesJour { get; set; }
+
+    // --- Solde en Compte des Banques (SCB) — BFM ---
+
+    /// <summary>SCB — Solde en Compte des Banques à la BFM (MGA).</summary>
+    public double SoldeEnCompteBanques { get; set; }
+
+    /// <summary>Écart moyen SCB - RO = réserves excédentaires (MGA).</summary>
+    public double EcartMoyenSCB_RO { get; set; }
+
+    /// <summary>Flux des FA (Foreign Assets) du jour (MGA).</summary>
+    public double FluxFAJour { get; set; }
+
+    /// <summary>Intervention nette BFM du jour (MGA). + = injection, - = ponction.</summary>
+    public double InterventionNetteBFMJour { get; set; }
+
+    /// <summary>Flux net du SCB ce jour (MGA).</summary>
+    public double FluxSCBJour { get; set; }
+
+    /// <summary>Encours d'interventions nettes BFM cumulé (MGA).</summary>
+    public double EncoursInterventionsBFM { get; set; }
+
+    /// <summary>Liquidité avant intervention BFM (MGA).</summary>
+    public double LiquiditeAvantIntervention { get; set; }
+
+    /// <summary>Liquidité après intervention BFM (MGA).</summary>
+    public double LiquiditeApresIntervention { get; set; }
+
     // ─── Achat alimentaire journalier (IHouseholdModule.AcheteProduitsAlimentaires) ───
 
     /// <summary>Somme des paniers alimentaires journaliers de tous les ménages (MGA).</summary>

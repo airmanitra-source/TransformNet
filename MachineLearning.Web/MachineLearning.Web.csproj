@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Agriculture.Module\Agriculture.Module.csproj" />
     <ProjectReference Include="..\Simulation.Module\Simulation.Module.csproj" />
     <ProjectReference Include="..\MachineLearning.ServiceDefaults\MachineLearning.ServiceDefaults.csproj" />
     <ProjectReference Include="..\Bank.Module\Bank.Module.csproj" />

@@ -242,10 +242,291 @@ public class ScenarioConfig
     // ════════════════════════════════════════════════════════════════
     public double TauxReserveObligatoire { get; set; } = 0.13;
     public double CroissanceCreditJour { get; set; } = 0.00041; // Permet de viser +15% sur un an (1.15^(1/365) - 1)
+
+    /// <summary>
+    /// Part des dépôts considérés comme "à vue" (comptes courants, M1).
+    /// BCM 2024 : ~55% des dépôts sont à vue.
+    /// </summary>
+    public double PartDepotsAVue { get; set; } = 0.55;
+
+    /// <summary>
+    /// Part de la monnaie fiduciaire dans M1.
+    /// BCM 2024 : billets et pièces ≈ 45% de M1.
+    /// </summary>
+    public double PartMonnaieCirculationDansM1 { get; set; } = 0.45;
+
+    /// <summary>
+    /// Ratio M3/M2 pour capturer les autres actifs financiers (titres, placements).
+    /// BCM 2024 : M3/M2 ≈ 1.08-1.12.
+    /// </summary>
+    public double RatioM3SurM2 { get; set; } = 1.10;
+
+    /// <summary>
+    /// Taux d'intérêt annuel sur les dépôts (rémunération de l'épargne).
+    /// BCM rapport conjoncturel 2024 : taux créditeur moyen pondéré ~4-5%.
+    /// </summary>
+    public double TauxInteretDepots { get; set; } = 0.045;
+
+    /// <summary>
+    /// Taux d'intérêt annuel sur les crédits (coût du crédit bancaire).
+    /// BCM rapport conjoncturel 2024 : taux débiteur moyen pondéré ~14-18%.
+    /// </summary>
+    public double TauxInteretCredits { get; set; } = 0.16;
+
+    /// <summary>
+    /// Probabilité journalière de défaut sur un crédit (passage en NPL).
+    /// Calibré pour un ratio NPL/crédits cible ~7-9% (BCM 2024).
+    /// 0.0003 ≈ ~10% des crédits deviennent NPL sur 1 an.
+    /// </summary>
+    public double ProbabiliteDefautCreditJour { get; set; } = 0.0003;
+
+    /// <summary>
+    /// Taux de recouvrement journalier des NPL (provision + récupération).
+    /// 0.002 = ~0.2%/jour des NPL sont récupérés ou provisionnés.
+    /// </summary>
+    public double TauxRecouvrementNPLJour { get; set; } = 0.002;
+
+    /// <summary>
+    /// Avoirs extérieurs nets initiaux (Foreign Assets) en MGA.
+    /// BCM 2024 : réserves de change ~2.5 Mds USD × 4500 MGA/USD ≈ 11 250 Mds MGA.
+    /// Mis à l'échelle par facteurEchelle.
+    /// </summary>
+    public double AvoirsExterieursNetsInitiaux { get; set; } = 11_250_000_000_000;
+
+    /// <summary>
+    /// Créances nettes sur l'État initiales (avances BCM au Trésor, MGA).
+    /// BCM 2024 : ~3 000 Mds MGA.
+    /// Mis à l'échelle par facteurEchelle.
+    /// </summary>
+    public double CreancesNettesEtatInitiales { get; set; } = 3_000_000_000_000;
+
+    /// <summary>
+    /// Part du crédit distribué aux entreprises (vs ménages).
+    /// BCM : ~75% du crédit bancaire privé va aux entreprises.
+    /// </summary>
+    public double PartCreditEntreprises { get; set; } = 0.75;
+
+    /// <summary>
+    /// SCB initial — Solde en Compte des Banques à la BFM (MGA).
+    /// BFM Sept. 2025 : 2 430,2 Mds MGA. Mis à l'échelle par facteurEchelle.
+    /// Proxy de la liquidité bancaire du système.
+    /// </summary>
+    public double SCBInitial { get; set; } = 2_430_000_000_000;
+
+    /// <summary>
+    /// Intensité d'intervention BFM pour maintenir l'excédent SCB-RO cible (0-1).
+    /// 0 = aucune intervention, 0.5 = modérée, 1.0 = stérilisation totale.
+    /// </summary>
+    public double IntensiteInterventionBFM { get; set; } = 0.50;
+
+    /// <summary>
+    /// Ratio d'excédent SCB-RO cible (en fraction des RO).
+    /// BFM T3 2025 : excédent moyen 126 Mds / RO ~2300 Mds ≈ 5.5%.
+    /// </summary>
+    public double RatioExcedentSCBCible { get; set; } = 0.055;
+
     // ════════════════════════════════════════════════════════════════
 
     // ════════════════════════════════════════════════════════════════
     // ░░░ SAISONNALITÉ AGRICOLE ░░░
+    // ════════════════════════════════════════════════════════════════
+
+    // ════════════════════════════════════════════════════════════════
+    // ░░░ DUALITÉ URBAIN / RURAL ░░░
+    // ════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Part des ménages en zone urbaine (~30% à Madagascar, RGPH 2018).
+    /// Les 70% restants sont ruraux avec des comportements très différents.
+    /// C'est LA distinction la plus structurante pour Madagascar.
+    /// </summary>
+    public double PartMenagesUrbains { get; set; } = 0.30;
+
+    /// <summary>
+    /// Multiplicateur de prix pour les zones urbaines par rapport à la base.
+    /// Les prix en ville sont plus élevés (~15-25% de plus).
+    /// </summary>
+    public double MultiplicateurPrixUrbain { get; set; } = 1.20;
+
+    /// <summary>
+    /// Multiplicateur de prix pour les zones rurales.
+    /// Prix plus bas en rural, sauf en période de soudure.
+    /// </summary>
+    public double MultiplicateurPrixRural { get; set; } = 0.85;
+
+    /// <summary>
+    /// Multiplicateur de salaire urbain (salaires plus élevés en ville).
+    /// INSTAT EPM : salaire médian urbain ~1.5x le rural.
+    /// </summary>
+    public double MultiplicateurSalaireUrbain { get; set; } = 1.40;
+
+    /// <summary>
+    /// Multiplicateur de salaire rural.
+    /// </summary>
+    public double MultiplicateurSalaireRural { get; set; } = 0.75;
+
+    /// <summary>
+    /// Taux d'accès à l'eau en zone urbaine (~50% vs 10% en rural).
+    /// </summary>
+    public double TauxAccesEauUrbain { get; set; } = 0.50;
+
+    /// <summary>
+    /// Taux d'accès à l'eau en zone rurale.
+    /// </summary>
+    public double TauxAccesEauRural { get; set; } = 0.10;
+
+    /// <summary>
+    /// Taux d'accès à l'électricité en zone urbaine (~65% vs 8% en rural).
+    /// </summary>
+    public double TauxAccesElectriciteUrbain { get; set; } = 0.65;
+
+    /// <summary>
+    /// Taux d'accès à l'électricité en zone rurale.
+    /// </summary>
+    public double TauxAccesElectriciteRural { get; set; } = 0.08;
+
+    // ════════════════════════════════════════════════════════════════
+
+    // ════════════════════════════════════════════════════════════════
+    // ░░░ AUTOCONSOMMATION AGRICOLE ░░░
+    // ════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Part des ménages ruraux pratiquant l'autoconsommation agricole (~80%).
+    /// Ces ménages consomment une partie de leur production sans transaction monétaire.
+    /// </summary>
+    public double PartMenagesRurauxAutoconsommation { get; set; } = 0.80;
+
+    /// <summary>
+    /// Part de la production agricole autoconsommée par les ménages ruraux (~40%).
+    /// Non capturée par le PIB marchand → le PIB est surestimé si on ne l'impute pas.
+    /// Source : INSTAT EPM — comptes des ménages ruraux.
+    /// </summary>
+    public double PartProductionAutoconsommee { get; set; } = 0.40;
+
+    /// <summary>
+    /// Valeur monétaire imputée de l'autoconsommation journalière par ménage (MGA).
+    /// Estimation : ~2 500 MGA/jour (équivalent riz + légumes du potager).
+    /// </summary>
+    public double ValeurAutoconsommationJourBase { get; set; } = 2_500;
+
+    // ════════════════════════════════════════════════════════════════
+
+    // ════════════════════════════════════════════════════════════════
+    // ░░░ CROISSANCE DÉMOGRAPHIQUE ░░░
+    // ════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Active la croissance démographique pendant la simulation.
+    /// Si true, de nouveaux ménages sont ajoutés périodiquement (+2.7%/an).
+    /// Sans cela, une simulation 5 ans est structurellement biaisée.
+    /// </summary>
+    public bool CroissanceDemographiqueActivee { get; set; } = true;
+
+    /// <summary>
+    /// Taux de croissance démographique annuel (~2.7% à Madagascar, Banque Mondiale 2024).
+    /// Converti en taux journalier pour l'ajout progressif de ménages.
+    /// </summary>
+    public double TauxCroissanceDemographiqueAnnuel { get; set; } = 0.027;
+
+    // ════════════════════════════════════════════════════════════════
+
+    // ════════════════════════════════════════════════════════════════
+    // ░░░ SÉCHERESSE GRAND SUD (KERE) ░░░
+    // ════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Active les chocs de sécheresse dans le Grand Sud.
+    /// Contrairement aux cyclones : pas de reconstruction BTP, mais aide alimentaire
+    /// et migration interne vers les villes.
+    /// </summary>
+    public bool ChocsSecheresseActives { get; set; } = true;
+
+    /// <summary>
+    /// Probabilité journalière de début de sécheresse pendant la saison sèche (mai-nov).
+    /// 0.001 ≈ ~16% de chance sur 6 mois. Le kere est moins fréquent que les cyclones.
+    /// </summary>
+    public double ProbabiliteSecheresseJourSaison { get; set; } = 0.001;
+
+    /// <summary>
+    /// Part des ménages du Grand Sud affectés par la sécheresse (15-25%).
+    /// Le Grand Sud représente ~10% de la population malgache.
+    /// </summary>
+    public double PartMenagesAffectesSecheresse { get; set; } = 0.08;
+
+    /// <summary>
+    /// Durée moyenne d'un épisode de sécheresse (jours).
+    /// Le kere peut durer 90-180 jours (3-6 mois).
+    /// </summary>
+    public int DureeSecheresseJours { get; set; } = 120;
+
+    /// <summary>
+    /// Réduction de la production agricole pendant la sécheresse (0-1).
+    /// 0.60 = perte de 60% de la production dans les zones touchées.
+    /// </summary>
+    public double ReductionProductionAgricoleSecheresse { get; set; } = 0.60;
+
+    /// <summary>
+    /// Aide alimentaire journalière par ménage affecté (MGA).
+    /// PAM/BNGRC : distributions de riz, légumineuses, huile.
+    /// Valeur estimée : ~3 000 MGA/jour/ménage.
+    /// </summary>
+    public double AideAlimentaireSecheresseJourParMenage { get; set; } = 3_000;
+
+    /// <summary>
+    /// Probabilité de migration interne pour les ménages touchés par le kere (0-1).
+    /// ~10-15% des ménages touchés migrent vers les villes (Toliara, Tana).
+    /// </summary>
+    public double ProbabiliteMigrationSecheresse { get; set; } = 0.12;
+
+    // ════════════════════════════════════════════════════════════════
+
+    // ════════════════════════════════════════════════════════════════
+    // ░░░ MICROFINANCE / CRÉDIT SEGMENTÉ ░░░
+    // ════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Part des ménages ayant accès au crédit bancaire formel (~10%).
+    /// Principalement cadres et formel qualifié en zone urbaine.
+    /// Source : BCM rapport inclusion financière 2024.
+    /// </summary>
+    public double PartMenagesCreditBancaire { get; set; } = 0.10;
+
+    /// <summary>
+    /// Part des ménages ayant accès à la microfinance / IMF (~25%).
+    /// Taux d'intérêt : 24-36% annuel (CNFI Madagascar).
+    /// </summary>
+    public double PartMenagesCreditMicrofinance { get; set; } = 0.25;
+
+    /// <summary>
+    /// Part des ménages participant à des tontines informelles (~30%).
+    /// Système d'épargne rotative sans intérêt formel.
+    /// </summary>
+    public double PartMenagesTontine { get; set; } = 0.30;
+
+    /// <summary>
+    /// Taux d'intérêt annuel de la microfinance (24-36%).
+    /// Bien plus élevé que le crédit bancaire (14-18%).
+    /// </summary>
+    public double TauxInteretMicrofinanceAnnuel { get; set; } = 0.30;
+
+    /// <summary>
+    /// Montant maximal d'un crédit microfinance par ménage (MGA).
+    /// IMF Madagascar : plafond typique ~500 000 - 2 000 000 MGA.
+    /// </summary>
+    public double PlafondCreditMicrofinance { get; set; } = 1_000_000;
+
+    /// <summary>
+    /// Montant maximal d'une tontine par tour (MGA).
+    /// Tontines informelles : 50 000 - 300 000 MGA par tour.
+    /// </summary>
+    public double PlafondTontine { get; set; } = 200_000;
+
+    /// <summary>
+    /// Probabilité journalière d'octroi de crédit microfinance (si éligible).
+    /// </summary>
+    public double ProbabiliteOctroiMicrofinanceJour { get; set; } = 0.001;
+
     // ════════════════════════════════════════════════════════════════
 
     /// <summary>
@@ -598,214 +879,272 @@ public class ScenarioConfig
     {
         return new List<ScenarioConfig>
         {
-            // ══════════════════════════════════════════════════════════════════════
-            // 1. SCÉNARIO DE BASE — Madagascar actuel (sept. 2025)
-            // ══════════════════════════════════════════════════════════════════════
+            // ══════════════════════════════════════════════════════════════
+            // 0. BASELINE — Madagascar actuel (sept. 2025)
+            // ══════════════════════════════════════════════════════════════
             new()
             {
-                Name = "🇲🇬 Madagascar actuel (TOFE sept. 2025)",
-                Description = "Calibrage réel sur données INSTAT/FMI sept. 2025. État économique stable, inflation modérée."
+                Name = "🇲🇬 Baseline — Madagascar actuel (2025)",
+                Description = "Calibrage INSTAT/BCM/BFM sept. 2025. Référence pour mesurer l'impact de toute politique."
             },
 
-            // ══════════════════════════════════════════════════════════════════════
-            // 2. CHOC CARBURANT MODÉRÉ (court terme) — +10%
-            // ══════════════════════════════════════════════════════════════════════
+            // ══════════════════════════════════════════════════════════════
+            // POLITIQUE SOCIALE
+            // ══════════════════════════════════════════════════════════════
+
+            // Q: Si j'augmente l'appui aux ménages pauvres (+50% transferts sociaux), quels impacts macro ?
             new()
             {
-                Name = "⛽ Choc carburant modéré (+10%)",
-                Description = "Carburant: 5500 → 6050 MGA/L. Élasticité normale. Impact court terme : inflation 5-7%, résilience ménages.",
-                PrixCarburantLitre = 6_050,
-                PrixCarburantReference = 5_500,
-                ElasticitePrixParCarburant = 0.70,
-                VolatiliteAleatoireMarche = 0.10,
-                ElasticiteComportementMenage = 0.65
+                Name = "🤝 Appui ménages pauvres (+50% transferts sociaux)",
+                Description = "Transferts sociaux +50%. Impact : consommation ↑, PIB demand-pull ↑, inflation alimentaire ?, recettes TVA ?, secteur informel ?",
+                DepensesPubliquesJour = 4_827_000_000, // +50% du montant dédié transferts
+                AideInternationaleJour = 5_556_000_000, // +50% aide (financement externe)
             },
 
-            // ══════════════════════════════════════════════════════════════════════
-            // 3. CHOC CARBURANT SÉVÈRE (moyen terme) — +50%
-            // ══════════════════════════════════════════════════════════════════════
+            // Q: Si je double les transferts avec financement par dette ?
             new()
             {
-                Name = "⛽⛽ Crise carburant (moyen terme +50%)",
-                Description = "Carburant: 5500 → 8250 MGA/L. Transmission forte. Inflation alimentaire, réduction quantités, impact PIB négatif.",
-                PrixCarburantLitre = 8_250,
-                PrixCarburantReference = 5_500,
-                ElasticitePrixParCarburant = 0.75,
-                VolatiliteAleatoireMarche = 0.12,
-                ElasticiteComportementMenage = 0.70,
-                PartRevenuAlimentaire = 0.45
+                Name = "🤝🤝 Appui ménages pauvres massif (×2 transferts, dette)",
+                Description = "Transferts sociaux ×2, financés par dette publique. Impact : demande ↑↑, inflation ?, dette ?, effet multiplicateur ?",
+                DepensesPubliquesJour = 6_436_000_000, // ×2
             },
 
-            // ══════════════════════════════════════════════════════════════════════
-            // 4. STAGFLATION — +80% carburant, transmission très forte
-            // ══════════════════════════════════════════════════════════════════════
+            // Q: Si j'augmente le salaire minimum (SMIG) de 200k à 300k MGA/mois ?
             new()
             {
-                Name = "🔥 Stagflation (crise sévère +80% carburant)",
-                Description = "Carburant: 5500 → 9900 MGA/L. Transmission complète. Inflation 50-60%, privation ménages, chômage, cercle vicieux.",
-                PrixCarburantLitre = 9_900,
-                PrixCarburantReference = 5_500,
-                ElasticitePrixParCarburant = 0.85,
-                VolatiliteAleatoireMarche = 0.15,
-                ElasticiteComportementMenage = 0.75,
-                PartRevenuAlimentaire = 0.50,
-                TauxDirecteur = 0.15,
-                TauxInflation = 0.20
+                Name = "💰 Hausse SMIG (200k → 300k MGA/mois)",
+                Description = "Salaire plancher +50%. Impact : pouvoir d'achat ↑, charges entreprises ↑, emploi formel ?, inflation salaires ?",
+                SalairePlancher = 75_000, // 300k/mois ÷ ~4 semaines ≈ plafond journalier ajusté
+                SalaireMedian = 200_000, // tiré vers le haut
             },
 
-            // ══════════════════════════════════════════════════════════════════════
-            // 5. RÉSILIENCE — Commerce absorbe les chocs
-            // ══════════════════════════════════════════════════════════════════════
+            // ══════════════════════════════════════════════════════════════
+            // POLITIQUE DE CRÉDIT & SECTEUR PRIVÉ
+            // ══════════════════════════════════════════════════════════════
+
+            // Q: Si j'accorde des facilités de crédit aux TPE/PME (CA > 10M MGA), quels impacts macro ?
             new()
             {
-                Name = "💪 Résilience (absorption des chocs)",
-                Description = "Carburant monte mais commerce absorbe 70%. Volatilité basse. Ménages peu affectés, économie stable.",
-                PrixCarburantLitre = 8_250,
-                PrixCarburantReference = 5_500,
-                ElasticitePrixParCarburant = 0.30,
-                VolatiliteAleatoireMarche = 0.05,
-                ElasticiteComportementMenage = 0.30,
-                PartRevenuAlimentaire = 0.35
+                Name = "🏦 Facilités crédit TPE/PME (crédit +30%, taux -3pts)",
+                Description = "Crédit +30% aux entreprises, taux crédit -3pts. Impact : investissement ↑, emploi ↑, M3 ↑, NPL ?, inflation ?",
+                CroissanceCreditJour = 0.00053, // +30% vs base (0.00041)
+                TauxInteretCredits = 0.13, // -3pts
+                PartCreditEntreprises = 0.85, // ciblage entreprises
             },
 
-            // ══════════════════════════════════════════════════════════════════════
-            // 6. STIMULUS FISCAL — Augmentation dépenses publiques
-            // ══════════════════════════════════════════════════════════════════════
+            // Q: Politique monétaire expansive — taux directeur bas
             new()
             {
-                Name = "📊 Stimulus fiscal (+20% dépenses publiques)",
-                Description = "État augmente dépenses capital et fonctionnement. Demande aggregate ↑, emploi ↑, inflation modérée.",
-                DepensesPubliquesJour = 3_861_600_000,  // +20%
-                DepensesCapitalJour = 16_231_200_000,   // +20%
-                TauxDirecteur = 0.06,
-                TauxInflation = 0.10
-            },
-
-            // ══════════════════════════════════════════════════════════════════════
-            // 7. AUSTÉRITÉ BUDGÉTAIRE — Réduction dépenses État
-            // ══════════════════════════════════════════════════════════════════════
-            new()
-            {
-                Name = "⚠️ Austérité budgétaire (-20% dépenses publiques)",
-                Description = "État réduit drastiquement. Chômage du secteur public, baisse demande, récession.",
-                DepensesPubliquesJour = 2_574_400_000,  // -20%
-                DepensesCapitalJour = 10_820_800_000,   // -20%
-                NombreFonctionnaires = 280_000,         // -20%
-                TauxDirecteur = 0.12,
-                TauxInflation = 0.12
-            },
-
-            // ══════════════════════════════════════════════════════════════════════
-            // 8. BOOM EXPORT — Volumes export INSTAT +30%
-            // ══════════════════════════════════════════════════════════════════════
-            new()
-            {
-                Name = "📦 Boom export (vanilla, nickel, textile)",
-                Description = "Exportations +30% (prix mondiaux ↑ ou volumes). Devise forte, investissements, emploi privé ↑.",
-                UseExportCalibresDirectement = true,
-                TauxIS = 0.15,
-                TauxTVA = 0.18,
-                PartEntreprisesConstruction = 0.08
-            },
-
-            // ══════════════════════════════════════════════════════════════════════
-            // 9. CHOC IMPORTATIONS — Augmentation prix mondiaux
-            // ══════════════════════════════════════════════════════════════════════
-            new()
-            {
-                Name = "🌍 Choc importations (prix mondiaux +25%)",
-                Description = "Coût CIF monte de 25%. Inflation importée, déficit commercial, pression reserve devises.",
-                PrixRizImporteKg = 3_500,  // +25%
-                PrixCarburantLitre = 6_875,  // +25%
-                TauxDroitsDouane = 0.15,
-                TauxAccise = 0.12,
-                TauxInflation = 0.12
-            },
-
-            // ══════════════════════════════════════════════════════════════════════
-            // 10. CHOC EMPLOI NÉGATIF — Entreprises réduisent effectifs
-            // ══════════════════════════════════════════════════════════════════════
-            new()
-            {
-                Name = "😔 Crise emploi (chômage +30%)",
-                Description = "Entreprises réduisent effectifs de 30%. Baisse salaires, consommation, relayage par secteur informel.",
-                NombreMenages = 70_000,
-                NombreEntreprises = 35_000,
-                MargeBeneficiaireEntreprise = 0.15,
-                TauxTVA = 0.16,
-                RemittancesJour = 9_620_000_000  // +30% remittances compensent
-            },
-
-            // ══════════════════════════════════════════════════════════════════════
-            // 11. INNOVATION / PRODUCTIVITÉ — +15% efficacité
-            // ══════════════════════════════════════════════════════════════════════
-            new()
-            {
-                Name = "🚀 Innovation & productivité (+15%)",
-                Description = "Secteurs modernes (FDI textile, Ambatovy expansion). VA par employé ↑, salaires ↑, gini ↓.",
-                ProductiviteParEmploye = 17_250,  // +15%
-                SalaireMedian = 195_500,  // +15%
-                MargeBeneficiaireEntreprise = 0.25,
-                TauxReinvestissementPrive = 0.35
-            },
-
-            // ══════════════════════════════════════════════════════════════════════
-            // 12. CLIMAT DÉFAVORABLE — Cyclone, sécheresse
-            // ══════════════════════════════════════════════════════════════════════
-            new()
-            {
-                Name = "🌪️ Choc climatique (récoltes -40%)",
-                Description = "Cyclone/sécheresse détruit récoltes. Secteur agricole -40%, inflation alimentaire, pauvreté temporaire.",
-                PartEntreprisesAgricoles = 0.18,  // -40% production
-                ConsommationRizAnnuelleKgParPersonne = 130,
-                PrixRizLocalKg = 3_500,  // +45% pénurie
-                PrixRizImporteKg = 4_200,
-                TauxInflation = 0.15
-            },
-
-            // ══════════════════════════════════════════════════════════════════════
-            // 13. POLITIQUE MONÉTAIRE EXPANSIVE — Taux directeur bas
-            // ══════════════════════════════════════════════════════════════════════
-            new()
-            {
-                Name = "💰 Monnaie facile (taux directeur 3%)",
-                Description = "Banque centrale baisse taux. Crédit ↑, consommation ↑, investissement ↑, mais inflation risque ↑.",
+                Name = "🏦 Monnaie facile (taux directeur 3%, crédit ↑)",
+                Description = "BCM baisse taux à 3%. Impact : crédit ↑, investissement ↑, consommation ↑, inflation ?, taux change ?",
                 TauxDirecteur = 0.03,
-                SubventionJiramaJour = 1_644_000_000,  // +20% subvention
-                RemittancesJour = 8_880_000_000  // -20% remittances (dévaluation)
+                CroissanceCreditJour = 0.00060, // croissance crédit plus rapide
+                TauxInteretCredits = 0.12,
+                TauxInteretDepots = 0.03,
             },
 
-            // ══════════════════════════════════════════════════════════════════════
-            // 14. CONSOLIDATION FISCALE — Augmentation TVA
-            // ══════════════════════════════════════════════════════════════════════
+            // Q: Resserrement monétaire — taux directeur haut
             new()
             {
-                Name = "📈 Hausse TVA (18% → 22%)",
-                Description = "Gouvernement augmente TVA pour réduire déficit. Inflation court terme, baisse consommation, mais finances saines LT.",
+                Name = "🏦 Resserrement monétaire (taux directeur 15%)",
+                Description = "BCM monte taux à 15% pour combattre inflation. Impact : crédit ↓, investissement ↓, inflation ↓, emploi ?",
+                TauxDirecteur = 0.15,
+                CroissanceCreditJour = 0.00020,
+                TauxInteretCredits = 0.22,
+                TauxInteretDepots = 0.07,
+            },
+
+            // ══════════════════════════════════════════════════════════════
+            // FORMALISATION DU SECTEUR INFORMEL
+            // ══════════════════════════════════════════════════════════════
+
+            // Q: Si je formalise 10% du secteur informel, quels impacts sur les recettes fiscales ?
+            new()
+            {
+                Name = "📋 Formalisation secteur informel (-10pts informel)",
+                Description = "Part informel 85%→75%. Impact : recettes fiscales ↑ (IR, IS, TVA), emploi formel ↑, productivité ↑, coût entreprises ?",
+                PartSecteurInformel = 0.75, // -10 points
+                TauxCotisationsPatronalesCNaPS = 0.18,
+            },
+
+            // Q: Si je formalise 20% du secteur informel ?
+            new()
+            {
+                Name = "📋📋 Formalisation massive (-20pts informel)",
+                Description = "Part informel 85%→65%. Impact : recettes fiscales ↑↑, base TVA élargie, productivité ↑, mais coûts sociaux transition ?",
+                PartSecteurInformel = 0.65,
+            },
+
+            // ══════════════════════════════════════════════════════════════
+            // POLITIQUE FISCALE
+            // ══════════════════════════════════════════════════════════════
+
+            // Q: Si j'augmente la TVA de 20% à 22%, quels impacts ?
+            new()
+            {
+                Name = "📈 Hausse TVA (20% → 22%)",
+                Description = "TVA +2pts. Impact : recettes fiscales ↑, prix ↑, consommation ↓, secteur informel renforcé ?",
                 TauxTVA = 0.22,
-                TauxDirecteur = 0.10,
-                AideInternationaleJour = 4_445_000_000  // +20% FMI
             },
 
-            // ══════════════════════════════════════════════════════════════════════
-            // 15. SCÉNARIO OPTIMISTE 2030 — Croissance inclusive
-            // ══════════════════════════════════════════════════════════════════════
+            // Q: Si je baisse la TVA à 18% pour stimuler la consommation ?
             new()
             {
-                Name = "🌟 Vision 2030 (croissance inclusive)",
-                Description = "Investissement FDI, réduction inégalités, inflation 4%, emploi +25%, Gini -10%, PIB +7%/an.",
-                NombreMenages = 120_000,
-                NombreEntreprises = 62_500,
-                SalaireMedian = 220_000,
-                SalaireSigma = 0.70,  // Moins d'inégalités
-                MargeBeneficiaireEntreprise = 0.22,
+                Name = "📉 Baisse TVA (20% → 18%)",
+                Description = "TVA -2pts. Impact : prix ↓, consommation ↑, recettes fiscales ↓, déficit ?, effet Laffer ?",
+                TauxTVA = 0.18,
+            },
+
+            // Q: Si j'augmente l'IS sur les grandes entreprises ?
+            new()
+            {
+                Name = "🏢 Hausse IS (20% → 25%)",
+                Description = "IS +5pts. Impact : recettes IS ↑, investissement privé ↓, compétitivité ?, délocalisations ?",
+                TauxIS = 0.25,
+            },
+
+            // Q: Si je réduis les droits de douane pour baisser les prix ?
+            new()
+            {
+                Name = "🚢 Réduction droits douane (12% → 8%)",
+                Description = "Droits douane -4pts. Impact : prix imports ↓, inflation ↓, recettes douanières ↓, déficit commercial ?",
+                TauxDroitsDouane = 0.08,
+                TauxAccise = 0.08,
+            },
+
+            // ══════════════════════════════════════════════════════════════
+            // POLITIQUE BUDGÉTAIRE & INVESTISSEMENT PUBLIC
+            // ══════════════════════════════════════════════════════════════
+
+            // Q: Si j'augmente l'investissement public de 20% ?
+            new()
+            {
+                Name = "🏗️ Stimulus investissement public (+20% FBCF)",
+                Description = "Dépenses capital +20%. Impact : FBCF ↑, emploi BTP ↑, PIB ↑, dette ?, effet d'éviction ?",
+                DepensesCapitalJour = 16_231_200_000, // +20%
+                DepensesPubliquesJour = 3_861_600_000, // +20%
+            },
+
+            // Q: Austérité budgétaire ?
+            new()
+            {
+                Name = "⚠️ Austérité budgétaire (-20% dépenses État)",
+                Description = "Dépenses publiques -20%. Impact : déficit ↓, dette ↓, mais emploi public ↓, demande ↓, PIB ?",
+                DepensesPubliquesJour = 2_574_400_000,
+                DepensesCapitalJour = 10_820_800_000,
+                NombreFonctionnaires = 280_000,
+            },
+
+            // ══════════════════════════════════════════════════════════════
+            // SUBVENTIONS SECTORIELLES
+            // ══════════════════════════════════════════════════════════════
+
+            // Q: Si je subventionne la Jirama (énergie) davantage ?
+            new()
+            {
+                Name = "⚡ Subvention énergie (Jirama +50%)",
+                Description = "Subvention Jirama +50%. Impact : facture ménages ↓, compétitivité entreprises ↑, déficit ↑, dette ?",
+                SubventionJiramaJour = 2_055_000_000, // +50%
+            },
+
+            // Q: Si je supprime la subvention Jirama ?
+            new()
+            {
+                Name = "⚡ Fin subvention Jirama (0 MGA)",
+                Description = "Suppression subvention énergie. Impact : facture ménages ↑↑, compétitivité ↓, déficit ↓, pauvreté énergétique ?",
+                SubventionJiramaJour = 0,
+            },
+
+            // Q: Si j'investis dans l'agriculture (+30% productivité) ?
+            new()
+            {
+                Name = "🌾 Investissement agricole (+30% productivité)",
+                Description = "Productivité agricole +30%. Impact : prix alimentaires ↓, sécurité alimentaire ↑, exports ↑, revenu rural ↑",
                 ProductiviteParEmploye = 19_500,
-                TauxDirecteur = 0.05,
-                TauxInflation = 0.04,
+                PartEntreprisesAgricoles = 0.35,
+                PrixRizLocalKg = 2_000, // baisse prix grâce à la productivité
+            },
+
+            // Q: Si je développe le tourisme (+50% capacité) ?
+            new()
+            {
+                Name = "🏖️ Boost tourisme (+50% capacité hôtelière)",
+                Description = "Secteur tourisme +50%. Impact : devises ↑, emploi services ↑, taux change ↓, revenus régions ?",
+                PartEntreprisesHotellerieTourisme = 0.045, // +50%
+            },
+
+            // ══════════════════════════════════════════════════════════════
+            // CHOCS EXOGÈNES
+            // ══════════════════════════════════════════════════════════════
+
+            // Q: Impact d'un choc carburant ?
+            new()
+            {
+                Name = "⛽ Choc carburant (+30%)",
+                Description = "Carburant 5500→7150 MGA/L. Impact : inflation cost-push ↑, transport ↑, prix alimentaires ↑, pouvoir d'achat ↓",
+                PrixCarburantLitre = 7_150,
+                ElasticitePrixParCarburant = 0.70,
+            },
+
+            // Q: Impact d'un choc importations ?
+            new()
+            {
+                Name = "🌍 Choc prix mondiaux imports (+25%)",
+                Description = "Prix CIF +25%. Impact : inflation importée ↑, balance commerciale ↓, réserves ↓, taux change ?",
+                PrixRizImporteKg = 3_500,
+                PrixCarburantLitre = 6_875,
+                TauxDroitsDouane = 0.15,
+            },
+
+            // Q: Catastrophe climatique ?
+            new()
+            {
+                Name = "🌪️ Cyclone majeur (récoltes -40%)",
+                Description = "Cyclone sévère détruit 40% récoltes. Impact : prix alimentaires ↑↑, pauvreté ↑, reconstruction BTP ↑",
+                PartEntreprisesAgricoles = 0.18,
+                PrixRizLocalKg = 3_500,
+                PrixRizImporteKg = 4_200,
+            },
+
+            // Q: Boom export (prix matières premières mondiaux) ?
+            new()
+            {
+                Name = "📦 Boom export (vanille, nickel +30%)",
+                Description = "Exports +30%. Impact : devises ↑, taux change ↓, investissement ↑, Dutch disease ?",
+                UseExportCalibresDirectement = true,
+                PartEntreprisesConstruction = 0.08,
+            },
+
+            // ══════════════════════════════════════════════════════════════
+            // SCÉNARIOS COMPOSITES (STRATÉGIE COMPLÈTE)
+            // ══════════════════════════════════════════════════════════════
+
+            // Q: Scénario de croissance inclusive (package complet) ?
+            new()
+            {
+                Name = "🌟 Stratégie croissance inclusive 2030",
+                Description = "Package : formalisation + crédit PME + investissement public + productivité. Impact global sur PIB, emploi, inégalités.",
+                PartSecteurInformel = 0.70,
+                CroissanceCreditJour = 0.00053,
+                TauxInteretCredits = 0.13,
+                DepensesCapitalJour = 16_231_200_000,
+                ProductiviteParEmploye = 19_500,
+                SalaireMedian = 220_000,
+                SalaireSigma = 0.70,
                 TauxIS = 0.18,
-                TauxTVA = 0.20,
-                PartEntreprisesConstruction = 0.10
-            }
+            },
+
+            // Q: Scénario de crise (combinaison de chocs) ?
+            new()
+            {
+                Name = "🔥 Crise combinée (carburant + climat + change)",
+                Description = "Triple choc : carburant +50%, cyclone, dépréciation MGA. Stress-test de la résilience macro.",
+                PrixCarburantLitre = 8_250,
+                PartEntreprisesAgricoles = 0.18,
+                PrixRizLocalKg = 3_500,
+                TauxInflation = 0.15,
+                TauxDirecteur = 0.12,
+            },
         };
     }
 }

@@ -1,10 +1,13 @@
 <Solution>
+  <Project Path="Agriculture.Module/Agriculture.Module.csproj" Id="fb73e171-9d22-48a1-8734-4ab237774835" />
   <Project Path="Bank.Module/Bank.Module.csproj" Id="47b97551-40a8-42fe-96f3-cbdfae5e4c85" />
   <Project Path="Company.Module/Company.Module.csproj" Id="f267ad7b-aea3-49ec-8bba-eac69e230112" />
+  <Project Path="Demography.Module/Demography.Module.csproj" Id="a1b0c576-66a2-4bee-99cd-b5a9c2d6b77d" />
   <Project Path="Economic.Risk.Module/Economic.Risk.Module.csproj" Id="310ba6bf-589a-4f89-97a8-f59d047c4db6" />
   <Project Path="Exportation.Module/Exportation.Module.csproj" Id="519b7af2-cab2-4006-a3c8-6c379610d317" />
   <Project Path="Government.Module/Government.Module.csproj" Id="b622bebf-a733-4b71-9d77-4d3d10688b2b" />
   <Project Path="Helpers.Module/Helpers.Module.csproj" Id="3c251a6c-ab1f-4627-8e8e-8354a56d7623" />
+  <Project Path="Household.Autoconsumption.Module/Household.Autoconsumption.Module.csproj" Id="d1b4c391-b8ec-4840-8286-2e8e14b3e9ca" />
   <Project Path="Household.Education.Module/Household.Education.Module.csproj" />
   <Project Path="Household.HealthExpenditure.Module/Household.HealthExpenditure.Module.csproj" />
   <Project Path="Household.Leisure.Spending.Module/Household.Leisure.Spending.Module.csproj" Id="40de940b-2c34-4d64-95d4-d79f0a5612d6" />
@@ -19,6 +22,7 @@
   <Project Path="MachineLearning.Web/MachineLearning.Web.csproj" />
   <Project Path="MachineTraining/MachineTraining.csproj" Id="1bd382ae-c27d-4dbc-bbd8-deb55eca1677" />
   <Project Path="Price.Module/Price.Module.csproj" Id="04f5d96d-d348-4cae-87e0-66542bcbfc2a" />
+  <Project Path="Simulation.Infrastructure/Simulation.Infrastructure.csproj" Id="74903e46-06fa-4278-8ef7-b8b9b1104d00" />
   <Project Path="Simulation.Module/Simulation.Module.csproj" Id="70ca094d-d255-4c99-9273-babc241c03b2" />
   <Project Path="Transportation.Module/Transportation.Module.csproj" />
 </Solution>
