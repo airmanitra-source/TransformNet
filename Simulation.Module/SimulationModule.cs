@@ -13,8 +13,6 @@ using Household.Salary.Distribution.Module;
 using Company.Module;
 using Household.Leisure.Spending.Module;
 using Household.Remittance.Module;
-using Household.Education.Module;
-using Household.HealthExpenditure.Module;
 using Price.Module;
 using Bank.Module;
 using Transportation.Module;
@@ -31,24 +29,18 @@ public class SimulationModule : ISimulationModule
     private readonly IHouseholdSalaryDistributionModule _householdSalaryDistributionModule;
     private readonly IHouseholdLeisureSpendingModule _householdLeisureSpendingModule;
     private readonly IHouseholdRemittanceModule _householdRemittanceModule;
-    private readonly IHouseholdEducationModule _householdEducationModule;
-    private readonly IHouseholdHealthExpenditureModule _householdHealthExpenditureModule;
     private readonly IBankModule _bankModule;
     private readonly ITransportationModule _transportationModule;
-    private readonly IInflationModule _inflationModule;
-    private readonly ISeasonalityModule _seasonalityModule;
-    private readonly IMacroValidationModule _macroValidationModule;
-    private readonly IExchangeRateModule _exchangeRateModule;
-    private readonly List<AgentHousehold> _menages = new List<AgentHousehold>();
-    private readonly List<AgentCompany> _entreprises = new List<AgentCompany>();
-    private readonly List<AgentImporter> _importateurs = new List<AgentImporter>();
-    private readonly List<AgentExporter> _exportateurs = new List<AgentExporter>();
+    private readonly List<AgentHousehold> _menages = [];
+    private readonly List<AgentCompany> _entreprises = [];
+    private readonly List<AgentImporter> _importateurs = [];
+    private readonly List<AgentExporter> _exportateurs = [];
     private AgentJirama _jirama = new();
     private AgentGovernment _etat = new();
     private Bank.Module.Models.Bank _banque = new();
     private ScenarioConfig _config = new();
     private SimulationResult _result = new();
-    private readonly List<AgentCompany> _entreprisesTourisme = new List<AgentCompany>();
+    private readonly List<AgentCompany> _entreprisesTourisme = [];
     private CancellationTokenSource? _cts;
     private int _jourCourant;
     private double _facteurEchelle = 1.0;
@@ -70,14 +62,8 @@ public class SimulationModule : ISimulationModule
         IPriceModule priceModule,
         IHouseholdLeisureSpendingModule householdLeisureSpendingModule,
         IHouseholdRemittanceModule householdRemittanceModule,
-        IHouseholdEducationModule householdEducationModule,
-        IHouseholdHealthExpenditureModule householdHealthExpenditureModule,
         IBankModule bankModule,
-        ITransportationModule transportationModule,
-        IInflationModule inflationModule,
-        ISeasonalityModule seasonalityModule,
-        IMacroValidationModule macroValidationModule,
-        IExchangeRateModule exchangeRateModule)
+        ITransportationModule transportationModule)
     {
         _governmentModule = governmentModule;
         _householdModule  = householdModule;
@@ -86,24 +72,9 @@ public class SimulationModule : ISimulationModule
         _priceModule      = priceModule;
         _householdLeisureSpendingModule = householdLeisureSpendingModule;
         _householdRemittanceModule = householdRemittanceModule;
-        _householdEducationModule = householdEducationModule;
-        _householdHealthExpenditureModule = householdHealthExpenditureModule;
         _bankModule = bankModule;
         _transportationModule = transportationModule;
-        _inflationModule = inflationModule;
-        _seasonalityModule = seasonalityModule;
-        _macroValidationModule = macroValidationModule;
-        _exchangeRateModule = exchangeRateModule;
     }
-
-        public void AppliquerPropensionConsommationParClasse(ScenarioConfig config)
-        {
-            if (_menages == null || config == null) return;
-            foreach (var m in _menages)
-            {
-                m.PropensionConsommation = config.GetPropensionParClasse(m.Classe);
-            }
-        }
 
     /// <summary>
     /// Initialise la simulation avec un scénario donné.
@@ -351,7 +322,7 @@ public class SimulationModule : ISimulationModule
 
                 if (!salairesParEmployeur.TryGetValue(employeur.Id, out var salairesEmployeur))
                 {
-                    salairesEmployeur = new List<double>();
+                    salairesEmployeur = [];
                     salairesParEmployeur[employeur.Id] = salairesEmployeur;
                 }
                 salairesEmployeur.Add(salaire);
@@ -379,22 +350,12 @@ public class SimulationModule : ISimulationModule
                 ? _config.ConsommationElecMenageKWhJour * facteurConsoElec
                 : 0;
 
-            bool estProprietaire = random.NextDouble() < _config.TauxMenagesProprietaires;
-            int nombreEnfants = TirerNombreEnfants(classe, random);
-            int nombreEnfantsScolarises = TirerNombreEnfantsScolarises(nombreEnfants, classe);
-            bool estEnConstructionMaison = !estProprietaire
-                && random.NextDouble() < ProbabiliteConstructionMaison(classe);
-            int dureeConstructionMaison = estEnConstructionMaison
-                ? DureeConstructionMaison(classe)
-                : 0;
-
             var menage = new AgentHousehold
             {
                 SalaireMensuel = salaire,
                 Classe = classe,
                 TauxEpargne = comportement.TauxEpargne,
-                // Propension marginale à consommer : paramétrée par classe via ScenarioConfig
-                PropensionConsommation = _config.GetPropensionParClasse(classe),
+                PropensionConsommation = comportement.PropensionConsommation,
                 Epargne = comportement.EpargneInitiale,
                 EstEmploye = estEmploye,
                 EstFonctionnaire = estFonctionnaire,
@@ -409,17 +370,7 @@ public class SimulationModule : ISimulationModule
                 DepensesEauJour = accesEau ? _config.TarifEauJourMenage : 0,
                 ConsommationElecKWhJour = consoElecKWhJour,
                 DepensesElectriciteJour = consoElecKWhJour * _config.PrixElectriciteArKWh,
-                EstProprietaire = estProprietaire,
-                NombreEnfants = nombreEnfants,
-                NombreEnfantsScolarises = nombreEnfantsScolarises,
-                DureeDepenseEducationJours = _config.DureeDepenseEducationJours,
-                LoyerJournalier = estProprietaire ? 0 : CalculerLoyerJournalier(classe),
-                EstEnConstructionMaison = estEnConstructionMaison,
-                DureeConstructionMaisonJours = dureeConstructionMaison,
-                JoursConstructionMaisonRestants = dureeConstructionMaison,
-                BudgetConstructionMaisonJour = estEnConstructionMaison
-                    ? CalculerBudgetConstructionJournalier(classe)
-                    : 0,
+                EstProprietaire = random.NextDouble() < _config.TauxMenagesProprietaires,
                 // Loisirs et vacances
                 BudgetSortieWeekend = comportement.BudgetSortieWeekend,
                 BudgetVacances = comportement.BudgetVacances,
@@ -459,19 +410,6 @@ public class SimulationModule : ISimulationModule
             EstTerminee = false,
             EnCours = false
         };
-
-        // Initialiser le module d'inflation endogène
-        // PIB potentiel initial estimé : somme des productivités × employés (capacité théorique)
-        double pibPotentielJourEstime = toutesEntreprises.Sum(e => e.NombreEmployes * e.ProductiviteParEmployeJour)
-                                     + _etat.DepensesPubliquesJour;
-        double m3Initiale = _menages.Sum(m => m.Epargne) + toutesEntreprises.Sum(e => e.Tresorerie);
-        _inflationModule.Initialiser(_config.TauxInflation, pibPotentielJourEstime, m3Initiale);
-
-        // Stocker la référence CIF pour le cost-push (sera mise à jour au jour 1)
-        _etat.ImportationsCIFReferenceJour = 0;
-
-        // Initialiser le module de taux de change dynamique
-        _exchangeRateModule.Initialiser(_config.TauxChangeMGAParUSD, _config.ReservesBCMUSD);
     }
 
     /// <summary>
@@ -496,7 +434,6 @@ public class SimulationModule : ISimulationModule
             }
 
             _result.EstTerminee = true;
-            ExecuterValidationMacro();
         }
         catch (OperationCanceledException)
         {
@@ -534,7 +471,6 @@ public class SimulationModule : ISimulationModule
             }
 
             _result.EstTerminee = true;
-            ExecuterValidationMacro();
         }
         catch (OperationCanceledException)
         {
@@ -577,38 +513,6 @@ public class SimulationModule : ISimulationModule
             SimulerUnJour();
         }
         _result.JoursSimules = _jourCourant;
-
-        // Validation automatique si tous les jours sont terminés
-        if (_jourCourant >= _config.DureeJours)
-        {
-            _result.EstTerminee = true;
-            ExecuterValidationMacro();
-        }
-    }
-
-    /// <summary>
-    /// Exécute la validation macro et stocke le rapport dans _result.
-    /// Appelé automatiquement à la fin de la simulation.
-    /// </summary>
-    private void ExecuterValidationMacro()
-    {
-        if (_config.ValidationMacroActivee)
-        {
-            _result.ValidationReport = _macroValidationModule.Valider(
-                _result, _config, _config.DonneesReference);
-        }
-    }
-
-    /// <summary>
-    /// Valide les résultats simulés contre les données macro de référence.
-    /// Peut être appelé à tout moment (pendant ou après la simulation).
-    /// </summary>
-    public MacroValidationReport ValiderMacro()
-    {
-        var rapport = _macroValidationModule.Valider(
-            _result, _config, _config.DonneesReference);
-        _result.ValidationReport = rapport;
-        return rapport;
     }
 
     /// <summary>
@@ -619,22 +523,6 @@ public class SimulationModule : ISimulationModule
         _jourCourant++;
         bool jourOuvrable = EstJourOuvrable(_jourCourant);
 
-        // ═══════════════════════════════════════════════════════════════
-        //  SAISONNALITÉ AGRICOLE
-        //  Calculer les facteurs saisonniers pour ce jour.
-        //  Affecte : productivité agricole, prix riz, exports, tourisme.
-        // ═══════════════════════════════════════════════════════════════
-        SeasonalityResult? saisonResult = null;
-        if (_config.SaisonnaliteActivee)
-        {
-            saisonResult = _seasonalityModule.CalculerSaisonnalite(
-                _jourCourant, _config.JourCalendaireDebutSimulation);
-        }
-        double facteurProdAgricole = saisonResult?.FacteurProductiviteAgricole ?? 1.0;
-        double facteurPrixRizSaison = saisonResult?.FacteurPrixRiz ?? 1.0;
-        double facteurPrixAlimSaison = saisonResult?.FacteurPrixAlimentaire ?? 1.0;
-        double facteurTourismeSaison = saisonResult?.FacteurTourisme ?? 1.0;
-
         // 1. Les ménages consomment tous les jours, mais ne travaillent que les jours ouvrables
         // Exception : les employés du commerce travaillent 7j/7
         var resultsMenages = new List<DailyHouseholdResult>();
@@ -644,14 +532,6 @@ public class SimulationModule : ISimulationModule
         double totalTransportInformel = 0;
         double totalTransportFormel = 0;
         double totalTransportCarburant = 0;
-        double totalEducationFormelle = 0;
-        double totalEducationInformelle = 0;
-        double totalSanteFormelle = 0;
-        double totalSanteInformelle = 0;
-        double totalConstructionBTP = 0;
-        double totalConstructionQuincaillerie = 0;
-        double totalConstructionTransportInformel = 0;
-        int nbMenagesMalades = 0;
 
         // Reset des compteurs Jirama pour ce jour
         _jirama.DebutJournee();
@@ -693,51 +573,6 @@ public class SimulationModule : ISimulationModule
                 estJourDeTravail = jourOuvrable;
             }
 
-            var education = _householdEducationModule.CalculerDepenseEducation(
-                menage,
-                _jourCourant,
-                _config.CoutEducationJournalierParEnfant,
-                _etat.TauxInflation,
-                _config.PartFormelleDepenseEducation,
-                menage.PropensionConsommation,
-                _random);
-
-            var sante = _householdHealthExpenditureModule.SimulerDepenseSante(
-                menage,
-                _config.TauxOccupationHopitaux,
-                _config.CoutConsultationSanteBase,
-                _config.CoutHospitalisationSanteBase,
-                _etat.TauxInflation,
-                _config.PartFormelleDepenseSante,
-                _random);
-
-            double facteurInflationLogement = 1.0 + (_etat.TauxInflation / 365.0);
-            double depensesLoyerLocatif = !menage.EstProprietaire
-                ? menage.LoyerJournalier * facteurInflationLogement
-                : 0;
-
-            double depensesConstructionMaison = 0;
-            double depensesConstructionBTP = 0;
-            double depensesConstructionQuincaillerie = 0;
-            double depensesConstructionTransportBrique = 0;
-            if (!menage.EstProprietaire
-                && menage.EstEnConstructionMaison
-                && menage.JoursConstructionMaisonRestants > 0)
-            {
-                depensesConstructionMaison = menage.BudgetConstructionMaisonJour * facteurInflationLogement;
-                depensesConstructionBTP = depensesConstructionMaison * PartBudgetConstructionBTP();
-                depensesConstructionQuincaillerie = depensesConstructionMaison * PartBudgetConstructionQuincaillerie();
-                depensesConstructionTransportBrique = depensesConstructionMaison * PartBudgetConstructionTransportInformel();
-
-                menage.JoursConstructionMaisonRestants--;
-                if (menage.JoursConstructionMaisonRestants <= 0)
-                {
-                    menage.EstEnConstructionMaison = false;
-                    menage.EstProprietaire = true;
-                    menage.LoyerJournalier = 0;
-                }
-            }
-
             var r = _householdModule.SimulerJournee(
                 menage,
                 _governmentModule.CalculerIRSAJournalier(_etat, menage.SalaireMensuel),
@@ -754,26 +589,7 @@ public class SimulationModule : ISimulationModule
                 _config.VolatiliteAleatoireMarche,
                 _config.ElasticiteComportementMenage,
                 _config.PartRevenuAlimentaire,
-                education.DepenseTotale,
-                sante.DepenseTotale,
-                depensesLoyerLocatif,
-                depensesConstructionMaison,
-                depensesConstructionBTP,
-                depensesConstructionQuincaillerie,
-                depensesConstructionTransportBrique,
                 _random);
-
-            // Appliquer la saisonnalité du prix du riz aux dépenses riz du résultat
-            // (le riz est calculé dans SimulerJournee avec le baseline, on le module ici)
-            if (facteurPrixRizSaison != 1.0)
-            {
-                double ajustementRiz = r.DepensesRiz * (facteurPrixRizSaison - 1.0);
-                r.DepensesRiz *= facteurPrixRizSaison;
-                r.Consommation += ajustementRiz;
-            }
-
-            r.EstMalade = sante.EstMalade;
-            r.ProbabiliteMaladie = sante.ProbabiliteMaladie;
 
             // Remittances (transferts diaspora) — ajoutées au revenu
             var remittanceResult = _householdRemittanceModule.AppliquerRemittance(menage.Epargne, remittanceParMenage);
@@ -808,10 +624,6 @@ public class SimulationModule : ISimulationModule
                 elasticitePrix:         _config.ElasticitePrixParCarburant,
                 volatiliteAlea:         _config.VolatiliteAleatoireMarche,
                 random:                 _random);
-
-            // Saisonnalité : ajuster les prix alimentaires selon la saison
-            // Soudure (fév-avril) → prix plus élevés, post-récolte → prix bas
-            depenseAlimAjustee *= facteurPrixAlimSaison;
 
             double revenuDisponible = Math.Max(0, r.RevenuBrut - r.ImpotIR);
             var achat = _householdModule.AcheteProduitsAlimentaires(
@@ -888,17 +700,6 @@ public class SimulationModule : ISimulationModule
             totalTransportInformel += transportRouting.PartInformel;
             totalTransportFormel += transportRouting.PartFormel;
             totalTransportCarburant += transportRouting.PartCarburant;
-            totalEducationFormelle += education.PartFormelle;
-            totalEducationInformelle += education.PartInformelle;
-            totalSanteFormelle += sante.PartFormelle;
-            totalSanteInformelle += sante.PartInformelle;
-            totalConstructionBTP += depensesConstructionBTP;
-            totalConstructionQuincaillerie += depensesConstructionQuincaillerie;
-            totalConstructionTransportInformel += depensesConstructionTransportBrique;
-            if (sante.EstMalade)
-            {
-                nbMenagesMalades++;
-            }
             // ─────────────────────────────────────────────────────────────────────────
 
             resultsMenages.Add(r);
@@ -943,10 +744,7 @@ public class SimulationModule : ISimulationModule
         // pour éviter tout double-comptage lors du re-routage ci-dessus.
         double totalAlimSimulee = resultsMenages.Sum(r => r.DepensesAlimentairesSimulee);
         double totalTransport = resultsMenages.Sum(r => r.DepensesTransport + r.DepensesTransportJirama);
-        double totalEducation = resultsMenages.Sum(r => r.DepensesEducation);
-        double totalSante = resultsMenages.Sum(r => r.DepensesSante);
-        double totalConstruction = resultsMenages.Sum(r => r.DepensesConstructionMaison);
-        double demandeHorsAlim = Math.Max(0, demandeConsommationTotale - totalAlimSimulee - totalTransport - totalEducation - totalSante - totalConstruction);
+        double demandeHorsAlim = Math.Max(0, demandeConsommationTotale - totalAlimSimulee - totalTransport);
 
         // Split 85 % informel / 15 % formel pour la consommation non-alimentaire et hors transport.
         // Le transport est désormais routé séparément via ITransportationModule (décomposition sectorielle).
@@ -962,63 +760,25 @@ public class SimulationModule : ISimulationModule
         double demandeLoisirsTotale = resultsMenages.Sum(r => r.DepensesLoisirs);
         int nbEntreprisesTourisme = Math.Max(_entreprisesTourisme.Count, 1);
         double demandeLoisirParEntrepriseTourisme = demandeLoisirsTotale / nbEntreprisesTourisme;
-        int nbServicesInformels = Math.Max(_entreprises.Count(e => e.SecteurActivite == ESecteurActivite.Services && e.EstInformel), 1);
-        int nbServicesFormels = Math.Max(_entreprises.Count(e => e.SecteurActivite == ESecteurActivite.Services && !e.EstInformel), 1);
-        int nbConstruction = Math.Max(_entreprises.Count(e => e.SecteurActivite == ESecteurActivite.Construction), 1);
-        int nbCommercesFormels = Math.Max(_entreprises.Count(e => e.SecteurActivite == ESecteurActivite.Commerces && !e.EstInformel), 1);
-        int nbCommercesInformels = Math.Max(_entreprises.Count(e => e.SecteurActivite == ESecteurActivite.Commerces && e.EstInformel), 1);
-
-        double bonusEducationInformelParEntreprise = totalEducationInformelle / nbServicesInformels;
-        double bonusEducationFormelParEntreprise = totalEducationFormelle / nbServicesFormels;
-        double bonusSanteInformelParEntreprise = totalSanteInformelle / nbServicesInformels;
-        double bonusSanteFormelParEntreprise = totalSanteFormelle / nbServicesFormels;
-        double bonusConstructionBTPParEntreprise = totalConstructionBTP / nbConstruction;
-        double bonusConstructionQuincaillerieParEntreprise = totalConstructionQuincaillerie / nbCommercesFormels;
-        double bonusConstructionInformelParEntreprise = totalConstructionTransportInformel / nbCommercesInformels;
 
         foreach (var entreprise in _entreprises)
         {
             bool travailleCeJour = EntrepriseTravailleCeJour(_jourCourant, entreprise.SecteurActivite);
-
-            // ── Saisonnalité : ajuster la productivité agricole ──
-            // Pendant les récoltes (jan-fév, avr-jun) : productivité haute
-            // Inter-saison (jul-sept) : productivité basse
-            double productiviteOriginale = entreprise.ProductiviteParEmployeJour;
-            if (entreprise.SecteurActivite == ESecteurActivite.Agriculture && facteurProdAgricole != 1.0)
-            {
-                entreprise.ProductiviteParEmployeJour *= facteurProdAgricole;
-            }
 
             // Les compagnies tourisme reçoivent les dépenses de loisirs réparties
             // Les autres entreprises reçoivent la demande habituelle (alimentaire + non-alimentaire)
             double demandeEffective;
             if (entreprise.SecteurActivite == ESecteurActivite.HotellerieTourisme)
             {
-                // Saisonnalité tourisme : haute saison jul-oct, basse jan-mars (cyclones)
-                demandeEffective = demandeLoisirParEntrepriseTourisme * facteurTourismeSaison;
+                demandeEffective = demandeLoisirParEntrepriseTourisme;
             }
             else if (entreprise.EstInformel)
             {
                 demandeEffective = demandeHorsAlimInformelParEntreprise + bonusDemandeAlimParEntrepriseInformelle;
-
-                if (entreprise.SecteurActivite == ESecteurActivite.Services)
-                    demandeEffective += bonusEducationInformelParEntreprise + bonusSanteInformelParEntreprise;
-
-                if (entreprise.SecteurActivite == ESecteurActivite.Commerces)
-                    demandeEffective += bonusConstructionInformelParEntreprise;
             }
             else
             {
                 demandeEffective = demandeHorsAlimFormelParEntreprise + bonusDemandeAlimParEntrepriseFormelle;
-
-                if (entreprise.SecteurActivite == ESecteurActivite.Services)
-                    demandeEffective += bonusEducationFormelParEntreprise + bonusSanteFormelParEntreprise;
-
-                if (entreprise.SecteurActivite == ESecteurActivite.Construction)
-                    demandeEffective += bonusConstructionBTPParEntreprise;
-
-                if (entreprise.SecteurActivite == ESecteurActivite.Commerces)
-                    demandeEffective += bonusConstructionQuincaillerieParEntreprise;
             }
             var r = _companyModule.SimulerJournee(
                 entreprise,
@@ -1036,9 +796,6 @@ public class SimulationModule : ISimulationModule
                 _config.ElasticitePrixParCarburant
             );
             resultsEntreprises.Add(r);
-
-            // Restaurer la productivité originale (le facteur saisonnier est journalier, pas permanent)
-            entreprise.ProductiviteParEmployeJour = productiviteOriginale;
         }
 
         // Importateurs — injection directe des moyennes INSTAT (1 agent par catégorie)
@@ -1145,13 +902,6 @@ public class SimulationModule : ISimulationModule
                 double fobBase = _config.FOBCalibresJour.GetValueOrDefault(exportateur.Categorie, 0d) * 1_000_000 * _facteurEchelle;
                 double fobJourExportateur = fobBase * (0.85 + rngJour.NextDouble() * 0.30);
 
-                // Saisonnalité : moduler le FOB selon le calendrier d'export
-                // Vanille pic jul-sept, girofle oct-déc, café mai-sep, crevettes avr-nov
-                if (saisonResult?.FacteursExport.TryGetValue(exportateur.Categorie, out double facteurExport) == true)
-                {
-                    fobJourExportateur *= facteurExport;
-                }
-
                 double taxeTaux = _config.TauxTaxeExport;
                 double taxeExport = fobJourExportateur * taxeTaux;
                 double redevance = fobJourExportateur * 0.015;
@@ -1201,13 +951,6 @@ public class SimulationModule : ISimulationModule
             // Mode simulation classique
             foreach (var exportateur in _exportateurs)
             {
-                // Saisonnalité : moduler la productivité export selon le calendrier
-                double productiviteOriginaleExp = exportateur.ProductiviteParEmployeJour;
-                if (saisonResult?.FacteursExport.TryGetValue(exportateur.Categorie, out double facteurExp) == true)
-                {
-                    exportateur.ProductiviteParEmployeJour *= facteurExp;
-                }
-
                 bool travailleCeJour = EntrepriseTravailleCeJour(_jourCourant, exportateur.SecteurActivite);
                 var r = exportateur.SimulerJourneeExport(
                     demandeHorsAlimFormelParEntreprise + bonusDemandeAlimParEntrepriseFormelle,
@@ -1226,8 +969,6 @@ public class SimulationModule : ISimulationModule
                     _config.ElasticitePrixParCarburant
                 );
                 resultsExportateurs.Add(r);
-
-                exportateur.ProductiviteParEmployeJour = productiviteOriginaleExp;
             }
         }
 
@@ -1258,38 +999,6 @@ public class SimulationModule : ISimulationModule
         _bankModule.CalculerBilansBancaires(_banque, _menages, _entreprises);
         _bankModule.SimulerOctroiCredit(_banque, _entreprises, _menages, _config.CroissanceCreditJour, _random);
 
-        // ═══════════════════════════════════════════════════════════════
-        //  TAUX DE CHANGE DYNAMIQUE MGA/USD
-        //  Calcule le taux de change à partir des flux de devises :
-        //  balance commerciale, remittances, aide, PPA, interventions BCM.
-        //  Affecte le coût des imports, la valeur des exports et l'inflation importée.
-        // ═══════════════════════════════════════════════════════════════
-        ExchangeRateResult? exchangeRateResult = null;
-        if (_config.TauxChangeDynamiqueActive)
-        {
-            double exportsFOBJour = resultsExportateurs.Sum(r => r.ValeurFOB);
-            double importsCIFJour = resultsImportateurs.Sum(r => r.ValeurCIF);
-            double remittancesJour = resultsMenages.Sum(r => r.Remittance);
-            double aideJour = _config.AideInternationaleJour * _facteurEchelle;
-
-            var exchangeCtx = new ExchangeRateContext
-            {
-                ExportationsFOBJour = exportsFOBJour,
-                ImportationsCIFJour = importsCIFJour,
-                RemittancesJour = remittancesJour,
-                AideInternationaleJour = aideJour,
-                InflationDomestique = _etat.TauxInflation,
-                InflationEtrangere = _config.InflationEtrangere,
-                ElasticiteBalanceCommerciale = _config.ElasticiteChangeBalanceCommerciale,
-                PoidsPPA = _config.PoidsChangePPA,
-                IntensiteInterventionBCM = _config.IntensiteInterventionBCM,
-                ReservesMinimalesMoisImports = _config.ReservesMinimalesMoisImports,
-                DepreciationStructurelleAnnuelle = _config.DepreciationStructurelleAnnuelle
-            };
-
-            exchangeRateResult = _exchangeRateModule.CalculerTauxChange(exchangeCtx);
-        }
-
         // 5. Créer le snapshot
         // Calculer les métriques de distribution des épargnes
         var epargnesSorted = _menages.OrderBy(m => m.Epargne).Select(m => m.Epargne).ToArray();
@@ -1315,67 +1024,6 @@ public class SimulationModule : ISimulationModule
             _jirama,
             resultEtat,
             _jourCourant);
-
-        // ═══════════════════════════════════════════════════════════════
-        //  INFLATION ENDOGÈNE
-        //  Calcule le taux d'inflation à partir des fondamentaux macro :
-        //  Phillips (emploi), cost-push (carburant+imports), monétaire (M3/PIB),
-        //  anticipations adaptatives.
-        //  Met à jour _etat.TauxInflation pour le jour suivant.
-        // ═══════════════════════════════════════════════════════════════
-        InflationResult? inflationResult = null;
-        if (_config.InflationEndogeneActivee)
-        {
-            // Stocker la référence CIF au jour 1 (baseline pour le cost-push)
-            double importationsCIFJour = resultsImportateurs.Sum(r => r.ValeurCIF);
-            if (_jourCourant == 1 && importationsCIFJour > 0)
-            {
-                _etat.ImportationsCIFReferenceJour = importationsCIFJour;
-            }
-
-            var inflationContext = new InflationContext
-            {
-                // Marché du travail
-                TauxEmploi = _menages.Count(m => m.EstEmploye) / (double)_menages.Count,
-
-                // Production
-                PIBJourEffectif = pibResult.PIBDemande,
-
-                // Monétaire
-                MasseMonetaireM3 = _banque.MasseMonetaireM3,
-
-                // Chocs de coûts
-                PrixCarburantCourant = _config.PrixCarburantLitre,
-                PrixCarburantReference = _config.PrixCarburantReference,
-                ImportationsCIFJour = importationsCIFJour,
-                ImportationsCIFReference = _etat.ImportationsCIFReferenceJour > 0
-                    ? _etat.ImportationsCIFReferenceJour
-                    : importationsCIFJour,
-
-                // Taux de change (canal d'inflation importée)
-                VariationChangeJournaliere = exchangeRateResult?.VariationJournaliere ?? 0,
-                ElasticiteChangeInflation = _config.ElasticiteChangeInflation,
-
-                // Paramètres de calibrage (depuis ScenarioConfig)
-                NAIRU = _config.NAIRU,
-                CoefficientPhillips = _config.CoefficientPhillips,
-                PoidsAnticipations = _config.PoidsAnticipationsInflation,
-                PoidsDemandPull = _config.PoidsDemandPullInflation,
-                PoidsCostPush = _config.PoidsCostPushInflation,
-                PoidsMonetaire = _config.PoidsMonetaireInflation,
-                ElasticiteCarburantInflation = _config.ElasticiteCarburantInflation,
-                ElasticiteImportInflation = _config.ElasticiteImportInflation,
-                CoefficientMonetaire = _config.CoefficientMonetaire,
-                VitesseAdaptationAnticipations = _config.VitesseAdaptationAnticipations,
-                InflationAncrage = _config.InflationAncrage,
-                CroissancePIBPotentielAnnuel = _config.CroissancePIBPotentielAnnuel
-            };
-
-            inflationResult = _inflationModule.CalculerInflationJournaliere(inflationContext);
-
-            // Mettre à jour le taux d'inflation de l'État pour le jour suivant
-            _etat.TauxInflation = inflationResult.TauxInflationAnnuel;
-        }
 
         var snapshot = new DailySnapshot
         {
@@ -1532,14 +1180,6 @@ public class SimulationModule : ISimulationModule
 
             // Loisirs et vacances
             DepensesLoisirsTotales = resultsMenages.Sum(r => r.DepensesLoisirs),
-            DepensesEducationTotales = resultsMenages.Sum(r => r.DepensesEducation),
-            DepensesSanteTotales = resultsMenages.Sum(r => r.DepensesSante),
-            NbMenagesMalades = nbMenagesMalades,
-            DepensesLoyerLocatifTotales = resultsMenages.Sum(r => r.DepensesLoyerLocatif),
-            DepensesConstructionMaisonTotales = resultsMenages.Sum(r => r.DepensesConstructionMaison),
-            DepensesConstructionBTPTotales = totalConstructionBTP,
-            DepensesConstructionQuincaillerieTotales = totalConstructionQuincaillerie,
-            DepensesConstructionTransportInformelTotales = totalConstructionTransportInformel,
             NbMenagesEnSortie = resultsMenages.Count(r => r.EstEnSortie),
             NbMenagesEnVacances = resultsMenages.Count(r => r.EstEnVacances),
             FacteurReductionLoisirsMoyen = resultsMenages.Count > 0
@@ -1557,40 +1197,7 @@ public class SimulationModule : ISimulationModule
             NbSalariesSecteurFormel = toutesEntreprisesRef
                 .Where(e => !e.EstInformel)
                 .Sum(e => e.NombreEmployes),
-            NbEntreprisesTourisme = _entreprisesTourisme.Count,
-
-            // Saisonnalité agricole
-            JourCalendaire = saisonResult?.JourCalendaire ?? 0,
-            MoisCalendaire = saisonResult?.Mois ?? 0,
-            SaisonCourante = saisonResult?.SaisonCourante ?? "",
-            EstPeriodeSoudure = saisonResult?.EstPeriodeSoudure ?? false,
-            FacteurProductiviteAgricole = saisonResult?.FacteurProductiviteAgricole ?? 1.0,
-            FacteurPrixRiz = saisonResult?.FacteurPrixRiz ?? 1.0,
-            FacteurPrixAlimentaire = saisonResult?.FacteurPrixAlimentaire ?? 1.0,
-            FacteurTourisme = saisonResult?.FacteurTourisme ?? 1.0,
-            FacteurEmploiAgricole = saisonResult?.FacteurEmploiAgricole ?? 1.0,
-
-            // Inflation endogène
-            TauxInflationEndogene = inflationResult?.TauxInflationAnnuel ?? _etat.TauxInflation,
-            InflationDemandPull = inflationResult?.ComposanteDemandPull ?? 0,
-            InflationCostPush = inflationResult?.ComposanteCostPush ?? 0,
-            InflationMonetaire = inflationResult?.ComposanteMonetaire ?? 0,
-            InflationAnticipations = inflationResult?.ComposanteAnticipations ?? _etat.TauxInflation,
-            OutputGap = inflationResult?.OutputGap ?? 0,
-            EcartChomage = inflationResult?.EcartChomage ?? 0,
-            CroissanceM3 = inflationResult?.CroissanceM3 ?? 0,
-            CroissancePIB = inflationResult?.CroissancePIB ?? 0,
-            AnticipationsInflation = inflationResult?.AnticipationsInflation ?? _etat.TauxInflation,
-
-            // Taux de change dynamique MGA/USD
-            TauxChangeMGAParUSD = exchangeRateResult?.TauxMGAParUSD ?? _config.TauxChangeMGAParUSD,
-            VariationChangeJournaliere = exchangeRateResult?.VariationJournaliere ?? 0,
-            DepreciationAnnualisee = exchangeRateResult?.DepreciationAnnualisee ?? 0,
-            ReservesBCMUSD = exchangeRateResult?.ReservesBCMUSD ?? _config.ReservesBCMUSD,
-            ReservesMoisImports = exchangeRateResult?.ReservesMoisImports ?? 0,
-            InterventionBCMUSD = exchangeRateResult?.InterventionBCMUSD ?? 0,
-            SoldeDevisesJourUSD = exchangeRateResult?.SoldeDevisesJourUSD ?? 0,
-            IndicePressionChange = exchangeRateResult?.IndicePression ?? 0
+            NbEntreprisesTourisme = _entreprisesTourisme.Count
         };
 
         _result.Snapshots.Add(snapshot);
@@ -1637,127 +1244,6 @@ public class SimulationModule : ISimulationModule
         ECategorieExport.ZonesFranches => ESecteurActivite.Textiles,
         _ => ESecteurActivite.Commerces
     };
-
-    private int TirerNombreEnfants(ClasseSocioEconomique classe, Random random)
-    {
-        double modulation = classe switch
-        {
-            ClasseSocioEconomique.Subsistance => 1.20,
-            ClasseSocioEconomique.InformelBas => 1.10,
-            ClasseSocioEconomique.FormelBas => 1.00,
-            ClasseSocioEconomique.FormelQualifie => 0.90,
-            ClasseSocioEconomique.Cadre => 0.75,
-            _ => 1.0
-        };
-
-        double attendu = Math.Max(0, _config.NombreEnfantsMoyenParMenage * modulation);
-        int minimum = (int)Math.Floor(attendu);
-        int enfants = minimum + (random.NextDouble() < attendu - minimum ? 1 : 0);
-
-        return Math.Clamp(enfants, 0, 8);
-    }
-
-    private int TirerNombreEnfantsScolarises(int nombreEnfants, ClasseSocioEconomique classe)
-    {
-        double facteurScolarisation = classe switch
-        {
-            ClasseSocioEconomique.Subsistance => 0.75,
-            ClasseSocioEconomique.InformelBas => 0.85,
-            ClasseSocioEconomique.FormelBas => 1.00,
-            ClasseSocioEconomique.FormelQualifie => 1.05,
-            ClasseSocioEconomique.Cadre => 1.10,
-            _ => 1.0
-        };
-
-        return Math.Clamp((int)Math.Round(nombreEnfants * _config.PartEnfantsScolarises * facteurScolarisation), 0, nombreEnfants);
-    }
-
-    private double CalculerLoyerJournalier(ClasseSocioEconomique classe)
-    {
-        double modulation = classe switch
-        {
-            ClasseSocioEconomique.Subsistance => 0.60,
-            ClasseSocioEconomique.InformelBas => 0.80,
-            ClasseSocioEconomique.FormelBas => 1.00,
-            ClasseSocioEconomique.FormelQualifie => 1.35,
-            ClasseSocioEconomique.Cadre => 1.80,
-            _ => 1.0
-        };
-
-        return _config.LoyerJourLocataire * modulation;
-    }
-
-    private double ProbabiliteConstructionMaison(ClasseSocioEconomique classe)
-    {
-        double modulation = classe switch
-        {
-            ClasseSocioEconomique.Subsistance => 0.40,
-            ClasseSocioEconomique.InformelBas => 0.65,
-            ClasseSocioEconomique.FormelBas => 1.00,
-            ClasseSocioEconomique.FormelQualifie => 1.25,
-            ClasseSocioEconomique.Cadre => 1.10,
-            _ => 1.0
-        };
-
-        return Math.Clamp(_config.ProbabiliteConstructionMaisonLocataire * modulation, 0, 1);
-    }
-
-    private int DureeConstructionMaison(ClasseSocioEconomique classe)
-    {
-        double modulation = classe switch
-        {
-            ClasseSocioEconomique.Subsistance => 1.25,
-            ClasseSocioEconomique.InformelBas => 1.15,
-            ClasseSocioEconomique.FormelBas => 1.00,
-            ClasseSocioEconomique.FormelQualifie => 0.90,
-            ClasseSocioEconomique.Cadre => 0.80,
-            _ => 1.0
-        };
-
-        return Math.Max(60, (int)Math.Round(_config.DureeConstructionMaisonJours * modulation));
-    }
-
-    private double CalculerBudgetConstructionJournalier(ClasseSocioEconomique classe)
-    {
-        double modulation = classe switch
-        {
-            ClasseSocioEconomique.Subsistance => 0.60,
-            ClasseSocioEconomique.InformelBas => 0.80,
-            ClasseSocioEconomique.FormelBas => 1.00,
-            ClasseSocioEconomique.FormelQualifie => 1.35,
-            ClasseSocioEconomique.Cadre => 1.80,
-            _ => 1.0
-        };
-
-        return _config.BudgetConstructionMaisonJour * modulation;
-    }
-
-    private double PartBudgetConstructionBTP()
-    {
-        double total = _config.PartBudgetConstructionBTP
-                     + _config.PartBudgetConstructionQuincaillerie
-                     + _config.PartBudgetConstructionTransportInformel;
-
-        return total > 0 ? _config.PartBudgetConstructionBTP / total : 0.55;
-    }
-
-    private double PartBudgetConstructionQuincaillerie()
-    {
-        double total = _config.PartBudgetConstructionBTP
-                     + _config.PartBudgetConstructionQuincaillerie
-                     + _config.PartBudgetConstructionTransportInformel;
-
-        return total > 0 ? _config.PartBudgetConstructionQuincaillerie / total : 0.30;
-    }
-
-    private double PartBudgetConstructionTransportInformel()
-    {
-        double total = _config.PartBudgetConstructionBTP
-                     + _config.PartBudgetConstructionQuincaillerie
-                     + _config.PartBudgetConstructionTransportInformel;
-
-        return total > 0 ? _config.PartBudgetConstructionTransportInformel / total : 0.15;
-    }
 
     /// <summary>
     /// Calcule le CA moyen par employé par jour pour un ensemble d'entreprises.
