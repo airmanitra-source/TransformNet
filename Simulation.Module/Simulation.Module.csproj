@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Bank.Module\Bank.Module.csproj" />
     <ProjectReference Include="..\Company.Module\Company.Module.csproj" />
+    <ProjectReference Include="..\Economic.Risk.Module\Economic.Risk.Module.csproj" />
     <ProjectReference Include="..\Government.Module\Government.Module.csproj" />
     <ProjectReference Include="..\Household.Education.Module\Household.Education.Module.csproj" />
     <ProjectReference Include="..\Household.HealthExpenditure.Module\Household.HealthExpenditure.Module.csproj" />

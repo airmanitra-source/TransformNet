@@ -147,6 +147,35 @@ public class Household
     /// </summary>
     public bool EstFonctionnaire { get; set; }
 
+    // --- Secteur informel ---
+
+    /// <summary>
+    /// Indique si le ménage travaille dans le secteur informel.
+    /// Déterminé à l'initialisation selon l'entreprise employeuse.
+    /// ~85% de l'emploi à Madagascar est informel (INSTAT ENEMPSI).
+    /// </summary>
+    public bool EstDansSecteurInformel { get; set; }
+
+    /// <summary>
+    /// Revenu journalier complémentaire issu d'activités informelles annexes (MGA).
+    /// Petit commerce ambulant, vente de rue, artisanat, travaux journaliers.
+    /// Typique : 1 000-5 000 MGA/jour pour les ménages Subsistance/InformelBas.
+    /// Ce revenu s'ajoute au salaire et n'est ni taxé ni soumis au CNaPS.
+    /// Source : INSTAT EPM — revenu mixte des ménages informels.
+    /// </summary>
+    public double RevenuInformelJournalier { get; set; }
+
+    /// <summary>
+    /// Indique si le ménage est auto-employé (micro-entrepreneur informel sans employeur).
+    /// Les auto-employés n'ont pas d'EmployeurId et tirent leur revenu directement
+    /// de leur activité (agriculture de subsistance, petit commerce, artisanat).
+    /// Concerne ~60% des travailleurs informels à Madagascar.
+    /// </summary>
+    public bool EstAutoEmploi { get; set; }
+
+    /// <summary>Total des revenus informels annexes cumulés depuis le début.</summary>
+    public double TotalRevenusInformels { get; set; }
+
     // --- Loisirs et vacances ---
     /// <summary>Budget sortie weekend de base (MGA par sortie)</summary>
     public double BudgetSortieWeekend { get; set; }
@@ -186,6 +215,33 @@ public class Household
 
     /// <summary>Total des dépenses de construction de maison depuis le début.</summary>
     public double TotalDepensesConstructionMaison { get; set; }
+
+    // ═══════════════════════════════════════════
+    //  RECONSTRUCTION POST-CYCLONE
+    // ═══════════════════════════════════════════
+
+    /// <summary>
+    /// Indique si le ménage est en phase de reconstruction post-cyclone.
+    /// Quand true, le ménage dépense pour réparer son toit (tôle), ses murs (briques),
+    /// créant une demande vers le BTP, la quincaillerie et le transport informel.
+    /// </summary>
+    public bool EstEnReconstructionCyclone { get; set; }
+
+    /// <summary>
+    /// Nombre de jours restants de reconstruction post-cyclone.
+    /// Décrémenté chaque jour. Quand atteint 0, EstEnReconstructionCyclone passe à false.
+    /// </summary>
+    public int JoursReconstructionCycloneRestants { get; set; }
+
+    /// <summary>
+    /// Budget journalier de reconstruction post-cyclone (MGA).
+    /// Couvre : tôle ondulée, briques, ciment, main d'œuvre maçon.
+    /// Réparti entre BTP (55%), quincaillerie (30%) et transport informel (15%).
+    /// </summary>
+    public double BudgetReconstructionCycloneJour { get; set; }
+
+    /// <summary>Total des dépenses de reconstruction cyclone cumulées depuis le début.</summary>
+    public double TotalDepensesReconstructionCyclone { get; set; }
 
 }
 

@@ -1,4 +1,5 @@
 using Company.Module.Models;
+
 namespace Household.Module.Models;
 
 /// <summary>
@@ -36,6 +37,3 @@ public class HouseholdBehavior
     /// <summary>Durée des vacances en jours (quand le ménage part)</summary>
     public int DureeVacancesJours { get; set; }
 }
-
-
-

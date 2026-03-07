@@ -387,6 +387,144 @@ public class ScenarioConfig
     // ════════════════════════════════════════════════════════════════
 
     // ════════════════════════════════════════════════════════════════
+    // ░░░ RÈGLE DE TAYLOR (TAUX DIRECTEUR ENDOGÈNE BCM) ░░░
+    // ════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Active le calcul endogène du taux directeur via la règle de Taylor.
+    /// Si true, le taux directeur est recalculé chaque jour en fonction de
+    /// l'inflation et de l'output gap. Si false, il reste fixe (TauxDirecteur).
+    /// </summary>
+    public bool TauxDirecteurEndogeneActive { get; set; } = true;
+
+    /// <summary>
+    /// Taux réel neutre r* (rendement d'équilibre, annuel).
+    /// FMI estime ~2-3% pour Madagascar (pays à revenu faible).
+    /// </summary>
+    public double TauxReelNeutreTaylor { get; set; } = 0.02;
+
+    /// <summary>
+    /// Cible implicite d'inflation de la BCM (annuel).
+    /// La BCM ne pratique pas de ciblage formel mais vise ~5-7%.
+    /// </summary>
+    public double InflationCibleTaylor { get; set; } = 0.06;
+
+    /// <summary>
+    /// Coefficient de réaction de Taylor à l'écart d'inflation α.
+    /// Taylor standard = 0.5. Valeurs plus élevées = BCM plus agressive.
+    /// </summary>
+    public double CoefficientInflationTaylor { get; set; } = 0.50;
+
+    /// <summary>
+    /// Coefficient de réaction de Taylor à l'output gap β.
+    /// Taylor standard = 0.5. BCM Madagascar probablement plus faible (~0.25)
+    /// car la BCM est plus focalisée sur l'inflation que sur la croissance.
+    /// </summary>
+    public double CoefficientOutputGapTaylor { get; set; } = 0.25;
+
+    /// <summary>
+    /// Vitesse de lissage du taux directeur (0-1).
+    /// 0.03 = très inertiel (convergence en ~3 mois), réaliste pour la BCM.
+    /// 0.10 = réactif (convergence en ~1 mois).
+    /// </summary>
+    public double VitesseLissageTaylor { get; set; } = 0.03;
+
+    // ════════════════════════════════════════════════════════════════
+
+    // ════════════════════════════════════════════════════════════════
+    // ░░░ DYNAMIQUE DU MARCHÉ DU TRAVAIL ░░░
+    // ════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Active la dynamique d'embauche/licenciement des entreprises.
+    /// Si true, les entreprises ajustent leurs effectifs en fonction de la demande
+    /// et de leur trésorerie. Si false, l'emploi reste fixe (comportement d'origine).
+    /// </summary>
+    public bool DynamiqueEmploiActivee { get; set; } = true;
+
+    /// <summary>
+    /// Seuil d'utilisation de la capacité au-delà duquel l'entreprise envisage d'embaucher.
+    /// 0.85 = si la demande dépasse 85% de la capacité de production.
+    /// INSTAT : taux d'utilisation moyen ~70-80% dans le formel malgache.
+    /// </summary>
+    public double SeuilUtilisationEmbauche { get; set; } = 0.85;
+
+    /// <summary>
+    /// Nombre de jours consécutifs de demande excédentaire avant embauche (formel).
+    /// Reflète le délai de recrutement (annonces, entretiens, formalités CNaPS).
+    /// Pour l'informel, ce seuil est divisé par 2 (ajustement rapide).
+    /// </summary>
+    public int JoursAvantEmbauche { get; set; } = 7;
+
+    /// <summary>
+    /// Nombre de jours consécutifs de stress de trésorerie avant licenciement (formel).
+    /// Code du travail malgache : préavis de 1-3 mois selon ancienneté.
+    /// Pour l'informel, ce seuil est divisé par 3 (pas de code du travail).
+    /// </summary>
+    public int JoursAvantLicenciement { get; set; } = 15;
+
+    /// <summary>
+    /// Taux maximal d'embauche par jour (% des effectifs actuels).
+    /// 0.02 = max 2% des effectifs embauchés par jour.
+    /// Évite les embauches massives irréalistes.
+    /// </summary>
+    public double TauxEmbaucheMaxJour { get; set; } = 0.02;
+
+    /// <summary>
+    /// Taux maximal de licenciement par jour (% des effectifs actuels).
+    /// 0.03 = max 3% des effectifs licenciés par jour.
+    /// Légèrement plus élevé que l'embauche (plus facile de licencier que d'embaucher).
+    /// </summary>
+    public double TauxLicenciementMaxJour { get; set; } = 0.03;
+
+    // ════════════════════════════════════════════════════════════════
+
+    // ════════════════════════════════════════════════════════════════
+    // ░░░ CHOCS CLIMATIQUES STOCHASTIQUES (CYCLONES) ░░░
+    // ════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Active les chocs cycloniques stochastiques.
+    /// Si true, des cyclones peuvent survenir aléatoirement pendant la saison
+    /// cyclonique (nov-avr) avec des impacts sur la production, les prix et
+    /// une phase de reconstruction BTP post-cyclone.
+    /// </summary>
+    public bool ChocsCycloniquesActives { get; set; } = true;
+
+    /// <summary>
+    /// Probabilité journalière de cyclone pendant la saison cyclonique (nov-avr).
+    /// 0.003 = ~0.3%/jour → ~54% de chance d'au moins 1 cyclone sur 6 mois.
+    /// Calibré BNGRC : 1.5 cyclones/an en moyenne touchant Madagascar.
+    /// </summary>
+    public double ProbabiliteCycloneJourSaison { get; set; } = 0.003;
+
+    /// <summary>
+    /// Probabilité journalière de cyclone hors saison (mai-oct).
+    /// Résiduel (~0.02%/jour) pour capturer les événements exceptionnels.
+    /// </summary>
+    public double ProbabiliteCycloneJourHorsSaison { get; set; } = 0.0002;
+
+    /// <summary>
+    /// Part du budget de reconstruction routée vers le BTP (maçons, charpentiers).
+    /// Calibrage terrain : ~55% des dépenses de reconstruction vont aux artisans BTP.
+    /// </summary>
+    public double PartReconstructionBTP { get; set; } = 0.55;
+
+    /// <summary>
+    /// Part du budget de reconstruction routée vers la quincaillerie (tôle, briques, ciment).
+    /// Calibrage terrain : ~30% des dépenses de reconstruction sont des matériaux.
+    /// </summary>
+    public double PartReconstructionQuincaillerie { get; set; } = 0.30;
+
+    /// <summary>
+    /// Part du budget de reconstruction routée vers le transport informel de matériaux.
+    /// Charrettes, camionnettes, pousse-pousse pour acheminer tôle et briques.
+    /// </summary>
+    public double PartReconstructionTransportInformel { get; set; } = 0.15;
+
+    // ════════════════════════════════════════════════════════════════
+
+    // ════════════════════════════════════════════════════════════════
     // ░░░ VALIDATION MACRO AUTOMATIQUE ░░░
     // ════════════════════════════════════════════════════════════════
 

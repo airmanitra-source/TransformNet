@@ -1,0 +1,40 @@
+@using Simulation.Module.Config
+
+<div>
+    <hr />
+    <h6>📈 Élasticité & Prix — Configuration avancée</h6>
+    <p class="small text-muted">Paramètres de transmission carburant → prix. <a href="/doc-prix" target="_blank">📖 Doc</a></p>
+
+    <div class="mb-2">
+        <label class="form-label">Élasticité prix/carburant : <strong>@Config.ElasticitePrixParCarburant.ToString("F2")</strong></label>
+        <input type="range" class="form-range" min="0.30" max="1.00" step="0.05"
+               @bind="Config.ElasticitePrixParCarburant" @bind:event="oninput" disabled="@Disabled" />
+        <small class="text-muted">0.30=absorption | 0.70=modérée | 1.0=complète</small>
+    </div>
+
+    <div class="mb-2">
+        <label class="form-label">Volatilité marché : <strong>±@((Config.VolatiliteAleatoireMarche * 100).ToString("F0"))%</strong></label>
+        <input type="range" class="form-range" min="0.05" max="0.20" step="0.01"
+               @bind="Config.VolatiliteAleatoireMarche" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+
+    <div class="mb-2">
+        <label class="form-label">Part revenu alimentaire : <strong>@((Config.PartRevenuAlimentaire * 100).ToString("F0"))%</strong></label>
+        <input type="range" class="form-range" min="0.20" max="0.60" step="0.02"
+               @bind="Config.PartRevenuAlimentaire" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+
+    <div class="mb-2">
+        <label class="form-label">Élasticité comportement ménage : <strong>@Config.ElasticiteComportementMenage.ToString("F2")</strong></label>
+        <input type="range" class="form-range" min="0.30" max="1.00" step="0.05"
+               @bind="Config.ElasticiteComportementMenage" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public ScenarioConfig Config { get; set; } = new ScenarioConfig();
+
+    [Parameter]
+    public bool Disabled { get; set; } = false;
+}

@@ -85,6 +85,59 @@ public class DailySnapshot
     public double CAMoyenParEmployeCommerce { get; set; }
     public double CAMoyenParEmployeMinier { get; set; }
 
+    // --- Secteur informel ---
+
+    /// <summary>Nombre de ménages travaillant dans le secteur informel.</summary>
+    public int NbMenagesInformels { get; set; }
+
+    /// <summary>Nombre de ménages auto-employés (micro-entrepreneurs informels).</summary>
+    public int NbMenagesAutoEmploi { get; set; }
+
+    /// <summary>Revenu informel annexe total journalier de tous les ménages (MGA).</summary>
+    public double RevenusInformelsAnnexesJour { get; set; }
+
+    /// <summary>Productivité moyenne effective des entreprises informelles (MGA/employé/jour).</summary>
+    public double ProductiviteMoyenneInformel { get; set; }
+
+    /// <summary>Productivité moyenne effective des entreprises formelles (MGA/employé/jour).</summary>
+    public double ProductiviteMoyenneFormel { get; set; }
+
+    /// <summary>Chiffre d'affaires total des entreprises informelles (MGA/jour).</summary>
+    public double ChiffreAffairesInformel { get; set; }
+
+    /// <summary>Chiffre d'affaires total des entreprises formelles (MGA/jour).</summary>
+    public double ChiffreAffairesFormel { get; set; }
+
+    /// <summary>Valeur ajoutée totale des entreprises informelles (MGA/jour).</summary>
+    public double ValeurAjouteeInformel { get; set; }
+
+    /// <summary>Valeur ajoutée totale des entreprises formelles (MGA/jour).</summary>
+    public double ValeurAjouteeFormel { get; set; }
+
+    /// <summary>
+    /// Part du secteur informel dans le PIB proxy (0-1).
+    /// Madagascar : ~40-55% du PIB est informel (INSTAT/Banque Mondiale).
+    /// </summary>
+    public double PartInformelDansPIB { get; set; }
+
+    /// <summary>Nombre total d'employés dans les entreprises informelles.</summary>
+    public int NbEmployesSecteurInformel { get; set; }
+
+    /// <summary>Taux d'emploi informel = NbEmployesSecteurInformel / (NbEmployesSecteurInformel + NbSalariesSecteurFormel).</summary>
+    public double TauxEmploiInformel { get; set; }
+
+    /// <summary>Revenu moyen journalier des ménages informels (salaire + annexe, MGA).</summary>
+    public double RevenuMoyenMenagesInformels { get; set; }
+
+    /// <summary>Revenu moyen journalier des ménages formels (MGA).</summary>
+    public double RevenuMoyenMenagesFormels { get; set; }
+
+    /// <summary>Trésorerie moyenne des entreprises informelles (MGA).</summary>
+    public double TresorerieMoyenneInformel { get; set; }
+
+    /// <summary>Trésorerie moyenne des entreprises formelles (MGA).</summary>
+    public double TresorerieMoyenneFormel { get; set; }
+
     // --- Secteur Bancaire et Masse Monétaire ---
     public double MasseMonetaireM3 { get; set; }
     public double TotalDepotsBancaires { get; set; }
@@ -267,6 +320,93 @@ public class DailySnapshot
 
     /// <summary>Indice de pression sur le change (-1 à +1, positif = dépréciation).</summary>
     public double IndicePressionChange { get; set; }
+
+    // ─── Règle de Taylor (taux directeur endogène BCM) ──────────────────────
+
+    /// <summary>Taux directeur effectif BCM ce jour (annuel, ex: 0.095 = 9.5%).</summary>
+    public double TauxDirecteurEffectif { get; set; }
+
+    /// <summary>Taux directeur Taylor (théorique, avant lissage).</summary>
+    public double TauxDirecteurTaylor { get; set; }
+
+    /// <summary>Composante output gap de la règle de Taylor.</summary>
+    public double TaylorComposanteOutputGap { get; set; }
+
+    /// <summary>Composante écart d'inflation de la règle de Taylor.</summary>
+    public double TaylorComposanteEcartInflation { get; set; }
+
+    /// <summary>Variation effective du taux directeur ce jour (bps/jour).</summary>
+    public double TaylorVariationEffective { get; set; }
+
+    // ─── Dynamique du marché du travail ─────────────────────────────────────
+
+    /// <summary>Nombre total d'embauches ce jour toutes entreprises confondues.</summary>
+    public int EmbauchesJour { get; set; }
+
+    /// <summary>Nombre total de licenciements ce jour toutes entreprises confondues.</summary>
+    public int LicenciementsJour { get; set; }
+
+    /// <summary>Variation nette d'emploi ce jour (embauches - licenciements).</summary>
+    public int VariationNetteEmploi { get; set; }
+
+    /// <summary>Taux d'utilisation moyen de la capacité de production des entreprises (0-1+).</summary>
+    public double TauxUtilisationCapaciteMoyen { get; set; }
+
+    /// <summary>Nombre d'entreprises en situation de stress de trésorerie (trésorerie négative).</summary>
+    public int NbEntreprisesEnStress { get; set; }
+
+    /// <summary>Nombre total d'employés dans toutes les entreprises (hors fonctionnaires).</summary>
+    public int TotalEmployesEntreprises { get; set; }
+
+    // ─── Chocs climatiques (cyclones) ───────────────────────────────────────
+
+    /// <summary>True si un cyclone est actif ce jour.</summary>
+    public bool CycloneActif { get; set; }
+
+    /// <summary>Intensité du cyclone (0-1, 0 si aucun cyclone).</summary>
+    public double CycloneIntensite { get; set; }
+
+    /// <summary>Nom du cyclone en cours ou dernier cyclone.</summary>
+    public string CycloneNom { get; set; } = "";
+
+    /// <summary>Jour dans le cyclone en cours (0 si pas de cyclone).</summary>
+    public int CycloneJourDans { get; set; }
+
+    /// <summary>Facteur de productivité dû au cyclone (1.0 = pas d'impact).</summary>
+    public double CycloneFacteurProductivite { get; set; } = 1.0;
+
+    /// <summary>Facteur de prix alimentaires dû au cyclone (1.0 = pas d'impact).</summary>
+    public double CycloneFacteurPrixAlimentaire { get; set; } = 1.0;
+
+    /// <summary>True si on est en phase de reconstruction post-cyclone.</summary>
+    public bool CyclonePhaseReconstruction { get; set; }
+
+    /// <summary>Jour dans la phase de reconstruction (0 si pas de reconstruction).</summary>
+    public int CycloneJourReconstruction { get; set; }
+
+    /// <summary>Facteur de boost BTP pendant la reconstruction (1.0 = pas de boost).</summary>
+    public double CycloneFacteurDemandeBTP { get; set; } = 1.0;
+
+    /// <summary>Facteur de boost quincaillerie pendant la reconstruction (1.0 = pas de boost).</summary>
+    public double CycloneFacteurDemandeQuincaillerie { get; set; } = 1.0;
+
+    /// <summary>Facteur de boost transport matériaux pendant la reconstruction (1.0 = pas de boost).</summary>
+    public double CycloneFacteurDemandeTransportMateriaux { get; set; } = 1.0;
+
+    /// <summary>Nombre de ménages en reconstruction post-cyclone ce jour.</summary>
+    public int NbMenagesEnReconstructionCyclone { get; set; }
+
+    /// <summary>Total des dépenses de reconstruction cyclone ce jour (MGA).</summary>
+    public double DepensesReconstructionCycloneJour { get; set; }
+
+    /// <summary>Part BTP des dépenses de reconstruction cyclone ce jour (MGA).</summary>
+    public double DepensesReconstructionBTPJour { get; set; }
+
+    /// <summary>Part quincaillerie des dépenses de reconstruction cyclone ce jour (MGA).</summary>
+    public double DepensesReconstructionQuincaillerieJour { get; set; }
+
+    /// <summary>Part transport informel des dépenses de reconstruction cyclone ce jour (MGA).</summary>
+    public double DepensesReconstructionTransportJour { get; set; }
 }
 
 

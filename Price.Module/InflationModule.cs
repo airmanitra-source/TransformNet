@@ -260,4 +260,97 @@ public class InflationModule : IInflationModule
 
         return result;
     }
+
+    /// <inheritdoc/>
+    public TaylorRuleResult CalculerTauxDirecteurTaylor(
+        double inflationCourante,
+        double inflationCible,
+        double outputGap,
+        double tauxDirecteurPrecedent,
+        double tauxReelNeutre = 0.02,
+        double coefficientInflation = 0.50,
+        double coefficientOutputGap = 0.50,
+        double vitesseLissage = 0.05)
+    {
+        var result = new TaylorRuleResult();
+
+        // ═══════════════════════════════════════════
+        //  RÈGLE DE TAYLOR ADAPTÉE À MADAGASCAR
+        // ═══════════════════════════════════════════
+        //
+        //  i_Taylor = r* + π + α×(π - π*) + β×output_gap
+        //
+        //  Composantes :
+        //    r* = taux réel neutre (rendement d'équilibre sans inflation)
+        //    π  = inflation courante (la BCM réagit à l'inflation observée)
+        //    α×(π - π*) = réaction à l'écart d'inflation
+        //       > 0 si inflation au-dessus de la cible → resserrement
+        //       < 0 si inflation en dessous → assouplissement
+        //    β×output_gap = réaction à l'activité économique
+        //       > 0 si surchauffe → resserrement
+        //       < 0 si récession → assouplissement
+        //
+        //  Calibrage BCM Madagascar :
+        //    La BCM ne pratique pas de ciblage d'inflation formel.
+        //    Le taux directeur sert surtout de signal pour le MID
+        //    (marché interbancaire de devises) et les taux créditeurs.
+        //    Historiquement très stable : 9.0-9.5% sur 2018-2024.
+        //    → Fort lissage nécessaire (vitesse ~0.03-0.05).
+        //
+
+        result.ComposanteTauxReelNeutre = tauxReelNeutre;
+        result.ComposanteInflation = inflationCourante;
+
+        double ecartInflation = inflationCourante - inflationCible;
+        result.ComposanteEcartInflation = coefficientInflation * ecartInflation;
+
+        // Borner l'output gap pour éviter des réactions extrêmes
+        double outputGapBorne = Math.Clamp(outputGap, -0.20, 0.20);
+        result.ComposanteOutputGap = coefficientOutputGap * outputGapBorne;
+
+        // Taux Taylor brut
+        double tauxTaylor = tauxReelNeutre
+                          + inflationCourante
+                          + coefficientInflation * ecartInflation
+                          + coefficientOutputGap * outputGapBorne;
+
+        // Borner le taux Taylor
+        // Plancher : le taux nominal ne descend pas sous 0% (Zero Lower Bound)
+        //            En pratique, la BCM ne descend jamais sous ~7%
+        // Plafond  : historiquement, jamais au-dessus de 25% à Madagascar
+        const double plancherTaux = 0.0;
+        const double plafondTaux = 0.25;
+        tauxTaylor = Math.Clamp(tauxTaylor, plancherTaux, plafondTaux);
+        result.TauxDirecteurTaylor = tauxTaylor;
+
+        // ═══════════════════════════════════════════
+        //  LISSAGE (inertie institutionnelle BCM)
+        // ═══════════════════════════════════════════
+        //
+        //  i_effectif(t) = (1 - ρ) × i(t-1) + ρ × i_Taylor
+        //
+        //  ρ = vitesseLissage (~0.03-0.05)
+        //  → Avec ρ=0.05, il faut ~20 jours pour parcourir 63% de l'écart
+        //  → ~60 jours (~2 mois) pour convergence quasi-complète
+        //
+        //  Ceci reflète que la BCM ajuste son taux
+        //  lors de réunions trimestrielles, pas quotidiennement.
+        //
+        double ecartVsPrecedent = tauxTaylor - tauxDirecteurPrecedent;
+        result.EcartTaylorVsPrecedent = ecartVsPrecedent;
+
+        // Limiter la variation journalière à ±2 bps/jour (~50 bps/mois max)
+        // C'est cohérent avec le comportement historique de la BCM
+        const double variationMaxJour = 0.0002; // 2 bps
+        double variationSouhaitee = vitesseLissage * ecartVsPrecedent;
+        double variationEffective = Math.Clamp(variationSouhaitee, -variationMaxJour, variationMaxJour);
+
+        double tauxEffectif = tauxDirecteurPrecedent + variationEffective;
+        tauxEffectif = Math.Clamp(tauxEffectif, plancherTaux, plafondTaux);
+
+        result.TauxDirecteurEffectif = tauxEffectif;
+        result.VariationEffective = variationEffective;
+
+        return result;
+    }
 }

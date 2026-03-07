@@ -1,0 +1,68 @@
+@using Simulation.Module.Config
+
+<div>
+    <hr />
+    <h6>💧⚡ JIRAMA (eau & électricité)</h6>
+    <div class="mb-2">
+        <label class="form-label">Tarif eau/jour/ménage : <strong>@FormatMGA(Config.TarifEauJourMenage)</strong></label>
+        <input type="range" class="form-range" min="100" max="2000" step="50"
+               @bind="Config.TarifEauJourMenage" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Prix élec. : <strong>@Config.PrixElectriciteArKWh.ToString("F0") Ar/KWh</strong></label>
+        <input type="range" class="form-range" min="400" max="1200" step="10"
+               @bind="Config.PrixElectriciteArKWh" @bind:event="oninput" disabled="@Disabled" />
+        <small class="text-muted">Source Tableau 21 : 610→653 Ar/KWh (2023-2025)</small>
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Conso. élec./ménage/jour : <strong>@Config.ConsommationElecMenageKWhJour.ToString("F2") KWh</strong></label>
+        <input type="range" class="form-range" min="0.30" max="3.00" step="0.05"
+               @bind="Config.ConsommationElecMenageKWhJour" @bind:event="oninput" disabled="@Disabled" />
+        <small class="text-muted">~30,8 KWh/mois = 1,03 KWh/jour (moy. nationale)</small>
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Taux accès eau : <strong>@((Config.TauxAccesEau * 100).ToString("F0"))%</strong></label>
+        <input type="range" class="form-range" min="0.05" max="0.80" step="0.01"
+               @bind="Config.TauxAccesEau" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Taux accès électricité : <strong>@((Config.TauxAccesElectricite * 100).ToString("F0"))%</strong></label>
+        <input type="range" class="form-range" min="0.05" max="0.80" step="0.01"
+               @bind="Config.TauxAccesElectricite" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Pertes réseau : <strong>@((Config.TauxPertesDistribution * 100).ToString("F1"))%</strong></label>
+        <input type="range" class="form-range" min="0.05" max="0.50" step="0.01"
+               @bind="Config.TauxPertesDistribution" @bind:event="oninput" disabled="@Disabled" />
+        <small class="text-muted">Norme internat. 8-12%, JIRAMA ~28,9%</small>
+    </div>
+    <div class="p-2 border rounded bg-light">
+        <small class="fw-bold">💡 JIRAMA — Factures mensuelles estimées :</small>
+        <div class="d-flex flex-wrap gap-1 mt-1">
+            <span class="badge bg-info text-dark">💧 Eau: ~@FormatMGA(Config.TarifEauJourMenage * 30)/mois</span>
+            <span class="badge bg-warning text-dark">⚡ Élec: ~@FormatMGA(Config.ConsommationElecMenageKWhJour * Config.PrixElectriciteArKWh * 30)/mois</span>
+        </div>
+        <div class="mt-1">
+            <small class="text-muted">🔋 Part hydraulique : @((Config.PartProductionHydraulique * 100).ToString("F0"))% | Thermique : @(((1 - Config.PartProductionHydraulique) * 100).ToString("F0"))%</small>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public ScenarioConfig Config { get; set; } = new ScenarioConfig();
+
+    [Parameter]
+    public bool Disabled { get; set; } = false;
+
+    private static string FormatMGA(double montant)
+    {
+        if (Math.Abs(montant) >= 1_000_000_000)
+            return $"{montant / 1_000_000_000:F2} Mrd MGA";
+        if (Math.Abs(montant) >= 1_000_000)
+            return $"{montant / 1_000_000:F2} M MGA";
+        if (Math.Abs(montant) >= 1_000)
+            return $"{montant / 1_000:F1} k MGA";
+        return $"{montant:F0} MGA";
+    }
+}

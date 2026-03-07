@@ -85,5 +85,33 @@ namespace Company.Module
             double prixCarburantCourant = 0,
             double prixCarburantReference = 0,
             double elasticitePrixParCarburant = 0);
+
+        /// <summary>
+        /// Ajuste l'emploi d'une entreprise selon sa trésorerie et la demande.
+        ///
+        /// Logique :
+        ///   - Embauche si demande &gt; capacité pendant N jours consécutifs ET trésorerie saine
+        ///   - Licenciement si trésorerie &lt; 0 pendant M jours consécutifs
+        ///   - Rigidité asymétrique : informel ajuste vite (5j), formel plus lent (15j, code du travail)
+        ///
+        /// Calibrage INSTAT ENEMPSI :
+        ///   - Rotation ~15-20%/an dans le formel
+        ///   - Informel : ajustement quasi-instantané (journaliers agricoles)
+        /// </summary>
+        /// <param name="entreprise">Entreprise dont l'emploi est ajusté.</param>
+        /// <param name="demandeJour">Demande effective adressée à l'entreprise ce jour (MGA).</param>
+        /// <param name="seuilUtilisationEmbauche">Taux d'utilisation de la capacité au-delà duquel on envisage d'embaucher (ex: 0.85).</param>
+        /// <param name="joursAvantEmbauche">Nombre de jours consécutifs de demande excédentaire avant embauche.</param>
+        /// <param name="joursAvantLicenciement">Nombre de jours consécutifs de stress trésorerie avant licenciement.</param>
+        /// <param name="tauxEmbaucheMax">Taux maximal d'embauche par jour (% des effectifs, ex: 0.02 = 2%).</param>
+        /// <param name="tauxLicenciementMax">Taux maximal de licenciement par jour (% des effectifs, ex: 0.03 = 3%).</param>
+        Models.HiringResult AjusterEmploi(
+            Models.Company entreprise,
+            double demandeJour,
+            double seuilUtilisationEmbauche = 0.85,
+            int joursAvantEmbauche = 7,
+            int joursAvantLicenciement = 15,
+            double tauxEmbaucheMax = 0.02,
+            double tauxLicenciementMax = 0.03);
     }
 }

@@ -1,3 +1,5 @@
+using Household.Module.Models;
+
 namespace Household.Salary.Distribution.Module
 {
     public interface IHouseholdSalaryDistributionModule
@@ -10,12 +12,12 @@ namespace Household.Salary.Distribution.Module
 
         double TirerSalaire(Random random);
 
-        Household.Module.Models.ClasseSocioEconomique DeterminerClasse(double salaireMensuel);
+        ClasseSocioEconomique DeterminerClasse(double salaireMensuel);
 
-        Household.Module.Models.HouseholdBehavior GetComportementParClasse(
-            Household.Module.Models.ClasseSocioEconomique classe,
+        HouseholdBehavior GetComportementParClasse(
+            ClasseSocioEconomique classe,
             Random random);
 
-        Household.Module.Models.DistributionStats CalculerStats(double[] valeurs);
+        DistributionStats CalculerStats(double[] valeurs);
     }
 }

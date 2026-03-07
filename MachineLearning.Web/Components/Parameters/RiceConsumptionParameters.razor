@@ -1,0 +1,51 @@
+@using Simulation.Module.Config
+
+<div>
+    <hr />
+    <h6>🍚 Consommation de riz</h6>
+    <div class="mb-2">
+        <label class="form-label">Conso. annuelle/pers : <strong>@Config.ConsommationRizAnnuelleKgParPersonne.ToString("F0") kg</strong></label>
+        <input type="range" class="form-range" min="50" max="200" step="5"
+               @bind="Config.ConsommationRizAnnuelleKgParPersonne" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Prix riz local : <strong>@FormatMGA(Config.PrixRizLocalKg)/kg</strong></label>
+        <input type="range" class="form-range" min="1000" max="5000" step="100"
+               @bind="Config.PrixRizLocalKg" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Prix riz importé : <strong>@FormatMGA(Config.PrixRizImporteKg)/kg</strong></label>
+        <input type="range" class="form-range" min="1500" max="6000" step="100"
+               @bind="Config.PrixRizImporteKg" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+    <div class="mb-2">
+        <label class="form-label">Part riz importé : <strong>@((Config.PartRizImporte * 100).ToString("F0"))%</strong></label>
+        <input type="range" class="form-range" min="0.05" max="0.50" step="0.01"
+               @bind="Config.PartRizImporte" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+    <div class="p-2 border rounded bg-light">
+        <small class="fw-bold">🍚 Coût riz estimé/ménage/jour :</small>
+        <span class="badge bg-secondary">
+            ~@FormatMGA((Config.ConsommationRizAnnuelleKgParPersonne / 365.0) * 4.5 * (Config.PrixRizLocalKg * (1.0 - Config.PartRizImporte) + Config.PrixRizImporteKg * Config.PartRizImporte))
+        </span>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public ScenarioConfig Config { get; set; } = new ScenarioConfig();
+
+    [Parameter]
+    public bool Disabled { get; set; } = false;
+
+    private static string FormatMGA(double montant)
+    {
+        if (Math.Abs(montant) >= 1_000_000_000)
+            return $"{montant / 1_000_000_000:F2} Mrd MGA";
+        if (Math.Abs(montant) >= 1_000_000)
+            return $"{montant / 1_000_000:F2} M MGA";
+        if (Math.Abs(montant) >= 1_000)
+            return $"{montant / 1_000:F1} k MGA";
+        return $"{montant:F0} MGA";
+    }
+}

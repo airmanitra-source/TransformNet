@@ -1,4 +1,3 @@
-using Company.Module.Models;
 namespace Household.Module.Models;
 
 /// <summary>
@@ -21,6 +20,3 @@ public class DistributionStats
     public double Q4Moyenne { get; set; }
     public double Q5Moyenne { get; set; }
 }
-
-
-

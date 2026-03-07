@@ -219,7 +219,8 @@ namespace Company.Module
 
             // 1. Capacité de production du jour (ajustée par le facteur de prix de vente)
             // Même production physique, mais valeur nominale plus élevée quand les prix montent
-            double productionJour = entreprise.NombreEmployes * entreprise.ProductiviteParEmployeJour * facteurPrixVente;
+            // Utilise ProductiviteEffectiveParEmployeJour : intègre le facteur informel (~30-60% du formel)
+            double productionJour = entreprise.NombreEmployes * entreprise.ProductiviteEffectiveParEmployeJour * facteurPrixVente;
 
             // 2. Ventes
             // B2C : limitée par la demande des ménages et la capacité de production
@@ -293,13 +294,172 @@ namespace Company.Module
 
             // 10. Effet du taux directeur sur le coût du crédit (simplifié)
             // Un taux directeur élevé augmente le coût de financement
-            double coutFinancementJour = Math.Max(0, entreprise.Tresorerie * -1) * (tauxDirecteur / 365.0);
-            if (entreprise.Tresorerie < 0)
+            // Entreprises informelles : aucun accès au crédit bancaire (INSTAT : <10% des informels ont un compte)
+            if (!entreprise.EstInformel)
             {
-                entreprise.Tresorerie -= coutFinancementJour;
-                result.CoutFinancement = coutFinancementJour;
+                double coutFinancementJour = Math.Max(0, entreprise.Tresorerie * -1) * (tauxDirecteur / 365.0);
+                if (entreprise.Tresorerie < 0)
+                {
+                    entreprise.Tresorerie -= coutFinancementJour;
+                    result.CoutFinancement = coutFinancementJour;
+                }
             }
 
+            return result;
+        }
+
+        /// <inheritdoc/>
+        public HiringResult AjusterEmploi(
+            Models.Company entreprise,
+            double demandeJour,
+            double seuilUtilisationEmbauche = 0.85,
+            int joursAvantEmbauche = 7,
+            int joursAvantLicenciement = 15,
+            double tauxEmbaucheMax = 0.02,
+            double tauxLicenciementMax = 0.03)
+        {
+            var result = new HiringResult();
+
+            if (entreprise.NombreEmployes <= 0)
+            {
+                result.NouveauNombreEmployes = entreprise.NombreEmployes;
+                result.Raison = "Aucun employé";
+                return result;
+            }
+
+            // ═══════════════════════════════════════════
+            //  1. CALCULER LE TAUX D'UTILISATION
+            // ═══════════════════════════════════════════
+            //
+            // Capacité = NbEmployés × Productivité/jour
+            // TauxUtilisation = Demande / Capacité
+            //   > 1.0 → demande excédentaire (rationnement)
+            //   < seuilEmbauche → sous-utilisation
+            //
+            double capaciteProduction = entreprise.NombreEmployes * entreprise.ProductiviteEffectiveParEmployeJour;
+            double tauxUtilisation = capaciteProduction > 0 ? demandeJour / capaciteProduction : 0;
+            result.TauxUtilisationCapacite = tauxUtilisation;
+
+            // ═══════════════════════════════════════════
+            //  2. LISSAGE DE LA DEMANDE (EMA 7 jours)
+            // ═══════════════════════════════════════════
+            //
+            // Évite les embauches/licenciements sur un pic ou creux d'un seul jour.
+            // α = 2/(N+1) avec N=7 → α ≈ 0.25
+            //
+            const double alphaLissage = 0.25;
+            entreprise.DemandeLissee = entreprise.DemandeLissee > 0
+                ? alphaLissage * demandeJour + (1.0 - alphaLissage) * entreprise.DemandeLissee
+                : demandeJour;
+
+            double tauxUtilisationLisse = capaciteProduction > 0
+                ? entreprise.DemandeLissee / capaciteProduction
+                : 0;
+
+            // ═══════════════════════════════════════════
+            //  3. SUIVI DES JOURS DE STRESS / EXCÉDENT
+            // ═══════════════════════════════════════════
+
+            // Stress trésorerie
+            if (entreprise.Tresorerie < 0)
+            {
+                entreprise.JoursStressTresorerieConsecutifs++;
+            }
+            else
+            {
+                entreprise.JoursStressTresorerieConsecutifs = 0;
+            }
+
+            // Demande excédentaire (basée sur la demande lissée)
+            if (tauxUtilisationLisse > seuilUtilisationEmbauche && entreprise.Tresorerie > 0)
+            {
+                entreprise.JoursDemandeExcedentaireConsecutifs++;
+            }
+            else
+            {
+                entreprise.JoursDemandeExcedentaireConsecutifs = 0;
+            }
+
+            result.JoursStressConsecutifs = entreprise.JoursStressTresorerieConsecutifs;
+            result.JoursDemandeExcedentaireConsecutifs = entreprise.JoursDemandeExcedentaireConsecutifs;
+
+            // ═══════════════════════════════════════════
+            //  4. RIGIDITÉ ASYMÉTRIQUE (formel vs informel)
+            // ═══════════════════════════════════════════
+            //
+            // Informel : ajustement rapide (journaliers agricoles, petits commerces)
+            //   → seuil embauche = config / 2, seuil licenciement = config / 3
+            // Formel : ajustement lent (code du travail, préavis, indemnités)
+            //   → seuils tels que configurés
+            //
+            int seuilEffectifEmbauche = entreprise.EstInformel
+                ? Math.Max(2, joursAvantEmbauche / 2)
+                : joursAvantEmbauche;
+
+            int seuilEffectifLicenciement = entreprise.EstInformel
+                ? Math.Max(2, joursAvantLicenciement / 3)
+                : joursAvantLicenciement;
+
+            // ═══════════════════════════════════════════
+            //  5. DÉCISION D'EMBAUCHE
+            // ═══════════════════════════════════════════
+            //
+            // Conditions :
+            //   a) Demande excédentaire depuis N jours consécutifs
+            //   b) Trésorerie positive (peut payer les nouveaux salaires)
+            //   c) Nombre d'embauches limité par tauxEmbaucheMax × effectifs
+            //
+            if (entreprise.JoursDemandeExcedentaireConsecutifs >= seuilEffectifEmbauche)
+            {
+                // Combien d'employés faut-il pour satisfaire la demande ?
+                double employesNecessaires = entreprise.ProductiviteEffectiveParEmployeJour > 0
+                    ? entreprise.DemandeLissee / entreprise.ProductiviteEffectiveParEmployeJour
+                    : entreprise.NombreEmployes;
+
+                int deficit = (int)Math.Ceiling(employesNecessaires) - entreprise.NombreEmployes;
+                int maxEmbaucheJour = Math.Max(1, (int)(entreprise.NombreEmployes * tauxEmbaucheMax));
+                int embauches = Math.Clamp(deficit, 1, maxEmbaucheJour);
+
+                // Vérifier que la trésorerie peut absorber les nouveaux salaires (~30 jours)
+                double coutMensuelNouveaux = embauches * entreprise.SalaireMoyenMensuel;
+                if (entreprise.Tresorerie > coutMensuelNouveaux)
+                {
+                    entreprise.NombreEmployes += embauches;
+                    entreprise.TotalEmbauches += embauches;
+                    entreprise.JoursDemandeExcedentaireConsecutifs = 0;
+                    result.Embauches = embauches;
+                    result.VariationEmployes = embauches;
+                    result.Raison = $"Embauche +{embauches} (utilisation={tauxUtilisationLisse:P0}, {seuilEffectifEmbauche}j excédent)";
+                }
+            }
+
+            // ═══════════════════════════════════════════
+            //  6. DÉCISION DE LICENCIEMENT
+            // ═══════════════════════════════════════════
+            //
+            // Conditions :
+            //   a) Trésorerie négative depuis M jours consécutifs
+            //   b) Nombre de licenciements limité par tauxLicenciementMax × effectifs
+            //   c) Plancher : NombreEmployesMinimum (au moins 1)
+            //
+            else if (entreprise.JoursStressTresorerieConsecutifs >= seuilEffectifLicenciement)
+            {
+                int maxLicenciementJour = Math.Max(1, (int)(entreprise.NombreEmployes * tauxLicenciementMax));
+                int licenciements = Math.Min(maxLicenciementJour,
+                    entreprise.NombreEmployes - entreprise.NombreEmployesMinimum);
+                licenciements = Math.Max(0, licenciements);
+
+                if (licenciements > 0)
+                {
+                    entreprise.NombreEmployes -= licenciements;
+                    entreprise.TotalLicenciements += licenciements;
+                    result.Licenciements = licenciements;
+                    result.VariationEmployes = -licenciements;
+                    result.Raison = $"Licenciement -{licenciements} (stress trésorerie {entreprise.JoursStressTresorerieConsecutifs}j)";
+                }
+            }
+
+            result.NouveauNombreEmployes = entreprise.NombreEmployes;
             return result;
         }
     }

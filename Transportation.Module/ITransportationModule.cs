@@ -1,5 +1,6 @@
 using Company.Module.Models;
 using Household.Module.Models;
+using Transportation.Module.Models;
 
 namespace Transportation.Module;
 

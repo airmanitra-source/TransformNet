@@ -1,0 +1,38 @@
+@using Simulation.Module.Config
+
+<div>
+    <hr />
+    <h6>⛽ Transport & carburant</h6>
+    <div class="mb-2">
+        <label class="form-label">Prix carburant : <strong>@FormatMGA(Config.PrixCarburantLitre)/L</strong></label>
+        <input type="range" class="form-range" min="3000" max="15000" step="100"
+               @bind="Config.PrixCarburantLitre" @bind:event="oninput" disabled="@Disabled" />
+    </div>
+    <div class="p-2 border rounded bg-light">
+        <small class="fw-bold">🚌 Coûts transport/jour :</small>
+        <div class="d-flex flex-wrap gap-1 mt-1">
+            <span class="badge bg-secondary">🚌 Public: 1 200 MGA</span>
+            <span class="badge bg-secondary">🏍️ Moto: ~@FormatMGA(Config.PrixCarburantLitre * 0.6)</span>
+            <span class="badge bg-secondary">🚗 Voiture: ~@FormatMGA(Config.PrixCarburantLitre * 1.6 + 500)</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public ScenarioConfig Config { get; set; } = new ScenarioConfig();
+
+    [Parameter]
+    public bool Disabled { get; set; } = false;
+
+    private static string FormatMGA(double montant)
+    {
+        if (Math.Abs(montant) >= 1_000_000_000)
+            return $"{montant / 1_000_000_000:F2} Mrd MGA";
+        if (Math.Abs(montant) >= 1_000_000)
+            return $"{montant / 1_000_000:F2} M MGA";
+        if (Math.Abs(montant) >= 1_000)
+            return $"{montant / 1_000:F1} k MGA";
+        return $"{montant:F0} MGA";
+    }
+}

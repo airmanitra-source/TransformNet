@@ -9,204 +9,15 @@ namespace Household.Module
     /// Centralise le comportement économique par classe socio-économique
     /// et la logique d'achat alimentaire.
     /// La distribution salariale (tirage, classification, stats) est déléguée
-    /// à <c>HouseholdSalaryDistributionModule</c>.
+    /// à <c>IHouseholdSalaryDistributionModule</c>.
     /// </summary>
-    public class HouseholdModule : IHouseholdModule, IHouseholdSalaryDistributionModule
+    public class HouseholdModule : IHouseholdModule
     {
-        private double _salaireMedian = 170_000;
-        private double _sigma = 0.85;
-        private double _salairePlancher = 50_000;
-        private double _salairePlafond = 10_000_000;
-        private double _partSecteurInformel = 0.85;
+        private readonly IHouseholdSalaryDistributionModule _salaryDistributionModule;
 
-        private double Mu => Math.Log(_salaireMedian);
-
-        public void ConfigurerDistributionSalariale(
-            double salaireMedian,
-            double sigma,
-            double salairePlancher,
-            double partSecteurInformel)
+        public HouseholdModule(IHouseholdSalaryDistributionModule salaryDistributionModule)
         {
-            _salaireMedian = salaireMedian;
-            _sigma = sigma;
-            _salairePlancher = salairePlancher;
-            _partSecteurInformel = partSecteurInformel;
-        }
-
-        public double TirerSalaire(Random random)
-        {
-            double z = BoxMullerNormal(random);
-            double salaire = Math.Exp(Mu + _sigma * z);
-            return Math.Clamp(salaire, _salairePlancher, _salairePlafond);
-        }
-
-        public ClasseSocioEconomique DeterminerClasse(double salaireMensuel)
-        {
-            double q1Seuil = Math.Exp(Mu + _sigma * -0.842);
-            double q2Seuil = Math.Exp(Mu + _sigma * -0.253);
-            double q3Seuil = Math.Exp(Mu + _sigma * 0.253);
-            double q4Seuil = Math.Exp(Mu + _sigma * 0.842);
-
-            return salaireMensuel switch
-            {
-                _ when salaireMensuel <= q1Seuil => ClasseSocioEconomique.Subsistance,
-                _ when salaireMensuel <= q2Seuil => ClasseSocioEconomique.InformelBas,
-                _ when salaireMensuel <= q3Seuil => ClasseSocioEconomique.FormelBas,
-                _ when salaireMensuel <= q4Seuil => ClasseSocioEconomique.FormelQualifie,
-                _ => ClasseSocioEconomique.Cadre
-            };
-        }
-
-        public HouseholdBehavior GetComportementParClasse(ClasseSocioEconomique classe, Random random)
-        {
-            return classe switch
-            {
-                ClasseSocioEconomique.Subsistance => new HouseholdBehavior
-                {
-                    TauxEpargne = 0.02 + random.NextDouble() * 0.03,
-                    PropensionConsommation = 0.92 + random.NextDouble() * 0.06,
-                    DepensesAlimentairesJour = 2_000 + random.NextDouble() * 1_500,
-                    DepensesDiversJour = 500 + random.NextDouble() * 800,
-                    EpargneInitiale = random.NextDouble() * 20_000,
-                    ProbabiliteEmploi = 0.70 + random.NextDouble() * 0.10,
-                    Transport = ModeTransport.TransportPublic,
-                    DistanceDomicileTravailKm = 3 + random.NextDouble() * 5,
-                    BudgetSortieWeekend = 0,
-                    BudgetVacances = 0,
-                    ProbabiliteSortieWeekend = 0,
-                    FrequenceVacancesJours = 0,
-                    ProbabiliteVacances = 0,
-                    DureeVacancesJours = 0,
-                },
-                ClasseSocioEconomique.InformelBas => new HouseholdBehavior
-                {
-                    TauxEpargne = 0.04 + random.NextDouble() * 0.04,
-                    PropensionConsommation = 0.85 + random.NextDouble() * 0.08,
-                    DepensesAlimentairesJour = 3_000 + random.NextDouble() * 2_000,
-                    DepensesDiversJour = 800 + random.NextDouble() * 1_200,
-                    EpargneInitiale = random.NextDouble() * 50_000,
-                    ProbabiliteEmploi = 0.78 + random.NextDouble() * 0.10,
-                    Transport = ModeTransport.TransportPublic,
-                    DistanceDomicileTravailKm = 5 + random.NextDouble() * 8,
-                    BudgetSortieWeekend = 0,
-                    BudgetVacances = 0,
-                    ProbabiliteSortieWeekend = 0,
-                    FrequenceVacancesJours = 0,
-                    ProbabiliteVacances = 0,
-                    DureeVacancesJours = 0,
-                },
-                ClasseSocioEconomique.FormelBas => new HouseholdBehavior
-                {
-                    TauxEpargne = 0.08 + random.NextDouble() * 0.06,
-                    PropensionConsommation = 0.75 + random.NextDouble() * 0.10,
-                    DepensesAlimentairesJour = 4_000 + random.NextDouble() * 2_500,
-                    DepensesDiversJour = 1_500 + random.NextDouble() * 1_500,
-                    EpargneInitiale = 20_000 + random.NextDouble() * 100_000,
-                    ProbabiliteEmploi = 0.88 + random.NextDouble() * 0.08,
-                    Transport = random.NextDouble() > 0.4 ? ModeTransport.Moto : ModeTransport.TransportPublic,
-                    DistanceDomicileTravailKm = 5 + random.NextDouble() * 12,
-                    BudgetSortieWeekend = 3_000 + random.NextDouble() * 2_000,
-                    BudgetVacances = 0,
-                    ProbabiliteSortieWeekend = 0.15 + random.NextDouble() * 0.10,
-                    FrequenceVacancesJours = 0,
-                    ProbabiliteVacances = 0,
-                    DureeVacancesJours = 0,
-                },
-                ClasseSocioEconomique.FormelQualifie => new HouseholdBehavior
-                {
-                    TauxEpargne = 0.12 + random.NextDouble() * 0.08,
-                    PropensionConsommation = 0.65 + random.NextDouble() * 0.12,
-                    DepensesAlimentairesJour = 5_000 + random.NextDouble() * 3_000,
-                    DepensesDiversJour = 2_500 + random.NextDouble() * 3_000,
-                    EpargneInitiale = 100_000 + random.NextDouble() * 300_000,
-                    ProbabiliteEmploi = 0.92 + random.NextDouble() * 0.06,
-                    Transport = random.NextDouble() > 0.5 ? ModeTransport.Voiture : ModeTransport.Moto,
-                    DistanceDomicileTravailKm = 8 + random.NextDouble() * 15,
-                    BudgetSortieWeekend = 10_000 + random.NextDouble() * 10_000,
-                    BudgetVacances = 15_000 + random.NextDouble() * 10_000,
-                    ProbabiliteSortieWeekend = 0.40 + random.NextDouble() * 0.20,
-                    FrequenceVacancesJours = 180,
-                    ProbabiliteVacances = 0.40 + random.NextDouble() * 0.20,
-                    DureeVacancesJours = 3 + random.Next(3),
-                },
-                ClasseSocioEconomique.Cadre => new HouseholdBehavior
-                {
-                    TauxEpargne = 0.18 + random.NextDouble() * 0.12,
-                    PropensionConsommation = 0.50 + random.NextDouble() * 0.15,
-                    DepensesAlimentairesJour = 8_000 + random.NextDouble() * 7_000,
-                    DepensesDiversJour = 5_000 + random.NextDouble() * 10_000,
-                    EpargneInitiale = 500_000 + random.NextDouble() * 2_000_000,
-                    ProbabiliteEmploi = 0.95 + random.NextDouble() * 0.04,
-                    Transport = ModeTransport.Voiture,
-                    DistanceDomicileTravailKm = 10 + random.NextDouble() * 20,
-                    BudgetSortieWeekend = 25_000 + random.NextDouble() * 25_000,
-                    BudgetVacances = 40_000 + random.NextDouble() * 30_000,
-                    ProbabiliteSortieWeekend = 0.60 + random.NextDouble() * 0.25,
-                    FrequenceVacancesJours = 90,
-                    ProbabiliteVacances = 0.65 + random.NextDouble() * 0.20,
-                    DureeVacancesJours = 4 + random.Next(4),
-                },
-                _ => throw new ArgumentOutOfRangeException(nameof(classe))
-            };
-        }
-
-        public DistributionStats CalculerStats(double[] valeurs)
-        {
-            if (valeurs.Length == 0)
-                return new DistributionStats();
-
-            var sorted = valeurs.OrderBy(s => s).ToArray();
-            int n = sorted.Length;
-
-            var stats = new DistributionStats
-            {
-                Moyenne = sorted.Average(),
-                Mediane = sorted[n / 2],
-                Min = sorted[0],
-                Max = sorted[^1],
-                EcartType = CalculerEcartType(sorted),
-                Q1Moyenne = sorted.Take(n / 5).Average(),
-                Q2Moyenne = sorted.Skip(n / 5).Take(n / 5).Average(),
-                Q3Moyenne = sorted.Skip(2 * n / 5).Take(n / 5).Average(),
-                Q4Moyenne = sorted.Skip(3 * n / 5).Take(n / 5).Average(),
-                Q5Moyenne = sorted.Skip(4 * n / 5).Average(),
-            };
-
-            stats.Gini = CalculerGini(sorted);
-
-            int d1Index = n / 10;
-            int d9Index = 9 * n / 10;
-            stats.RatioD9D1 = sorted[d9Index] / Math.Max(sorted[d1Index], 1);
-
-            return stats;
-        }
-
-        private static double BoxMullerNormal(Random random)
-        {
-            double u1 = 1.0 - random.NextDouble();
-            double u2 = random.NextDouble();
-            return Math.Sqrt(-2.0 * Math.Log(u1)) * Math.Cos(2.0 * Math.PI * u2);
-        }
-
-        private static double CalculerEcartType(double[] values)
-        {
-            double mean = values.Average();
-            double sumSquares = values.Sum(v => (v - mean) * (v - mean));
-            return Math.Sqrt(sumSquares / values.Length);
-        }
-
-        private static double CalculerGini(double[] sorted)
-        {
-            int n = sorted.Length;
-            double sum = sorted.Sum();
-            if (sum == 0) return 0;
-
-            double giniNumerator = 0;
-            for (int i = 0; i < n; i++)
-            {
-                giniNumerator += (2.0 * (i + 1) - n - 1) * sorted[i];
-            }
-            return giniNumerator / (n * sum);
+            _salaryDistributionModule = salaryDistributionModule;
         }
 
         /// <remarks>
@@ -214,7 +25,7 @@ namespace Household.Module
         /// Subsistance) sont sensiblement différentes de celles de
         /// <c>HouseholdSalaryDistribution.ComportementParClasse</c> (2 000-3 500 MGA pour Subsistance),
         /// qui est la source effectivement utilisée à l'initialisation dans
-        /// <c>EconomicSimulatorViewModel.Initialiser()</c>. À réconcilier.
+        /// <c>SimulationModule.Initialiser()</c>. À réconcilier.
         /// </remarks>
         public (double TauxEpargne, double PropensionConsommation, double DepensesAlimentairesJour,
                  double DepensesDiversJour, string Transport, double DistanceDomicileTravailKm,
@@ -348,10 +159,35 @@ namespace Household.Module
             bool travailleAujourdHui = menage.EstEmploye && estJourDeTravail;
             double salaireJourOuvrable = menage.SalaireMensuel / 22.0; // 22 jours ouvrables/mois
             double revenuBrut = travailleAujourdHui ? salaireJourOuvrable : 0;
+
+            // 1b. Revenu informel annexe (petit commerce, vente ambulante, journalier)
+            // Ce revenu est perçu même les jours de repos pour les auto-employés (pas de repos fixe)
+            // et uniquement les jours ouvrables pour les employés avec activité annexe.
+            // Non imposable (IRSA), non soumis au CNaPS — économie parallèle.
+            double revenuInformelJour = 0;
+            if (menage.RevenuInformelJournalier > 0)
+            {
+                if (menage.EstAutoEmploi)
+                {
+                    // Auto-employés : travaillent quasi tous les jours (pas de week-end fixe)
+                    // Mais productivité réduite les jours de repos (~50%)
+                    revenuInformelJour = estJourDeTravail
+                        ? menage.RevenuInformelJournalier
+                        : menage.RevenuInformelJournalier * 0.5;
+                }
+                else
+                {
+                    // Employés avec activité annexe : uniquement après le travail ou jours de repos
+                    revenuInformelJour = menage.RevenuInformelJournalier * (estJourDeTravail ? 0.5 : 0.8);
+                }
+            }
+            revenuBrut += revenuInformelJour;
+            menage.TotalRevenusInformels += revenuInformelJour;
             result.RevenuBrut = revenuBrut;
 
-            // 2. IRSA progressif (uniquement les jours travaillés)
-            double impotIRSA = travailleAujourdHui ? impotIRSAJournalier : 0;
+            // 2. IRSA progressif (uniquement les jours travaillés, sur le salaire formel uniquement)
+            // Le revenu informel annexe échappe à l'IRSA (pas déclaré)
+            double impotIRSA = (travailleAujourdHui && !menage.EstDansSecteurInformel) ? impotIRSAJournalier : 0;
             result.ImpotIR = impotIRSA;
             result.TauxEffectifIR = menage.SalaireMensuel > 0 ? tauxEffectifIRSA : 0;
             menage.TotalImpotsPaye += impotIRSA;

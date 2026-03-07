@@ -8,5 +8,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Company.Module\Company.Module.csproj" />
+    <ProjectReference Include="..\Household.Salary.Distribution.Module\Household.Salary.Distribution.Module.csproj" />
   </ItemGroup>
 </Project>

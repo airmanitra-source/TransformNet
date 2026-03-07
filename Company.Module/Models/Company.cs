@@ -21,6 +21,21 @@ public class Company
     /// </summary>
     public bool EstInformel { get; set; }
 
+    /// <summary>
+    /// Facteur de productivité informelle (0.3-0.6 du formel).
+    /// Reflète l'absence de capital, de formation et de technologie.
+    /// Source : INSTAT ENEMPSI — productivité informelle ≈ 30-60% du formel à secteur égal.
+    /// Vaut 1.0 pour les entreprises formelles (aucune réduction).
+    /// </summary>
+    public double FacteurProductiviteInformel { get; set; } = 1.0;
+
+    /// <summary>
+    /// Productivité effective par employé par jour (MGA).
+    /// = ProductiviteParEmployeJour × FacteurProductiviteInformel.
+    /// </summary>
+    public double ProductiviteEffectiveParEmployeJour =>
+        ProductiviteParEmployeJour * FacteurProductiviteInformel;
+
     // --- Finances (en Ariary - MGA) ---
     /// <summary>Trésorerie disponible</summary>
     public double Tresorerie { get; set; } = 5_000_000;
@@ -60,6 +75,42 @@ public class Company
 
     /// <summary>Total des cotisations CNaPS patronales payées</summary>
     public double TotalCotisationsCNaPS { get; set; }
+
+    // ═══════════════════════════════════════════
+    //  DYNAMIQUE DU MARCHÉ DU TRAVAIL
+    // ═══════════════════════════════════════════
+
+    /// <summary>
+    /// Nombre de jours consécutifs avec trésorerie négative (stress financier).
+    /// Déclenche des licenciements si dépasse le seuil configuré.
+    /// Reset à 0 dès que la trésorerie repasse en positif.
+    /// </summary>
+    public int JoursStressTresorerieConsecutifs { get; set; }
+
+    /// <summary>
+    /// Nombre de jours consécutifs où la demande excède la capacité de production.
+    /// Déclenche des embauches si dépasse le seuil configuré.
+    /// Reset à 0 dès que la demande repasse sous la capacité.
+    /// </summary>
+    public int JoursDemandeExcedentaireConsecutifs { get; set; }
+
+    /// <summary>
+    /// Demande moyenne lissée sur les derniers jours (MGA).
+    /// Utilisée pour lisser les décisions d'embauche et éviter les oscillations.
+    /// </summary>
+    public double DemandeLissee { get; set; }
+
+    /// <summary>
+    /// Nombre minimum d'employés (plancher). L'entreprise ne peut pas descendre
+    /// en dessous (au moins 1 pour exister).
+    /// </summary>
+    public int NombreEmployesMinimum { get; set; } = 1;
+
+    /// <summary>Total cumulé des embauches sur la simulation.</summary>
+    public int TotalEmbauches { get; set; }
+
+    /// <summary>Total cumulé des licenciements sur la simulation.</summary>
+    public int TotalLicenciements { get; set; }
 
     /// <summary>
     /// Retourne la productivité journalière réaliste par employé selon le secteur.

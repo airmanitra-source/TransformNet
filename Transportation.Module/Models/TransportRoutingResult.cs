@@ -1,4 +1,4 @@
-namespace Transportation.Module;
+namespace Transportation.Module.Models;
 
 /// <summary>
 /// Résultat du routage d'une dépense de transport vers les secteurs économiques.

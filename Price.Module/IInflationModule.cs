@@ -41,6 +41,45 @@ public interface IInflationModule
     /// <param name="pibPotentielJour">PIB potentiel journalier estimé (MGA).</param>
     /// <param name="m3Initial">Masse monétaire M3 initiale (MGA).</param>
     void Initialiser(double tauxInflationInitial, double pibPotentielJour, double m3Initial);
+
+    /// <summary>
+    /// Calcule le taux directeur BCM selon une règle de Taylor adaptée à Madagascar.
+    ///
+    /// Formule :  i = r* + π + α×(π - π*) + β×output_gap
+    ///
+    /// Calibrage BCM :
+    ///   - r* = taux réel neutre (~2-3%, estimé FMI pour Madagascar)
+    ///   - π* = cible implicite BCM (~5-7%, pas de ciblage strict)
+    ///   - α  = réactivité à l'inflation (~0.5, Taylor standard)
+    ///   - β  = réactivité à l'output gap (~0.5, Taylor standard)
+    ///
+    /// Contraintes :
+    ///   - Plancher = max(0, r* + π*) pour éviter un taux négatif
+    ///   - Plafond = 25% (la BCM ne monte jamais au-delà historiquement)
+    ///   - Lissage : ajustement progressif (±50 bps/mois max, inertie institutionnelle)
+    ///
+    /// Historique BCM :
+    ///   2018: 9.5% | 2020: 9.0% | 2022: 9.0% | 2024: 9.5%
+    ///   → Très peu de variation → fort lissage nécessaire.
+    /// </summary>
+    /// <param name="inflationCourante">Taux d'inflation annualisé courant (ex: 0.08 = 8%).</param>
+    /// <param name="inflationCible">Cible implicite d'inflation BCM (ex: 0.06 = 6%).</param>
+    /// <param name="outputGap">Output gap = (PIB_effectif - PIB_potentiel) / PIB_potentiel.</param>
+    /// <param name="tauxDirecteurPrecedent">Taux directeur du jour précédent (pour le lissage).</param>
+    /// <param name="tauxReelNeutre">Taux réel neutre r* (ex: 0.02 = 2%).</param>
+    /// <param name="coefficientInflation">Coefficient de réaction à l'écart d'inflation α (Taylor: 0.5).</param>
+    /// <param name="coefficientOutputGap">Coefficient de réaction à l'output gap β (Taylor: 0.5).</param>
+    /// <param name="vitesseLissage">Vitesse de convergence vers le taux Taylor (0-1). 0.05 = inertie forte.</param>
+    /// <returns>Résultat contenant le nouveau taux directeur et ses composantes.</returns>
+    TaylorRuleResult CalculerTauxDirecteurTaylor(
+        double inflationCourante,
+        double inflationCible,
+        double outputGap,
+        double tauxDirecteurPrecedent,
+        double tauxReelNeutre = 0.02,
+        double coefficientInflation = 0.50,
+        double coefficientOutputGap = 0.50,
+        double vitesseLissage = 0.05);
 }
 
 /// <summary>
