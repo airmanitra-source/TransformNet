@@ -305,6 +305,12 @@ namespace Company.Module
                 }
             }
 
+            // 11. Taux d'utilisation de la capacité (pour investissement et embauche)
+            double capaciteProductionJour = entreprise.NombreEmployes * entreprise.ProductiviteEffectiveParEmployeJour;
+            result.TauxUtilisationCapacite = capaciteProductionJour > 0
+                ? demandeConsommationMenages / capaciteProductionJour
+                : 0;
+
             return result;
         }
 

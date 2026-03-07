@@ -31,6 +31,20 @@ public class CompanyDailyResult
     /// Reflète la transmission du prix du carburant aux coûts et prix de l'entreprise.
     /// </summary>
     public double FacteurChocPrix { get; set; } = 1.0;
+
+    // ─── Investissement productif (FBCF) ──────────────────────────────────────
+
+    /// <summary>Investissement productif réalisé ce jour (MGA).</summary>
+    public double InvestissementJour { get; set; }
+
+    /// <summary>Dépréciation du capital ce jour (MGA).</summary>
+    public double DepreciationCapitalJour { get; set; }
+
+    /// <summary>Stock de capital en fin de journée (MGA).</summary>
+    public double StockCapital { get; set; }
+
+    /// <summary>Taux d'utilisation de la capacité de production (0-2+).</summary>
+    public double TauxUtilisationCapacite { get; set; }
 }
 
 

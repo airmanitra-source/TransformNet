@@ -328,6 +328,45 @@ public class ScenarioConfig
     // ════════════════════════════════════════════════════════════════
 
     // ════════════════════════════════════════════════════════════════
+    // ░░░ INVESTISSEMENT PRODUCTIF (FBCF) ░░░
+    // ════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Active le module d'investissement productif (FBCF privée par entreprise).
+    /// Essentiel pour les simulations >1 an : sans lui, la capacité de production est fixe.
+    /// </summary>
+    public bool InvestissementProductifActive { get; set; } = true;
+
+    /// <summary>
+    /// Taux de dépréciation annuel du capital (0-1).
+    /// Madagascar : ~5-8% selon le type d'actif.
+    /// Agriculture (terre) : ~3-4% | Minier (machines) : ~10-12%.
+    /// </summary>
+    public double TauxDepreciationCapitalAnnuel { get; set; } = 0.07;
+
+    /// <summary>
+    /// Seuil de taux d'utilisation de la capacité pour investir (0-1).
+    /// L'entreprise n'investit que si la demande utilise ≥70% de sa capacité.
+    /// </summary>
+    public double SeuilUtilisationInvestissement { get; set; } = 0.70;
+
+    /// <summary>
+    /// Élasticité du capital à la productivité (α dans Prod = Base × (1 + α × ln(1 + K/K₀))).
+    /// 0.08 = effet modéré, rendements décroissants marqués.
+    /// </summary>
+    public double ElasticiteCapitalProductivite { get; set; } = 0.08;
+
+    // ════════════════════════════════════════════════════════════════
+    // ░░░ MATRICE INPUT-OUTPUT (TABLEAU DES ENTRÉES-SORTIES) ░░░
+    // ════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Active la matrice input-output simplifiée pour ventiler les achats B2B
+    /// entre secteurs fournisseurs. Fournit des multiplicateurs sectoriels réalistes.
+    /// </summary>
+    public bool InputOutputActivee { get; set; } = true;
+
+    // ════════════════════════════════════════════════════════════════
     // ░░░ SAISONNALITÉ AGRICOLE ░░░
     // ════════════════════════════════════════════════════════════════
 

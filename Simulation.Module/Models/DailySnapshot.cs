@@ -516,6 +516,42 @@ public class DailySnapshot
 
     /// <summary>Part transport informel des dépenses de reconstruction cyclone ce jour (MGA).</summary>
     public double DepensesReconstructionTransportJour { get; set; }
+
+    // ─── Investissement productif (FBCF micro) ──────────────────────────────
+
+    /// <summary>FBCF privée micro : somme des investissements productifs de toutes les entreprises (MGA).</summary>
+    public double FBCFPriveeMicro { get; set; }
+
+    /// <summary>Dépréciation totale du capital de toutes les entreprises (MGA).</summary>
+    public double DepreciationCapitalTotal { get; set; }
+
+    /// <summary>Stock de capital total de toutes les entreprises (MGA).</summary>
+    public double StockCapitalTotal { get; set; }
+
+    /// <summary>Nombre d'entreprises qui ont investi ce jour.</summary>
+    public int NbEntreprisesInvestisseuses { get; set; }
+
+    /// <summary>Facteur moyen de productivité capital (1.0 = aucun gain).</summary>
+    public double FacteurProductiviteCapitalMoyen { get; set; } = 1.0;
+
+    // ─── Matrice input-output (flux inter-sectoriels) ───────────────────────
+
+    /// <summary>Total des consommations intermédiaires inter-sectorielles (MGA).</summary>
+    public double ConsommationsIntermediairesInterSectorielles { get; set; }
+
+    /// <summary>
+    /// Demande reçue par le secteur Agriculture via les achats inter-sectoriels (MGA).
+    /// </summary>
+    public double DemandeInduiteAgriculture { get; set; }
+
+    /// <summary>Demande reçue par le secteur Construction via les achats inter-sectoriels (MGA).</summary>
+    public double DemandeInduiteConstruction { get; set; }
+
+    /// <summary>Demande reçue par le secteur Services via les achats inter-sectoriels (MGA).</summary>
+    public double DemandeInduiteServices { get; set; }
+
+    /// <summary>Demande reçue par le secteur Commerces via les achats inter-sectoriels (MGA).</summary>
+    public double DemandeInduiteCommerces { get; set; }
 }
 
 

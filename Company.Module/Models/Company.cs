@@ -31,10 +31,10 @@ public class Company
 
     /// <summary>
     /// Productivité effective par employé par jour (MGA).
-    /// = ProductiviteParEmployeJour × FacteurProductiviteInformel.
+    /// = ProductiviteParEmployeJour × FacteurProductiviteInformel × FacteurProductiviteCapital.
     /// </summary>
     public double ProductiviteEffectiveParEmployeJour =>
-        ProductiviteParEmployeJour * FacteurProductiviteInformel;
+        ProductiviteParEmployeJour * FacteurProductiviteInformel * FacteurProductiviteCapital;
 
     // --- Finances (en Ariary - MGA) ---
     /// <summary>Trésorerie disponible</summary>
@@ -111,6 +111,34 @@ public class Company
 
     /// <summary>Total cumulé des licenciements sur la simulation.</summary>
     public int TotalLicenciements { get; set; }
+
+    // ═══════════════════════════════════════════
+    //  INVESTISSEMENT PRODUCTIF (FBCF)
+    // ═══════════════════════════════════════════
+
+    /// <summary>
+    /// Stock de capital accumulé (MGA). Augmenté par l'investissement,
+    /// réduit par la dépréciation quotidienne.
+    /// Initialisé à 0 (greenfield) — les entreprises construisent leur capital.
+    /// </summary>
+    public double StockCapital { get; set; }
+
+    /// <summary>
+    /// Investissement cumulé sur la simulation (MGA).
+    /// </summary>
+    public double InvestissementCumule { get; set; }
+
+    /// <summary>
+    /// Dépréciation cumulée du capital sur la simulation (MGA).
+    /// </summary>
+    public double DepreciationCumulee { get; set; }
+
+    /// <summary>
+    /// Facteur multiplicatif de productivité provenant du stock de capital.
+    /// 1.0 = aucun gain de capital. Augmente avec l'accumulation de capital.
+    /// Rendements décroissants : Prod = Base × (1 + α × ln(1 + K/K₀)).
+    /// </summary>
+    public double FacteurProductiviteCapital { get; set; } = 1.0;
 
     /// <summary>
     /// Retourne la productivité journalière réaliste par employé selon le secteur.

@@ -42,6 +42,8 @@ builder.Services.AddScoped<ISeasonalityModule, SeasonalityModule>();
 builder.Services.AddScoped<IMacroValidationModule, MacroValidationModule>();
 builder.Services.AddScoped<ICycloneModule, CycloneModule>(); // Economic.Risk.Module
 builder.Services.AddScoped<IAgricultureModule, AgricultureModule>(); // Agriculture.Module
+builder.Services.AddScoped<IInputOutputModule, InputOutputModule>(); // Company.Module — Matrice I/O
+builder.Services.AddScoped<IInvestmentModule, InvestmentModule>(); // Company.Module — FBCF
 
 builder.Services.AddScoped<ISimulationModule, SimulationModule>();
 builder.Services.AddOutputCache();

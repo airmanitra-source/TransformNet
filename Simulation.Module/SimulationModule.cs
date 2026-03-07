@@ -33,6 +33,8 @@ public class SimulationModule : ISimulationModule
     private readonly IBankModule _bankModule;
     private readonly ITransportationModule _transportationModule;
     private readonly IAgricultureModule _agricultureModule;
+    private readonly IInputOutputModule _inputOutputModule;
+    private readonly IInvestmentModule _investmentModule;
     private readonly List<AgentHousehold> _menages = [];
     private readonly List<AgentCompany> _entreprises = [];
     private readonly List<AgentImporter> _importateurs = [];
@@ -66,7 +68,9 @@ public class SimulationModule : ISimulationModule
         IHouseholdRemittanceModule householdRemittanceModule,
         IBankModule bankModule,
         ITransportationModule transportationModule,
-        IAgricultureModule agricultureModule)
+        IAgricultureModule agricultureModule,
+        IInputOutputModule inputOutputModule,
+        IInvestmentModule investmentModule)
     {
         _governmentModule = governmentModule;
         _householdModule  = householdModule;
@@ -78,6 +82,8 @@ public class SimulationModule : ISimulationModule
         _bankModule = bankModule;
         _transportationModule = transportationModule;
         _agricultureModule = agricultureModule;
+        _inputOutputModule = inputOutputModule;
+        _investmentModule = investmentModule;
     }
 
     /// <summary>
@@ -1127,6 +1133,74 @@ public class SimulationModule : ISimulationModule
             }
         }
 
+        // ── INVESTISSEMENT PRODUCTIF (FBCF micro par entreprise) ────────────
+        // Chaque entreprise décide d'investir une part de son bénéfice en capital productif.
+        // L'investissement augmente la productivité future (rendements décroissants).
+        // La dépréciation du capital est appliquée quotidiennement.
+        double fbcfPriveeMicroTotal = 0;
+        double depreciationTotale = 0;
+
+        if (_config.InvestissementProductifActive)
+        {
+            for (int i = 0; i < _entreprises.Count; i++)
+            {
+                var invResult = _investmentModule.SimulerInvestissement(
+                    _entreprises[i],
+                    resultsEntreprises[i].BeneficeAvantImpot,
+                    resultsEntreprises[i].TauxUtilisationCapacite,
+                    _config.TauxReinvestissementPrive,
+                    _config.TauxDepreciationCapitalAnnuel,
+                    _config.SeuilUtilisationInvestissement,
+                    _config.ElasticiteCapitalProductivite);
+
+                resultsEntreprises[i].InvestissementJour = invResult.InvestissementJour;
+                resultsEntreprises[i].DepreciationCapitalJour = invResult.DepreciationJour;
+                resultsEntreprises[i].StockCapital = invResult.NouveauStockCapital;
+                fbcfPriveeMicroTotal += invResult.InvestissementJour;
+                depreciationTotale += invResult.DepreciationJour;
+            }
+        }
+
+        // ── MATRICE INPUT-OUTPUT — Flux inter-sectoriels ────────────────────
+        // Ventile les achats B2B de chaque secteur entre secteurs fournisseurs
+        // pour créer des effets multiplicateurs réalistes.
+        InputOutputResult? inputOutputResult = null;
+
+        if (_config.InputOutputActivee)
+        {
+            // Agréger les achats B2B par secteur
+            var achatsB2BParSecteur = new Dictionary<ESecteurActivite, double>();
+            foreach (var secteur in Enum.GetValues<ESecteurActivite>())
+                achatsB2BParSecteur[secteur] = 0;
+
+            for (int i = 0; i < _entreprises.Count; i++)
+            {
+                achatsB2BParSecteur[_entreprises[i].SecteurActivite] += resultsEntreprises[i].AchatsB2B;
+            }
+
+            inputOutputResult = _inputOutputModule.CalculerFluxInterSectoriels(achatsB2BParSecteur);
+
+            // Router la demande induite vers les entreprises fournisseuses
+            // Augmente le CA des entreprises qui reçoivent des commandes inter-sectorielles
+            foreach (var secteur in Enum.GetValues<ESecteurActivite>())
+            {
+                double demandeRecue = inputOutputResult.DemandeRecueParSecteur.GetValueOrDefault(secteur, 0);
+                if (demandeRecue <= 0) continue;
+
+                // Répartir la demande induite entre les entreprises du secteur fournisseur
+                var entreprisesSecteur = _entreprises.Where(e => e.SecteurActivite == secteur).ToList();
+                if (entreprisesSecteur.Count == 0) continue;
+
+                double demandeParEntreprise = demandeRecue / entreprisesSecteur.Count;
+                foreach (var e in entreprisesSecteur)
+                {
+                    // La demande induite augmente le CA mais aussi le besoin en trésorerie
+                    e.ChiffreAffairesCumule += demandeParEntreprise;
+                    e.Tresorerie += demandeParEntreprise * e.MargeBeneficiaire;
+                }
+            }
+        }
+
         // 3. L'État consolide (entreprises + importateurs + exportateurs + Jirama)
         // Les paramètres macro absolus sont mis à l'échelle par facteurEchelle
         var resultEtat = _governmentModule.SimulerJournee(
@@ -1294,6 +1368,22 @@ public class SimulationModule : ISimulationModule
 
             // FBCF (Formation Brute de Capital Fixe)
             FBCF = resultEtat.FBCF,
+
+            // FBCF micro (investissement productif par entreprise)
+            FBCFPriveeMicro = fbcfPriveeMicroTotal,
+            DepreciationCapitalTotal = depreciationTotale,
+            StockCapitalTotal = _entreprises.Sum(e => e.StockCapital),
+            NbEntreprisesInvestisseuses = resultsEntreprises.Count(r => r.InvestissementJour > 0),
+            FacteurProductiviteCapitalMoyen = _entreprises.Count > 0
+                ? _entreprises.Average(e => e.FacteurProductiviteCapital)
+                : 1.0,
+
+            // Matrice input-output (flux inter-sectoriels)
+            ConsommationsIntermediairesInterSectorielles = inputOutputResult?.TotalConsommationsIntermediaires ?? 0,
+            DemandeInduiteAgriculture = inputOutputResult?.DemandeRecueParSecteur.GetValueOrDefault(ESecteurActivite.Agriculture, 0) ?? 0,
+            DemandeInduiteConstruction = inputOutputResult?.DemandeRecueParSecteur.GetValueOrDefault(ESecteurActivite.Construction, 0) ?? 0,
+            DemandeInduiteServices = inputOutputResult?.DemandeRecueParSecteur.GetValueOrDefault(ESecteurActivite.Services, 0) ?? 0,
+            DemandeInduiteCommerces = inputOutputResult?.DemandeRecueParSecteur.GetValueOrDefault(ESecteurActivite.Commerces, 0) ?? 0,
 
             // Variation de stocks (Î”S) : pas de suivi physique des inventaires dans cette simulation.
             // L'ancienne formule (ReventeImport - CIF = marge import) double-comptait le CIF
